@@ -1,0 +1,16 @@
+/_build/
+/cover/
+/deps/
+/doc/
+/.fetch
+erl_crash.dump
+*.ez
+*.beam
+/.elixir_ls/
+
+# CI run artifacts (counterexamples, device logs, JUnit) — regenerated per run.
+/artifacts/
+/tmp/
+
+# Generated test-harness host apps (one per plugin combo during a sweep).
+/fixtures/_harness/
