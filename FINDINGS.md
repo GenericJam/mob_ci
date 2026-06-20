@@ -5,6 +5,7 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 
 ## F1 — `mix mob.new_plugin` scaffolds plugins pinned to `mob ~> 0.6`, incompatible with mob 0.7
 
+- **Upstream:** [GenericJam/mob_dev#21](https://github.com/GenericJam/mob_dev/issues/21)
 - **Found:** 2026-06-19, first harness build.
 - **Where:** `MobDev.Plugin.Scaffold` (mob_dev 0.6.5) emits `mob_version: "~> 0.6"`
   in the manifest and `{:mob, "~> 0.6"}` in `mix.exs` for every tier.
@@ -19,6 +20,7 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 
 ## F2 — `mix mob.new_plugin --tier 2` generates a plugin that does not compile
 
+- **Upstream:** [GenericJam/mob_dev#22](https://github.com/GenericJam/mob_dev/issues/22)
 - **Found:** 2026-06-19, first harness build.
 - **Where:** `MobDev.Plugin.Scaffold.tier2_lib/2`. The generated `lib/<name>.ex`
   `@moduledoc """ … """` contains an example that nests a `~MOB""" … """`
