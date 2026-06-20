@@ -92,6 +92,77 @@ defmodule MobCi.Build do
   @spec package_name(atom() | String.t()) :: String.t()
   def package_name(app), do: "com.example.#{app}"
 
+  @sloppy_joe_dir Path.expand("~/code/sloppy_joe")
+  # The first-party signing key fingerprint shared by all official mob plugins
+  # (same value in mob_new's generated mob.exs trusted_plugins map). Real plugins
+  # are SIGNED, so the build's signature gate requires them trusted — unlike the
+  # unsigned fixtures, which use acknowledge_unsafe_plugins.
+  @first_party_key "ed25519:nc56w+1Kx0gIt/4EkHxnMZCKHMzp4+S5kS/HoSzEZkg="
+
+  @doc """
+  mob.exs body for the sloppy_joe gate: activate `subset` and clear the signature
+  gate for it. First-party plugins are inconsistently signed (e.g. mob_touch is
+  signed, mob_notify is not), so list every activated plugin in BOTH
+  `trusted_plugins` (satisfies the signed ones) and `acknowledge_unsafe_plugins`
+  (satisfies the unsigned ones) — harmless for whichever path doesn't apply.
+  """
+  @spec sloppy_joe_mob_exs([atom()]) :: String.t()
+  def sloppy_joe_mob_exs(subset) do
+    trusted = for p <- subset, into: %{}, do: {p, @first_party_key}
+
+    """
+    import Config
+
+    config :mob_dev, mob_dir: "#{Path.join(@sloppy_joe_dir, "deps/mob")}"
+
+    config :mob, :plugins, #{inspect(subset)}
+    config :mob, :trusted_plugins, #{inspect(trusted)}
+    config :mob, :acknowledge_unsafe_plugins, #{inspect(subset)}
+    """
+  end
+
+  @doc "sloppy_joe's real plugin set (its mix.exs deps) — the realism gate's full activation."
+  @spec sloppy_joe_plugins() :: [atom()]
+  def sloppy_joe_plugins do
+    [:mob_ash, :mob_biometric, :mob_bluetooth, :mob_camera, :mob_location, :mob_notify,
+     :mob_photos, :mob_scanner, :mob_screencast, :mob_video, :mob_touch]
+  end
+
+  @doc "Android package for a host: sloppy_joe has its own; the harness uses com.example.<app>."
+  @spec host_package(:sloppy_joe | :harness, atom()) :: String.t()
+  def host_package(:sloppy_joe, _app), do: "com.genericjam.sloppyjoe"
+  def host_package(:harness, app), do: package_name(app)
+
+  @doc """
+  Prepare the real sloppy_joe app to build with `subset` activated. Builds
+  **in place** (reusing its deps + build cache) by transiently swapping its
+  gitignored `mob.exs`; returns a `:cleanup` thunk the caller MUST run to restore
+  the original. The carrier dial-out (`mcp.sloppyjoe.ca`) is left intact — a CI
+  build dials in as a transient, unclaimable device that teardown reaps (it has no
+  `kind:"staging"` row so the live Pool can't lease it); clean suppression is a
+  follow-up via `SLOPPY_JOE_PROXY_WS`.
+  """
+  @spec prepare_sloppy_joe([atom()]) ::
+          {:ok, %{dir: Path.t(), app: atom(), pkg: String.t(), cleanup: (-> any())}} | {:error, term()}
+  def prepare_sloppy_joe(subset) do
+    mob_exs_path = Path.join(@sloppy_joe_dir, "mob.exs")
+
+    if File.dir?(@sloppy_joe_dir) do
+      original = File.read!(mob_exs_path)
+      File.write!(mob_exs_path, sloppy_joe_mob_exs(subset))
+
+      {:ok,
+       %{
+         dir: @sloppy_joe_dir,
+         app: :sloppy_joe,
+         pkg: host_package(:sloppy_joe, :sloppy_joe),
+         cleanup: fn -> File.write!(mob_exs_path, original) end
+       }}
+    else
+      {:error, {:sloppy_joe_missing, @sloppy_joe_dir}}
+    end
+  end
+
   @doc "The generated showcase screen module for P5: `<AppModule>.CiShowcase`."
   @spec showcase_module(atom()) :: module()
   def showcase_module(app), do: Module.concat([Macro.camelize(to_string(app)), CiShowcase])

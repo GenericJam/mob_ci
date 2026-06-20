@@ -44,6 +44,28 @@ defmodule MobCi.BuildTest do
     assert Build.showcase_module(:mob_ci_harness) == MobCiHarness.CiShowcase
   end
 
+  test "host_package: sloppy_joe owns its package; harness uses com.example" do
+    assert Build.host_package(:sloppy_joe, :sloppy_joe) == "com.genericjam.sloppyjoe"
+    assert Build.host_package(:harness, :mob_ci_harness) == "com.example.mob_ci_harness"
+  end
+
+  test "sloppy_joe_plugins is the real activation set" do
+    set = Build.sloppy_joe_plugins()
+    assert :mob_camera in set and :mob_touch in set
+    refute :mob_ci_haptic in set
+  end
+
+  test "sloppy_joe_mob_exs clears the signature gate for signed AND unsigned plugins" do
+    body = Build.sloppy_joe_mob_exs([:mob_touch, :mob_notify])
+    assert body =~ "config :mob, :plugins, [:mob_touch, :mob_notify]"
+    # signed plugins (mob_touch) need a trust fingerprint...
+    assert body =~ ":trusted_plugins"
+    assert body =~ "mob_touch:"
+    assert body =~ "ed25519:"
+    # ...unsigned ones (mob_notify) need acknowledge_unsafe; list both for all.
+    assert body =~ "acknowledge_unsafe_plugins, [:mob_touch, :mob_notify]"
+  end
+
   test "deploy_args targets a native build on a specific device" do
     assert Build.deploy_args("127.0.0.1:5700") == ["mob.deploy", "--native", "--device", "127.0.0.1:5700"]
   end

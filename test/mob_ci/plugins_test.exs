@@ -16,6 +16,18 @@ defmodule MobCi.PluginsTest do
     end
   end
 
+  describe "real ecosystem plugins resolve from ~/code (realism gate)" do
+    test "a fixture wins; a real plugin falls back to the sibling repo" do
+      assert Plugins.fixture_dir(:mob_ci_haptic) =~ "/mob_ci/fixtures/mob_ci_haptic"
+      assert Plugins.fixture_dir(:mob_camera) =~ "/code/mob_camera"
+    end
+
+    test "load_manifest reads a real plugin's manifest" do
+      m = Plugins.load_manifest(:mob_camera)
+      assert is_map(m) and m.name == :mob_camera
+    end
+  end
+
   describe "pure projections over the sample set" do
     test "nif modules come from the tier-1/native plugins" do
       assert :mob_ci_haptic_nif in Plugins.expected_nif_modules(Plugins.sample_set())

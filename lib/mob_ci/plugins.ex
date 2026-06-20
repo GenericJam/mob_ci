@@ -15,6 +15,9 @@ defmodule MobCi.Plugins do
   # fixtures/ lives at the repo root (not under priv/). Resolve relative to this
   # source file so it works whether mob_ci runs from its own dir or as a path dep.
   @fixtures_dir Path.expand("../../fixtures", __DIR__)
+  # Real (published) plugins live as sibling repos under ~/code/<name> — the
+  # realism gate (sloppy_joe host) reasons about these, not the fixtures.
+  @ecosystem_dir Path.expand("../..", @fixtures_dir)
 
   @doc """
   The fixed sample set milestone 1 runs the full P1–P11 catalog against.
@@ -29,9 +32,16 @@ defmodule MobCi.Plugins do
   def sample_set,
     do: [:mob_ci_palette, :mob_ci_haptic, :mob_ci_gauge, :mob_ci_notes, :mob_ci_pulse]
 
-  @doc "Absolute path to a fixture plugin's root directory."
+  @doc """
+  Absolute path to a plugin's root directory. A mob_ci fixture under `fixtures/`
+  wins; otherwise it falls back to the sibling ecosystem repo `~/code/<name>` (so
+  the realism gate can read real plugins like `mob_camera`).
+  """
   @spec fixture_dir(atom()) :: Path.t()
-  def fixture_dir(name) when is_atom(name), do: Path.join(@fixtures_dir, Atom.to_string(name))
+  def fixture_dir(name) when is_atom(name) do
+    fixture = Path.join(@fixtures_dir, Atom.to_string(name))
+    if File.dir?(fixture), do: fixture, else: Path.join(@ecosystem_dir, Atom.to_string(name))
+  end
 
   @doc "Path to a fixture plugin's manifest (may not exist for tier-0 plugins)."
   @spec manifest_path(atom()) :: Path.t()

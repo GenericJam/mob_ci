@@ -20,8 +20,20 @@ defmodule MobCi.Run do
     host = Keyword.get(opts, :host, :harness)
     artifacts = Keyword.get(opts, :artifacts_dir)
 
-    with {:ok, %{dir: dir, app: app, pkg: pkg}} <- prepare(host, set, opts) do
-      do_run(set, host, dir, app, pkg, artifacts, opts)
+    case prepare(host, set, opts) do
+      {:ok, prep} ->
+        # Restore any transient host mutation (e.g. sloppy_joe's swapped mob.exs)
+        # no matter how the run exits.
+        cleanup = Map.get(prep, :cleanup, fn -> :ok end)
+
+        try do
+          do_run(set, host, prep.dir, prep.app, prep.pkg, artifacts, opts)
+        after
+          cleanup.()
+        end
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -30,7 +42,10 @@ defmodule MobCi.Run do
     Build.prepare_harness(set, opts)
   end
 
-  defp prepare(:sloppy_joe, _set, _opts), do: {:error, :sloppy_joe_host_not_wired}
+  defp prepare(:sloppy_joe, set, _opts) do
+    Logger.info("[mob_ci] preparing sloppy_joe (realism gate) for #{inspect(set)}")
+    Build.prepare_sloppy_joe(set)
+  end
 
   defp do_run(set, host, dir, app, pkg, artifacts, opts) do
     Logger.info("[mob_ci] booting a CI redroid")

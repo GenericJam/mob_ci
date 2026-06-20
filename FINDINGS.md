@@ -39,3 +39,17 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   doc claims "a freshly scaffolded plugin compiles + activates" — tier-2 does not.
 - **Workaround in mob_ci:** `fixtures/mob_ci_gauge/lib/mob_ci_gauge.ex` moduledoc
   rewritten to not nest a triple-quote.
+
+## F3 — first-party plugins are inconsistently signed (mob_touch signed, mob_notify not)
+
+- **Found:** 2026-06-20, sloppy_joe realism gate.
+- **Where:** the published first-party plugins. `mob_touch` ships signed with the
+  release key (`ed25519:nc56w+1Kx0gIt/4EkHxnMZCKHMzp4+S5kS/HoSzEZkg=`); `mob_notify`
+  is **unsigned** (`mix mob.plugin.sign` never run).
+- **Impact:** a host activating both can't satisfy the signature gate with one
+  mechanism — signed plugins need `config :mob, :trusted_plugins`, unsigned ones
+  need `config :mob, :acknowledge_unsafe_plugins`. A user adding two official
+  plugins hits a confusing "one is trusted, the other refuses to build" wall.
+- **Fix:** sign all first-party plugins in the release pipeline (or document the
+  split). The gate works around it by listing every activated plugin in BOTH
+  config keys.
