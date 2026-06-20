@@ -230,6 +230,66 @@ defmodule MobCi.Build do
     end
   end
 
+  @doc """
+  Prepare ONE harness depending on the whole `pool` (default the device pool), for
+  the sweep: activation is then varied per subset via `activate/2` while the
+  gradle/zig cache is shared, so each subset rebuilds in ~minutes not ~10min.
+  """
+  @spec prepare_sweep_harness(keyword()) ::
+          {:ok, %{dir: Path.t(), app: atom(), pkg: String.t()}} | {:error, term()}
+  def prepare_sweep_harness(opts \\ []) do
+    pool = Keyword.get(opts, :pool, MobCi.Sweep.device_pool())
+    app = :mob_ci_sweep
+    dir = Path.join(@harness_root, to_string(app))
+    pkg = package_name(app)
+    reuse = Keyword.get(opts, :reuse, true) and not Keyword.get(opts, :fresh, false)
+
+    result =
+      if reuse and File.exists?(Path.join(dir, "mob.exs")) do
+        {:ok, %{dir: dir, app: app, pkg: pkg}}
+      else
+        generate_sweep_harness(dir, app, pkg, pool)
+      end
+
+    # Always (re)write local.properties — it's machine-specific config mob.new
+    # ships as placeholders, and the reuse path would otherwise keep stale paths.
+    with {:ok, %{dir: d}} <- result do
+      File.write!(Path.join(d, "android/local.properties"), local_properties(d))
+    end
+
+    result
+  end
+
+  defp generate_sweep_harness(dir, app, pkg, pool) do
+    File.rm_rf!(dir)
+    File.mkdir_p!(@harness_root)
+
+    with {_o, 0} <- sh(["mob.new", to_string(app), "--dest", @harness_root, "--android"], @harness_root),
+         :ok <- File.write(Path.join(dir, "mix.exs"), patch_deps_for(dir, pool)),
+         :ok <- activate(dir, pool, app),
+         {_o2, 0} <- sh(["deps.get"], dir),
+         {_o3, 0} <- sh(["mob.icon"], dir) do
+      {:ok, %{dir: dir, app: app, pkg: pkg}}
+    else
+      {out, code} when is_integer(code) -> {:error, {:sweep_harness_prep, code, String.slice(out, -600, 600)}}
+      {:error, _} = err -> err
+    end
+  end
+
+  defp patch_deps_for(dir, pool) do
+    {:ok, body} = File.read(Path.join(dir, "mix.exs"))
+    Regex.replace(~r/  defp deps do\n.*?\n  end/s, body, deps_block(pool, dir), global: false)
+  end
+
+  @doc "Set the activated subset on a prepared (sweep) harness: rewrite mob.exs + the showcase."
+  @spec activate(Path.t(), [atom()], atom()) :: :ok
+  def activate(dir, subset, app \\ :mob_ci_sweep) do
+    File.write!(Path.join(dir, "mob.exs"), mob_exs(subset))
+    File.mkdir_p!(Path.join(dir, "lib/#{app}"))
+    File.write!(Path.join(dir, "lib/#{app}/ci_showcase.ex"), showcase_source(subset, app))
+    :ok
+  end
+
   # Replace the generated `defp deps do … end` (default showcase plugins) with ours.
   defp splice_deps(dir, set) do
     mix_exs = Path.join(dir, "mix.exs")
