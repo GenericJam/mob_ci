@@ -42,36 +42,29 @@ defmodule MobCi.InvariantsPureTest do
     end
   end
 
-  describe "P6 — merged APK permissions equal the union" do
-    test "exact union → pass" do
+  describe "P6 — every activated-plugin permission reaches the APK (subset)" do
+    test "the sample set's haptic VIBRATE is the one expected permission" do
+      assert Plugins.expected_permissions(Plugins.sample_set()) ==
+               MapSet.new(["android.permission.VIBRATE"])
+    end
+
+    test "plugin permission present (alongside app baseline perms) → pass" do
       set = Plugins.sample_set()
-      perms = Plugins.expected_permissions(set)
-      ctx = %Context{set: set, host: :harness, build: %{status: :ok, apk: "x.apk", permissions: perms, conflicts: []}}
+      # APK carries VIBRATE (the plugin's) + INTERNET (app baseline). Subset holds.
+      actual = MapSet.new(["android.permission.VIBRATE", "android.permission.INTERNET"])
+      ctx = %Context{set: set, host: :harness, build: %{status: :ok, apk: "x.apk", permissions: actual, conflicts: []}}
       assert %{status: :pass} = Invariants.p6(ctx)
     end
 
-    test "a missing permission → fail with the diff" do
+    test "a plugin permission missing from the APK → fail with the missing list" do
       set = Plugins.sample_set()
-      perms = Plugins.expected_permissions(set)
-      # Drop one if present; otherwise inject an expectation gap by adding to expected via a perm-bearing plugin.
-      shrunk = perms |> MapSet.to_list() |> Enum.drop(1) |> MapSet.new()
-
-      if MapSet.equal?(perms, shrunk) do
-        # sample set declared no permissions — assert an *extra* perm is caught instead.
-        ctx = %Context{set: set, host: :harness, build: %{status: :ok, apk: "x.apk", permissions: MapSet.new(["android.permission.CAMERA"]), conflicts: []}}
-        assert %{status: :fail, evidence: %{extra: ["android.permission.CAMERA"]}} = Invariants.p6(ctx)
-      else
-        ctx = %Context{set: set, host: :harness, build: %{status: :ok, apk: "x.apk", permissions: shrunk, conflicts: []}}
-        assert %{status: :fail} = Invariants.p6(ctx)
-      end
+      actual = MapSet.new(["android.permission.INTERNET"])
+      ctx = %Context{set: set, host: :harness, build: %{status: :ok, apk: "x.apk", permissions: actual, conflicts: []}}
+      assert %{status: :fail, evidence: %{missing: ["android.permission.VIBRATE"]}} = Invariants.p6(ctx)
     end
 
-    test "build layer didn't read permissions but some were expected → error (infra, not bug)" do
-      # Force a perm-expecting set by including a real perm-bearing fixture is N/A here;
-      # use the sample set and assert the no-perms path is a skip, which is correct.
-      set = Plugins.sample_set()
-      ctx = %Context{set: set, host: :harness, build: %{status: :ok, apk: "x.apk", permissions: nil, conflicts: []}}
-      # sample fixtures declare no android permissions → skip (nothing to verify)
+    test "no expected perms + no perms read → skip" do
+      ctx = %Context{set: [:mob_ci_palette], host: :harness, build: %{status: :ok, apk: nil, permissions: nil, conflicts: []}}
       assert %{status: :skip} = Invariants.p6(ctx)
     end
   end

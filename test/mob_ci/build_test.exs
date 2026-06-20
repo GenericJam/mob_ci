@@ -3,38 +3,63 @@ defmodule MobCi.BuildTest do
 
   alias MobCi.{Build, Plugins}
 
-  test "plugins_config activates only manifest-bearing plugins (tier-0 omitted)" do
-    body = Build.plugins_config(Plugins.sample_set())
+  test "mob_exs activates only manifest-bearing plugins + the unsigned gate" do
+    body = Build.mob_exs(Plugins.sample_set())
     assert body =~ "config :mob, :plugins,"
+    assert body =~ "acknowledge_unsafe_plugins"
     assert body =~ ":mob_ci_haptic"
     assert body =~ ":mob_ci_notes"
-    # mob_ci_palette is tier-0 (no manifest) → not activated
     refute body =~ ":mob_ci_palette"
   end
 
-  test "harness_deps emits a path dep per manifest-bearing fixture, relative to the harness" do
-    deps = Build.harness_deps(Plugins.sample_set(), "/home/kevin/code/mob_ci/fixtures/_harness/app")
-    assert Enum.any?(deps, &(&1 =~ "mob_ci_haptic" and &1 =~ "path:"))
-    refute Enum.any?(deps, &(&1 =~ "mob_ci_palette"))
+  test "deps_block wires mob + ecto + a path dep per activated fixture" do
+    block = Build.deps_block(Plugins.sample_set(), "/home/kevin/code/mob_ci/fixtures/_harness/mob_ci_harness")
+    assert block =~ "defp deps do"
+    assert block =~ "{:mob,     \"~> 0.7\"}"
+    assert block =~ "{:mob_ci_haptic, path:"
+    # tier-0 palette is included as a dep (so it compiles) but isn't activated.
+    assert block =~ "{:mob_ci_palette, path:"
   end
 
-  test "deploy_args targets a native x86_64 build" do
-    assert Build.deploy_args() == ["mob.deploy", "--native", "--abi", "x86_64"]
+  test "local_properties references the discovered OTP cache + sdk" do
+    props = Build.local_properties("/tmp/h")
+    assert props =~ "sdk.dir=/home/kevin/Android/Sdk"
+    assert props =~ "mob.otp_release_x86_64=/home/kevin/.mob/cache/otp-android-x86_64-"
+    assert props =~ "mob.mob_dir=/tmp/h/deps/mob"
+  end
+
+  test "package_name and harness_app_name are deterministic" do
+    assert Build.package_name(:mob_ci_harness) == "com.example.mob_ci_harness"
+    assert Build.harness_app_name(Plugins.sample_set()) == :mob_ci_harness
+    other = Build.harness_app_name([:mob_ci_haptic])
+    assert other != :mob_ci_harness
+    assert to_string(other) =~ ~r/^mob_ci_h_\d+$/
+  end
+
+  test "showcase embeds each activated component's widget (P5 subject)" do
+    assert Build.component_widgets(Plugins.sample_set()) == [{MobCiGauge, :mob_ci_gauge}]
+    src = Build.showcase_source(Plugins.sample_set(), :mob_ci_harness)
+    assert src =~ "defmodule MobCiHarness.CiShowcase do"
+    assert src =~ "MobCiGauge.widget(id: :mob_ci_gauge)"
+    assert Build.showcase_module(:mob_ci_harness) == MobCiHarness.CiShowcase
+  end
+
+  test "deploy_args targets a native build on a specific device" do
+    assert Build.deploy_args("127.0.0.1:5700") == ["mob.deploy", "--native", "--device", "127.0.0.1:5700"]
   end
 
   test "parse_permissions reads aapt's uses-permission lines (P6 actual side)" do
     aapt = """
-    package: name='com.example.app' versionCode='1'
+    package: name='com.example.app'
     uses-permission: name='android.permission.CAMERA'
     uses-permission: name='android.permission.BLUETOOTH_CONNECT'
-    application: label='App'
     """
 
     assert Build.parse_permissions(aapt) ==
              MapSet.new(["android.permission.CAMERA", "android.permission.BLUETOOTH_CONNECT"])
   end
 
-  test "parse_permissions is empty for an APK declaring none" do
-    assert Build.parse_permissions("package: name='x'\napplication: label='X'") == MapSet.new()
+  test "parse_permissions is empty when none declared" do
+    assert Build.parse_permissions("package: name='x'") == MapSet.new()
   end
 end

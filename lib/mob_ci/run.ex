@@ -1,95 +1,120 @@
 defmodule MobCi.Run do
   @moduledoc """
-  The orchestration spine: build → lease → probe → assert → report → release for
-  one activated plugin set. Always tears the lease down (guaranteed `release`),
-  so a crashed run never leaks a farm slot away from staging.
+  The orchestration spine for one activated plugin set:
 
-  The flow maps to the layers: `MobCi.Build` (L2) → `MobCi.Farm` (L0/L1) →
-  `MobCi.Probe`/`MobCi.Invariants` (L3) → `MobCi.Report` (surfaced by L5). This is
-  the `:integration` entry; the static, no-device path lives in `mix ci.device
-  --static`.
+      prepare harness → boot redroid → deploy --device → launch (CI identity)
+        → probe (P1–P10) → release → P11 (post-release)
+
+  Always releases the instance (guaranteed teardown), so a crashed run never
+  leaks a farm slot from staging. A cross-plugin conflict short-circuits before
+  boot — P1 verifies the rejection with no device needed. This is the
+  `:integration` entry; the static, no-device path is `mix ci.device --static`.
   """
 
   require Logger
   alias MobCi.{Build, Context, Farm, Invariants, Report}
 
-  @doc """
-  Run the full P1–P11 catalog against `set`.
-
-  Opts: `:host` (`:harness` | `:sloppy_joe`), `:artifacts_dir`, `:profile`.
-  Returns `{:ok, results}` (all pass/skip) or `{:fail, results}`; infra failures
-  (build error, box busy) come back as `{:error, reason}` so a sweep can
-  distinguish a product bug from a flaky slot.
-  """
-  @spec run([atom()], keyword()) :: {:ok, [MobCi.Result.t()]} | {:fail, [MobCi.Result.t()]} | {:error, term()}
+  @spec run([atom()], keyword()) ::
+          {:ok, [MobCi.Result.t()]} | {:fail, [MobCi.Result.t()]} | {:error, term()}
   def run(set, opts \\ []) do
     host = Keyword.get(opts, :host, :harness)
     artifacts = Keyword.get(opts, :artifacts_dir)
 
-    Logger.info("[mob_ci] building #{inspect(set)} (host: #{host})")
-    artifact = Build.build(set, opts)
-
-    base_ctx = %Context{
-      set: set,
-      host: host,
-      build: Map.take(artifact, [:status, :apk, :permissions]) |> Map.put_new(:conflicts, []),
-      nif_probes: Context.default_nif_probes(),
-      migration_tables: Context.default_migration_tables(),
-      worker_names: Context.default_worker_names(),
-      repo: repo_for(host),
-      artifacts_dir: artifacts
-    }
-
-    case artifact.status do
-      {:conflict, _} ->
-        # Expected rejection — P1 verifies it; no device needed.
-        finalize(set, Invariants.run(base_ctx, [:pure, :build]), artifacts)
-
-      {:error, reason} ->
-        {:error, {:build_failed, reason}}
-
-      :ok ->
-        run_on_device(base_ctx, artifact, opts)
+    with {:ok, %{dir: dir, app: app, pkg: pkg}} <- prepare(host, set, opts) do
+      do_run(set, host, dir, app, pkg, artifacts, opts)
     end
   end
 
-  defp run_on_device(ctx, artifact, opts) do
-    lease_opts = [
-      apk: artifact.apk,
-      otp_dir: artifact.otp_dir,
-      app: artifact.app,
-      profile: Keyword.get(opts, :profile, {1080, 2340, 440})
-    ]
+  defp prepare(:harness, set, opts) do
+    Logger.info("[mob_ci] preparing harness for #{inspect(set)}")
+    Build.prepare_harness(set, opts)
+  end
 
-    case Farm.lease(lease_opts) do
-      {:ok, lease} ->
+  defp prepare(:sloppy_joe, _set, _opts), do: {:error, :sloppy_joe_host_not_wired}
+
+  defp do_run(set, host, dir, app, pkg, artifacts, opts) do
+    Logger.info("[mob_ci] booting a CI redroid")
+
+    case Farm.boot(Keyword.take(opts, [:profile])) do
+      {:ok, inst} ->
         try do
-          live = %{ctx | node: lease.node}
-          results = Invariants.run(live, [:pure, :build, :device])
-          # P11 checks teardown — evaluate it after release, against the now-gone node.
-          {core, _} = Enum.split_with(results, &(&1.id != :p11))
-          Farm.release(lease)
-          p11 = Invariants.p11(%{live | node: lease.node})
-          finalize(ctx.set, core ++ [p11], ctx.artifacts_dir)
+          deploy_and_probe(set, host, dir, app, pkg, inst, artifacts, opts)
         after
-          Farm.release(lease)
+          Farm.release(inst)
         end
 
       {:error, :box_busy} ->
         {:error, :box_busy}
 
       {:error, reason} ->
-        {:error, {:lease_failed, reason}}
+        {:error, {:boot_failed, reason}}
     end
   end
 
-  defp finalize(set, results, artifacts_dir) do
-    Report.write_artifacts(artifacts_dir, set, results)
-    IO.puts(Report.console(results, title: "mob_ci #{inspect(set)}"))
-    if Report.ok?(results), do: {:ok, results}, else: {:fail, results}
+  defp deploy_and_probe(set, host, dir, app, pkg, inst, artifacts, opts) do
+    Logger.info("[mob_ci] deploying to #{inst.serial}")
+
+    case Build.deploy(dir, inst.serial) do
+      {:conflict, msgs} ->
+        # Expected rejection — P1 verifies it; no device probing needed.
+        ctx = base_ctx(set, host, app, build_status: {:conflict, msgs})
+        finalize(set, Invariants.run(ctx, [:pure, :build]), artifacts)
+
+      {:error, reason} ->
+        {:error, {:build_failed, reason}}
+
+      :ok ->
+        probe(set, host, dir, app, pkg, inst, artifacts, opts)
+    end
   end
 
-  # The host app's Ecto repo for P8's table checks. Confirmed per host on wiring.
-  defp repo_for(:sloppy_joe), do: nil
-  defp repo_for(:harness), do: nil
+  defp probe(set, host, dir, app, pkg, inst, artifacts, opts) do
+    perms =
+      with {:ok, apk} <- Build.locate_apk(dir), {:ok, p} <- Build.read_permissions(apk) do
+        p
+      else
+        _ -> nil
+      end
+
+    case Farm.launch(inst, app: app, pkg: pkg, timeout_ms: Keyword.get(opts, :node_timeout_ms, 60_000)) do
+      {:ok, live} ->
+        ctx = base_ctx(set, host, app, build_status: :ok, permissions: perms, node: live.node)
+        # Everything except P11 (which is post-release).
+        results = Invariants.run(ctx, [:pure, :build, :device]) |> Enum.reject(&(&1.id == :p11))
+        Farm.release(live)
+        p11 = Invariants.p11(ctx)
+        finalize(set, results ++ [p11], artifacts)
+
+      {:error, reason} ->
+        {:error, {:launch_failed, reason}}
+    end
+  end
+
+  defp base_ctx(set, host, app, fields) do
+    %Context{
+      set: set,
+      host: host,
+      node: Keyword.get(fields, :node),
+      repo: repo_module(app),
+      build: %{
+        status: Keyword.get(fields, :build_status, :unknown),
+        apk: nil,
+        permissions: Keyword.get(fields, :permissions),
+        conflicts: []
+      },
+      nif_probes: Context.default_nif_probes(),
+      migration_tables: Context.default_migration_tables(),
+      worker_names: Context.default_worker_names(),
+      showcase_screen: Build.showcase_module(app)
+    }
+  end
+
+  # The generated host app's Ecto repo: <AppModule>.Repo (e.g. MobCiHarness.Repo).
+  defp repo_module(app), do: Module.concat([Macro.camelize(to_string(app)), Repo])
+
+  defp finalize(set, results, artifacts_dir) do
+    Report.write_artifacts(artifacts_dir, set, results)
+    IO.puts("\n" <> Report.console(results, title: "mob_ci #{inspect(set)}"))
+    if Report.ok?(results), do: {:ok, results}, else: {:fail, results}
+  end
 end

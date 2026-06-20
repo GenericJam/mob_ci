@@ -1,20 +1,23 @@
 defmodule MobCi.Farm do
   @moduledoc """
-  Layer 0/1: lease a redroid instance for a device run, cooperatively sharing the
-  box with the live sloppy_joe staging pool. Drives `priv/ci-farm.sh`, which keeps
-  CI containers on a disjoint name + port band from staging and shares the staging
-  flock for box-level admission.
+  Layer 0/1: boot a redroid instance for a device run and launch the deployed app
+  with a CI node identity, cooperatively sharing the box with the live sloppy_joe
+  staging pool. Drives `priv/ci-farm.sh` (disjoint name + port band from staging,
+  shared flock for box-level admission).
 
-  The pure surface — admission parsing, lease-output parsing, node-name derivation
-  — is unit-tested; the `lease/1` / `release/1` shell-driving calls are
-  `:integration` (they boot a real container).
+  Flow: `boot/1` (base redroid + adb connect) → caller runs
+  `mix mob.deploy --native --device <serial>` (MobCi.Build) → `launch/2`
+  (tunnels + relaunch with the CI node suffix/dist-port) → `await_node/2` →
+  probe → `release/1`. The pure surface (node naming, port/suffix derivation,
+  output parsing, admission parsing) is unit-tested; the shell-driving calls are
+  `:integration`.
   """
 
   @script Path.expand("../../priv/ci-farm.sh", __DIR__)
 
-  defmodule Lease do
-    @moduledoc "A leased CI redroid instance."
-    @enforce_keys [:index, :serial, :suffix, :dist_port, :node]
+  defmodule Instance do
+    @moduledoc "A booted CI redroid instance (before/after the app is launched)."
+    @enforce_keys [:index, :serial, :suffix, :dist_port]
     defstruct [:index, :serial, :suffix, :dist_port, :node]
 
     @type t :: %__MODULE__{
@@ -22,19 +25,24 @@ defmodule MobCi.Farm do
             serial: String.t(),
             suffix: String.t(),
             dist_port: non_neg_integer(),
-            node: node()
+            node: node() | nil
           }
   end
 
   @doc "Path to the CI farm driver script."
   def script, do: @script
 
-  @doc """
-  The device node name for a host app + node suffix.
+  @doc "Dist port for a CI instance index (CI band, disjoint from staging's 9101+)."
+  @spec dist_port(non_neg_integer()) :: non_neg_integer()
+  def dist_port(index), do: 9300 + index
 
-  Mob.Dist registers `<app>_android_<suffix>@127.0.0.1` (the suffix comes from the
-  `mob_node_suffix` launch intent extra — see `.redroid-farm/farm.sh`). `app` is
-  the host project's `:app` (e.g. `:mob_ci_harness` or `:sloppy_joe`).
+  @doc "Node suffix for a CI instance index."
+  @spec suffix(non_neg_integer()) :: String.t()
+  def suffix(index), do: "ci#{index}"
+
+  @doc """
+  The device node name for a host app + suffix. Mob.Dist registers
+  `<app>_android_<suffix>@127.0.0.1` (suffix from the `mob_node_suffix` intent).
   """
   @spec node_name(atom() | String.t(), String.t()) :: node()
   def node_name(app, suffix), do: :"#{app}_android_#{suffix}@127.0.0.1"
@@ -47,68 +55,88 @@ defmodule MobCi.Farm do
   @spec parse_admit(String.t()) :: boolean()
   def parse_admit(output), do: output |> String.trim() |> String.starts_with?("OK")
 
-  @doc """
-  Parse `ci-farm.sh up-auto` stdout (the `KEY=value` result lines) into a map.
-
-  Tolerates the human-readable `>>` progress lines on the same stream.
-  """
-  @spec parse_lease(String.t()) :: %{optional(atom()) => term()}
-  def parse_lease(output) do
+  @doc "Parse `KEY=value` result lines (INDEX/SERIAL) out of script stdout."
+  @spec parse_kv(String.t(), [String.t()]) :: %{optional(atom()) => term()}
+  def parse_kv(output, keys) do
     for line <- String.split(output, "\n"),
         [k, v] <- [String.split(String.trim(line), "=", parts: 2)],
-        k in ~w(INDEX SERIAL SUFFIX DIST_PORT),
+        k in keys,
         into: %{} do
-      {lease_key(k), lease_val(k, v)}
+      {kv_key(k), kv_val(k, v)}
     end
   end
 
-  defp lease_key("INDEX"), do: :index
-  defp lease_key("SERIAL"), do: :serial
-  defp lease_key("SUFFIX"), do: :suffix
-  defp lease_key("DIST_PORT"), do: :dist_port
-
-  defp lease_val(k, v) when k in ["INDEX", "DIST_PORT"], do: String.to_integer(v)
-  defp lease_val(_k, v), do: v
+  defp kv_key("INDEX"), do: :index
+  defp kv_key("SERIAL"), do: :serial
+  defp kv_val("INDEX", v), do: String.to_integer(v)
+  defp kv_val(_k, v), do: v
 
   @doc """
-  Lease an instance: boot a base redroid, install `apk`, inject `otp_dir`, launch
-  the host app with a CI node suffix, and connect to its node.
-
-  Opts: `:apk` (path), `:otp_dir` (path), `:app` (host `:app` atom), `:suffix_base`
-  (default `"ci"`), `:profile` (`{w, h, dpi}`, default a 1080×2340 phone).
-  Returns `{:ok, %Lease{}}` or `{:error, reason}` (including `:box_busy` when
-  admission refuses — the caller backs off rather than oversubscribing staging).
+  Boot a base redroid (admission-gated) and adb-connect it. Returns an
+  `%Instance{}` with no node yet — the app isn't deployed/launched until `launch/2`.
+  `{:error, :box_busy}` when admission refuses (caller backs off).
   """
-  @spec lease(keyword()) :: {:ok, Lease.t()} | {:error, term()}
-  def lease(opts) do
-    apk = Keyword.fetch!(opts, :apk)
-    otp = Keyword.fetch!(opts, :otp_dir)
-    app = Keyword.fetch!(opts, :app)
-    base = Keyword.get(opts, :suffix_base, "ci")
+  @spec boot(keyword()) :: {:ok, Instance.t()} | {:error, term()}
+  def boot(opts \\ []) do
     {w, h, dpi} = Keyword.get(opts, :profile, {1080, 2340, 440})
 
     if admit?() do
-      case sh_status(["up-auto", apk, otp, base, to_string(w), to_string(h), to_string(dpi)]) do
+      case sh_status(["boot", to_string(w), to_string(h), to_string(dpi)]) do
         {out, 0} ->
-          fields = parse_lease(out)
-          lease = struct!(Lease, Map.put(fields, :node, node_name(app, fields.suffix)))
-          if Node.connect(lease.node), do: {:ok, lease}, else: {:ok, lease}
+          %{index: i, serial: ser} = parse_kv(out, ["INDEX", "SERIAL"])
+          {:ok, %Instance{index: i, serial: ser, suffix: suffix(i), dist_port: dist_port(i)}}
 
-        {out, 4} ->
-          _ = out
+        {_out, 4} ->
           {:error, :box_busy}
 
         {out, code} ->
-          {:error, {:lease_failed, code, String.slice(out, -400, 400)}}
+          {:error, {:boot_failed, code, String.slice(out, -400, 400)}}
       end
     else
       {:error, :box_busy}
     end
   end
 
-  @doc "Release a leased instance (removes the container, frees the slot)."
-  @spec release(Lease.t() | non_neg_integer()) :: :ok
-  def release(%Lease{index: i}), do: release(i)
+  @doc """
+  Launch the deployed app on `instance` with the CI node identity (tunnels +
+  relaunch), then wait for its node to register. `app` is the host `:app`, `pkg`
+  the Android package. Returns the instance with `:node` populated.
+  """
+  @spec launch(Instance.t(), keyword()) :: {:ok, Instance.t()} | {:error, term()}
+  def launch(%Instance{} = inst, opts) do
+    app = Keyword.fetch!(opts, :app)
+    pkg = Keyword.fetch!(opts, :pkg)
+    node = node_name(app, inst.suffix)
+
+    case sh_status(["launch", to_string(inst.index), inst.suffix, to_string(inst.dist_port), pkg]) do
+      {_out, 0} ->
+        if await_node(node, Keyword.get(opts, :timeout_ms, 60_000)),
+          do: {:ok, %{inst | node: node}},
+          else: {:error, {:node_never_registered, node}}
+
+      {out, code} ->
+        {:error, {:launch_failed, code, String.slice(out, -400, 400)}}
+    end
+  end
+
+  @doc "Poll until `node` is reachable over distribution, or the timeout elapses."
+  @spec await_node(node(), non_neg_integer()) :: boolean()
+  def await_node(node, timeout_ms) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    do_await(node, deadline)
+  end
+
+  defp do_await(node, deadline) do
+    cond do
+      Node.connect(node) == true -> true
+      System.monotonic_time(:millisecond) >= deadline -> false
+      true -> Process.sleep(2_000); do_await(node, deadline)
+    end
+  end
+
+  @doc "Release an instance (removes the container, frees the slot)."
+  @spec release(Instance.t() | non_neg_integer()) :: :ok
+  def release(%Instance{index: i}), do: release(i)
   def release(index) when is_integer(index), do: (sh(["down", to_string(index)]); :ok)
 
   # ── shell plumbing ──────────────────────────────────────────────────────────
@@ -116,8 +144,7 @@ defmodule MobCi.Farm do
   defp sh(args), do: elem(sh_status(args), 0)
 
   defp sh_status(args) do
-    {out, code} = System.cmd("bash", [@script | args], stderr_to_stdout: true)
-    {out, code}
+    System.cmd("bash", [@script | args], stderr_to_stdout: true)
   rescue
     e -> {Exception.message(e), 127}
   end

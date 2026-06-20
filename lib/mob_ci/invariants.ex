@@ -180,16 +180,21 @@ defmodule MobCi.Invariants do
 
   def p6(%Context{set: set, build: %{permissions: actual}}) do
     expected = Plugins.expected_permissions(set)
+    missing = MapSet.difference(expected, actual)
 
+    # Subset, not equality: the APK also carries the app's baseline permissions
+    # (INTERNET, …) that aren't plugin-contributed. The invariant is that every
+    # *activated-plugin* permission got merged in. The over-merge direction (a
+    # deactivated plugin's permission leaking) needs a zero-plugin baseline build
+    # to detect cleanly and is better caught at the host-side merge layer.
     cond do
-      MapSet.equal?(expected, actual) ->
-        Result.pass(:p6, title(:p6), "#{MapSet.size(expected)} permission(s) match")
+      MapSet.size(missing) > 0 ->
+        Result.fail(:p6, title(:p6), "activated-plugin permissions missing from the APK", %{
+          missing: MapSet.to_list(missing)
+        })
 
       true ->
-        Result.fail(:p6, title(:p6), "permission set mismatch", %{
-          missing: MapSet.difference(expected, actual) |> MapSet.to_list(),
-          extra: MapSet.difference(actual, expected) |> MapSet.to_list()
-        })
+        Result.pass(:p6, title(:p6), "all #{MapSet.size(expected)} activated-plugin permission(s) present")
     end
   end
 
