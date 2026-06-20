@@ -16,7 +16,7 @@ defmodule MobCiPalette.MixProject do
 
   defp deps do
     [
-      {:mob, "~> 0.6"}
+      {:mob, "~> 0.7"}
     ]
   end
 end

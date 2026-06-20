@@ -1,6 +1,6 @@
 %{
   name: :mob_ci_haptic,
-  mob_version: "~> 0.6",
+  mob_version: "~> 0.7",
   plugin_spec_version: 1,
   description: "TODO: describe your plugin",
   nifs: [

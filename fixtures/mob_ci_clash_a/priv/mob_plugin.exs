@@ -1,6 +1,6 @@
 %{
   name: :mob_ci_clash_a,
-  mob_version: "~> 0.6",
+  mob_version: "~> 0.7",
   plugin_spec_version: 1,
   description: "CI fixture: deliberately collides with mob_ci_clash_b to exercise P1.",
 

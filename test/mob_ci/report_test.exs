@@ -10,6 +10,15 @@ defmodule MobCi.ReportTest do
     Result.error(:p2, "boot", "no node leased")
   ]
 
+  test "rollup is results-first so it pipes, and worst status wins" do
+    items = [Result.pass(:i, "a"), Result.fail(:i, "b", "boom")]
+    rolled = items |> Result.rollup(:p3, "nif load")
+    assert rolled.id == :p3
+    assert rolled.status == :fail
+    assert Result.rollup([], :p8, "migrations").status == :skip
+    assert ([Result.pass(:i, "a")] |> Result.rollup(:p4, "screens")).status == :pass
+  end
+
   test "tally counts by status" do
     assert Report.tally(@results) == %{pass: 1, fail: 1, error: 1, skip: 1}
   end

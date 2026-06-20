@@ -33,9 +33,9 @@ defmodule MobCi.Result do
   def error(id, title, detail, evidence \\ nil),
     do: %__MODULE__{id: id, title: title, status: :error, detail: detail, evidence: evidence}
 
-  @doc "Collapse a list of per-item results into one (worst status wins)."
-  @spec rollup(atom(), String.t(), [t()]) :: t()
-  def rollup(id, title, results) do
+  @doc "Collapse a list of per-item results into one (worst status wins). Results-first so it pipes."
+  @spec rollup([t()], atom(), String.t()) :: t()
+  def rollup(results, id, title) do
     cond do
       results == [] -> skip(id, title, "no applicable subjects in this set")
       Enum.any?(results, &(&1.status == :fail)) -> worst(id, title, results, :fail)
