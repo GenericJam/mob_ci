@@ -179,9 +179,10 @@ defmodule MobCi.Sweep do
           node: live.node,
           repo: Module.concat([Macro.camelize(to_string(harness.app)), Repo]),
           build: %{status: :ok, apk: nil, permissions: perms, conflicts: []},
-          nif_probes: Context.default_nif_probes(),
+          nif_probes: Map.merge(Context.default_nif_probes(), MobCi.DeviceCaps.nif_probes(subset)),
           migration_tables: Context.default_migration_tables(),
           worker_names: Context.default_worker_names(),
+          screen_caps: MobCi.DeviceCaps.screen_caps(subset),
           showcase_screen: Build.showcase_module(harness.app)
         }
 

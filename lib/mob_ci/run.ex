@@ -12,7 +12,7 @@ defmodule MobCi.Run do
   """
 
   require Logger
-  alias MobCi.{Build, Context, Farm, Invariants, Report}
+  alias MobCi.{Build, Context, DeviceCaps, Farm, Invariants, Report}
 
   @spec run([atom()], keyword()) ::
           {:ok, [MobCi.Result.t()]} | {:fail, [MobCi.Result.t()]} | {:error, term()}
@@ -117,9 +117,10 @@ defmodule MobCi.Run do
         permissions: Keyword.get(fields, :permissions),
         conflicts: []
       },
-      nif_probes: Context.default_nif_probes(),
+      nif_probes: Map.merge(Context.default_nif_probes(), DeviceCaps.nif_probes(set)),
       migration_tables: Context.default_migration_tables(),
       worker_names: Context.default_worker_names(),
+      screen_caps: DeviceCaps.screen_caps(set),
       showcase_screen: Build.showcase_module(app)
     }
   end

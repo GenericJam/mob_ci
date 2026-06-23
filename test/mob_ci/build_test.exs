@@ -66,6 +66,28 @@ defmodule MobCi.BuildTest do
     assert body =~ "acknowledge_unsafe_plugins, [:mob_touch, :mob_notify]"
   end
 
+  test "sloppy_joe_mob_exs derives each signed plugin's REAL fingerprint (distinct keys, F3)" do
+    # mob_touch + mob_bluetooth are signed with DIFFERENT keys; a single pinned
+    # fingerprint would trip the gate's key-rotation check for whichever isn't on
+    # it. Each must appear in trusted_plugins with its own real fingerprint, and
+    # the two must differ.
+    touch_fp = Build.plugin_fingerprint(:mob_touch)
+    bt_fp = Build.plugin_fingerprint(:mob_bluetooth)
+    assert touch_fp =~ "ed25519:"
+    assert bt_fp =~ "ed25519:"
+    assert touch_fp != bt_fp
+
+    body = Build.sloppy_joe_mob_exs([:mob_touch, :mob_bluetooth, :mob_notify])
+    assert body =~ "mob_touch: #{inspect(touch_fp)}"
+    assert body =~ "mob_bluetooth: #{inspect(bt_fp)}"
+    # unsigned mob_notify ships no pubkey → dropped from trusted, cleared via ack.
+    refute body =~ "mob_notify: \"ed25519"
+  end
+
+  test "plugin_fingerprint returns nil for an unsigned plugin" do
+    assert Build.plugin_fingerprint(:mob_notify) == nil
+  end
+
   test "deploy_args targets a native build on a specific device" do
     assert Build.deploy_args("127.0.0.1:5700") == ["mob.deploy", "--native", "--device", "127.0.0.1:5700"]
   end

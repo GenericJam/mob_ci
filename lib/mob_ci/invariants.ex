@@ -129,7 +129,7 @@ defmodule MobCi.Invariants do
   # ── P4 — every declared screen pushes and renders ────────────────────────────
   def p4(%Context{node: nil}), do: Result.error(:p4, title(:p4), "no node leased")
 
-  def p4(%Context{set: set, node: node}) do
+  def p4(%Context{set: set, node: node, screen_caps: caps}) do
     Plugins.expected_screen_modules(set)
     |> Enum.map(fn screen ->
       case Probe.push_and_read(node, screen) do
@@ -137,13 +137,24 @@ defmodule MobCi.Invariants do
           Result.pass(:p4_item, "#{screen}", "rendered")
 
         {:ok, %{screen: other}} ->
-          Result.fail(:p4_item, "#{screen}", "pushed #{screen} but #{other} is showing")
+          degrade_or_fail(screen, caps, "pushed #{screen} but #{other} is showing")
 
         {:error, reason} ->
-          Result.fail(:p4_item, "#{screen}", "push/render failed", reason)
+          degrade_or_fail(screen, caps, "push/render failed: #{inspect(reason)}")
       end
     end)
     |> Result.rollup(:p4, title(:p4))
+  end
+
+  # A screen that doesn't render is a fail — UNLESS device_caps marks it
+  # :hardware_degraded (no camera/GPS/biometric on a headless emulator), in which
+  # case a graceful non-render is an expected skip. A genuine BEAM crash would
+  # have taken the node down and surfaces in P2/P10 regardless.
+  defp degrade_or_fail(screen, caps, detail) do
+    case Map.get(caps, screen) do
+      :hardware_degraded -> Result.skip(:p4_item, "#{screen}", "degraded (expected, headless): #{detail}")
+      _ -> Result.fail(:p4_item, "#{screen}", detail)
+    end
   end
 
   # ── P5 — every UI component renders without a dispatch crash ──────────────────

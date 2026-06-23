@@ -93,22 +93,22 @@ defmodule MobCi.Build do
   def package_name(app), do: "com.example.#{app}"
 
   @sloppy_joe_dir Path.expand("~/code/sloppy_joe")
-  # The first-party signing key fingerprint shared by all official mob plugins
-  # (same value in mob_new's generated mob.exs trusted_plugins map). Real plugins
-  # are SIGNED, so the build's signature gate requires them trusted — unlike the
-  # unsigned fixtures, which use acknowledge_unsafe_plugins.
-  @first_party_key "ed25519:nc56w+1Kx0gIt/4EkHxnMZCKHMzp4+S5kS/HoSzEZkg="
 
   @doc """
   mob.exs body for the sloppy_joe gate: activate `subset` and clear the signature
-  gate for it. First-party plugins are inconsistently signed (e.g. mob_touch is
-  signed, mob_notify is not), so list every activated plugin in BOTH
-  `trusted_plugins` (satisfies the signed ones) and `acknowledge_unsafe_plugins`
-  (satisfies the unsigned ones) — harmless for whichever path doesn't apply.
+  gate for it. First-party plugins are inconsistently signed AND signed with
+  *different* keys (F3: mob_touch/mob_video share one key, mob_bluetooth a
+  rotated/distinct one, others unsigned) — so a single pinned fingerprint trips
+  the gate's key-rotation check for any plugin not on that one key. Instead derive
+  each signed plugin's REAL fingerprint from its shipped `priv/mob_plugin.pub`
+  (the exact value `SignatureGate.check_trust` compares against) and trust that.
+  Unsigned plugins ship no pubkey, drop out of `trusted_plugins`, and are cleared
+  via `acknowledge_unsafe_plugins` instead. Every plugin is listed in BOTH lists'
+  union of effect, harmless for whichever path doesn't apply.
   """
   @spec sloppy_joe_mob_exs([atom()]) :: String.t()
   def sloppy_joe_mob_exs(subset) do
-    trusted = for p <- subset, into: %{}, do: {p, @first_party_key}
+    trusted = for p <- subset, fp = plugin_fingerprint(p), into: %{}, do: {p, fp}
 
     """
     import Config
@@ -119,6 +119,23 @@ defmodule MobCi.Build do
     config :mob, :trusted_plugins, #{inspect(trusted)}
     config :mob, :acknowledge_unsafe_plugins, #{inspect(subset)}
     """
+  end
+
+  # The signed-plugin trust fingerprint the gate will compute for `plugin`:
+  # "ed25519:" <> base64(sha256(raw 32-byte pubkey)) from its priv/mob_plugin.pub
+  # (mirrors MobDev.Plugin.{Verify.load_pubkey, Crypto.fingerprint}). Returns nil
+  # for an unsigned plugin (no/blank/malformed pubkey) — it isn't trusted; the
+  # acknowledge_unsafe path clears it instead.
+  @spec plugin_fingerprint(atom()) :: String.t() | nil
+  def plugin_fingerprint(plugin) do
+    path = Path.join([@sloppy_joe_dir, "deps", to_string(plugin), "priv", "mob_plugin.pub"])
+
+    with {:ok, contents} <- File.read(path),
+         {:ok, pub} when byte_size(pub) == 32 <- Base.decode64(String.trim(contents)) do
+      "ed25519:" <> Base.encode64(:crypto.hash(:sha256, pub))
+    else
+      _ -> nil
+    end
   end
 
   @doc "sloppy_joe's real plugin set (its mix.exs deps) — the realism gate's full activation."

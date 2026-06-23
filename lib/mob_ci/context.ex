@@ -26,6 +26,10 @@ defmodule MobCi.Context do
             # supervised child module from the manifest; override when a worker
             # registers under a different name.
             worker_names: %{},
+            # screen module → :emulator_ok | :hardware_degraded (from device_caps).
+            # P4 treats a graceful degradation of a :hardware_degraded screen as a
+            # skip; a BEAM crash stays a fail.
+            screen_caps: %{},
             # a generated screen embedding every activated component, for P5.
             showcase_screen: nil,
             artifacts_dir: nil
@@ -45,6 +49,7 @@ defmodule MobCi.Context do
           nif_probes: %{atom() => {atom(), [term()]}},
           migration_tables: %{atom() => [String.t()]},
           worker_names: %{atom() => atom()},
+          screen_caps: %{module() => :emulator_ok | :hardware_degraded},
           showcase_screen: module() | nil,
           artifacts_dir: Path.t() | nil
         }
