@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Ci.Device do
       mix ci.device --host sloppy_joe        # realism gate: the real app's buildable set
       mix ci.device --host sloppy_joe --plugins touch,notify
       mix ci.device --artifacts artifacts/ci # JUnit + summary.json destination
+      mix ci.device --fresh                  # regenerate the harness from scratch (no cache reuse)
 
   ## Modes
 
@@ -33,7 +34,7 @@ defmodule Mix.Tasks.Ci.Device do
   alias MobCi.{Build, DeviceCaps, Dist, Invariants, Plugins, Report, Run}
   alias MobDev.Plugin.Validator
 
-  @switches [plugins: :string, static: :boolean, junit: :string, host: :string, artifacts: :string]
+  @switches [plugins: :string, static: :boolean, junit: :string, host: :string, artifacts: :string, fresh: :boolean]
 
   @impl Mix.Task
   def run(argv) do
@@ -85,7 +86,7 @@ defmodule Mix.Tasks.Ci.Device do
     Dist.ensure!()
     artifacts = opts[:artifacts] || "artifacts/ci-device"
 
-    case Run.run(set, host: host, artifacts_dir: artifacts) do
+    case Run.run(set, host: host, artifacts_dir: artifacts, fresh: opts[:fresh] == true) do
       {:ok, _results} ->
         Mix.shell().info("\nmob_ci device run: PASS (artifacts → #{artifacts})")
 

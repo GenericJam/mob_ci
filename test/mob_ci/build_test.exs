@@ -16,6 +16,8 @@ defmodule MobCi.BuildTest do
     block = Build.deps_block(Plugins.sample_set(), "/home/kevin/code/mob_ci/fixtures/_harness/mob_ci_harness")
     assert block =~ "defp deps do"
     assert block =~ "{:mob,     \"~> 0.7\"}"
+    # self-test harness pins mob_dev to known-good 0.6.5 (F5/F6 — see Build)
+    assert block =~ "{:mob_dev, \"== 0.6.5\", only: :dev, runtime: false}"
     assert block =~ "{:mob_ci_haptic, path:"
     # tier-0 palette is included as a dep (so it compiles) but isn't activated.
     assert block =~ "{:mob_ci_palette, path:"

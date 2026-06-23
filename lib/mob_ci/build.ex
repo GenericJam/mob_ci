@@ -22,6 +22,15 @@ defmodule MobCi.Build do
   @harness_root Path.expand("../../fixtures/_harness", __DIR__)
   @sdk_dir "/home/kevin/Android/Sdk"
 
+  # The SELF-TEST harness pins mob_dev to a known-good version for deterministic
+  # validation: 0.6.12 regressed `mob.deploy`'s platform narrowing (FINDINGS F5/F6
+  # — crashes without `arp`; with `arp`, builds the wrong ABI for an x86_64
+  # device), which would make mob_ci's own self-test red on an upstream bump. The
+  # REALISM gate (host: :sloppy_joe) deliberately uses the app's own live deps, so
+  # ecosystem regressions like F5/F6 still surface there. Bump this once mob_dev
+  # ships the narrowing fix.
+  @mob_dev_req "== 0.6.5"
+
   @type host :: :harness | :sloppy_joe
 
   # ── pure construction (unit-tested) ──────────────────────────────────────────
@@ -67,7 +76,7 @@ defmodule MobCi.Build do
     lines =
       [
         "      {:mob,     \"~> 0.7\"}",
-        "      {:mob_dev, \"~> 0.6\", only: :dev, runtime: false}",
+        "      {:mob_dev, \"#{@mob_dev_req}\", only: :dev, runtime: false}",
         "      {:ecto_sqlite3, \"~> 0.18\"}"
       ] ++ palette ++ fixture_deps
 

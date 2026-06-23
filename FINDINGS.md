@@ -117,20 +117,23 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   narrowing to the device's `x86_64` ABI. The identical command
   (`mix mob.deploy --native --device <serial>`) built **x86_64-only** and ran
   green on mob_dev 0.6.5 (2026-06-19, commit history); 0.6.12 regressed it.
-- **Likely cause:** with `arp` present (F5 workaround), the spurious iOS-LAN scan
-  in `narrow_platforms_for_device` returns ARP table entries and misclassifies
-  them as physical (arm64) devices, so the platform set is widened to arm64-v8a
-  rather than narrowed to the connected x86_64 device. F5 and F6 are two symptoms
-  of the same regressed discovery path: absent `arp` → crash (F5); present `arp`
-  → wrong-ABI build (F6).
+- **Cause (confirmed):** the regression is in mob_dev's 0.6.12 platform
+  narrowing. The gradle scaffold lists all ABIs (`abiFilters 'arm64-v8a',
+  'armeabi-v7a', 'x86_64'`); `narrow_platforms_for_device/3` is supposed to
+  restrict the `--native` build to the connected device's ABI. On 0.6.12 it
+  fails to narrow (likely the same iOS-LAN-scan path as F5 misclassifying `arp`
+  entries as physical arm64 devices), so all ABIs build and arm64-v8a fails.
+  **Proven by bisection:** a fresh harness pinned to **mob_dev 0.6.5** narrows to
+  x86_64 and goes fully green (P1–P11, 2026-06-23); the only change was the
+  mob_dev version.
 - **Impact:** even on a correctly provisioned host, `mob.deploy` to an x86_64
-  emulator/device can't complete — it builds an ABI the device doesn't need and
-  fails. Blocks the mob_ci device runs (and any x86_64-emulator workflow) on
-  mob_dev 0.6.12.
+  emulator/device can't complete on 0.6.12 — it builds an ABI the device doesn't
+  need and fails. Blocks any x86_64-emulator workflow.
 - **Fix (upstream):** when an explicit `--device <serial>` is given, narrow to
   THAT device's reported ABI and skip LAN/iOS discovery entirely (it is
   irrelevant to an already-chosen Android target).
-- **Status in mob_ci:** no clean local workaround (the bug is in the deploy
-  tool's narrowing). The static gate (`mix ci.device --static`) and the
-  orchestration/trigger plumbing are unaffected and green; the device build is
-  red until mob_dev fixes the narrowing or the harness pins mob_dev 0.6.5.
+- **Workaround in mob_ci:** the SELF-TEST harness (`Build.deps_block`) pins
+  `mob_dev == 0.6.5` (`@mob_dev_req`), so `mix ci.device`/`ci.sweep` are
+  deterministically green again. The REALISM gate (`host: :sloppy_joe`)
+  deliberately stays on the app's live deps, so it still surfaces F5/F6 against
+  whatever mob_dev the app pins. Bump `@mob_dev_req` once 0.6.x ships the fix.
