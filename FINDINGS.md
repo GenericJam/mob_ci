@@ -85,3 +85,52 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 - **Workaround in mob_ci:** `priv/device_caps.exs` marks `mob_screencast`
   `buildable: false`, so `DeviceCaps.buildable/1` excludes it from auto-discovery
   sets. (sloppy_joe itself ships a `FileProvider`, so camera/photos/video are fine.)
+
+## F5 — `mix mob.deploy` (mob_dev 0.6.12) crashes on a host without `arp`
+
+- **Found:** 2026-06-23, milestone-3 trigger validation (the harness device run).
+- **Where:** `MobDev.Discovery.IOS.scan_lan_for_physical/0` runs
+  `System.cmd("arp", ["-a"])` to scan the LAN for physical iOS devices. It is
+  reached from `MobDev.NativeBuild.narrow_platforms_for_device/3` →
+  `Mix.Tasks.Mob.Deploy.run/1` — i.e. on **every** `mix mob.deploy`, including a
+  deploy to an explicit **Android** `--device <serial>`. If `arp` (net-tools) is
+  not installed/on PATH, `System.cmd` raises `** (ErlangError) :enoent` and the
+  whole deploy aborts. (New in 0.6.12; mob_dev was 0.6.5 in the 2026-06-19 runs.)
+- **Impact:** a clean Linux host without `net-tools` (common on minimal servers /
+  containers) can't `mob.deploy` to Android at all — an opaque `:enoent` from a
+  spurious iOS-discovery probe. CI runners and headless build boxes are exactly
+  the environments that lack `arp`.
+- **Fix (upstream):** guard the `System.cmd("arp", …)` with `System.find_executable`
+  (treat a missing `arp` as "no iOS LAN devices found"), and/or skip the iOS LAN
+  scan entirely when an explicit Android device serial is given.
+- **Workaround in mob_ci:** install `net-tools` on the CI host and ensure `/usr/sbin`
+  is on PATH; `priv/ci-run.sh` now prepends `/usr/sbin:/sbin` so the runner finds
+  `arp` even under a minimal systemd/git environment.
+
+## F6 — `mix mob.deploy --native --device <x86_64 serial>` (mob_dev 0.6.12) builds the wrong ABI
+
+- **Found:** 2026-06-23, milestone-3 trigger validation (the harness device run,
+  once F5's `arp` was installed).
+- **Where:** the same `MobDev.NativeBuild.narrow_platforms_for_device/3` as F5.
+  Given an explicit **x86_64** redroid serial, the deploy attempts an
+  **arm64-v8a** zig native build (`zig build for arm64-v8a exited 1`) instead of
+  narrowing to the device's `x86_64` ABI. The identical command
+  (`mix mob.deploy --native --device <serial>`) built **x86_64-only** and ran
+  green on mob_dev 0.6.5 (2026-06-19, commit history); 0.6.12 regressed it.
+- **Likely cause:** with `arp` present (F5 workaround), the spurious iOS-LAN scan
+  in `narrow_platforms_for_device` returns ARP table entries and misclassifies
+  them as physical (arm64) devices, so the platform set is widened to arm64-v8a
+  rather than narrowed to the connected x86_64 device. F5 and F6 are two symptoms
+  of the same regressed discovery path: absent `arp` → crash (F5); present `arp`
+  → wrong-ABI build (F6).
+- **Impact:** even on a correctly provisioned host, `mob.deploy` to an x86_64
+  emulator/device can't complete — it builds an ABI the device doesn't need and
+  fails. Blocks the mob_ci device runs (and any x86_64-emulator workflow) on
+  mob_dev 0.6.12.
+- **Fix (upstream):** when an explicit `--device <serial>` is given, narrow to
+  THAT device's reported ABI and skip LAN/iOS discovery entirely (it is
+  irrelevant to an already-chosen Android target).
+- **Status in mob_ci:** no clean local workaround (the bug is in the deploy
+  tool's narrowing). The static gate (`mix ci.device --static`) and the
+  orchestration/trigger plumbing are unaffected and green; the device build is
+  red until mob_dev fixes the narrowing or the harness pins mob_dev 0.6.5.

@@ -15,18 +15,14 @@ defmodule Mix.Tasks.Ci.Sweep do
 
     * default (device) — run `--runs N` (default 4) sampled subsets of the
       device pool through the full catalog on one reused harness + container, and
-      shrink any failing subset to its minimal core. Must run as a distributed
-      node (it reaches the device):
-
-          elixir --name s@127.0.0.1 --cookie mob_secret -S mix run -e \\
-            'MobCi.Sweep.device_sweep(runs: 4) |> MobCi.Sweep.summarize() |> IO.puts()'
-
-      (run via `mix run` so the node is named; the bare `mix ci.sweep` device
-      path is for a wrapper that sets `--name`.)
+      shrink any failing subset to its minimal core. Self-starts distribution (so
+      a plain `mix ci.sweep --runs N` works — no `elixir --name` wrapper needed)
+      and exits non-zero if any sampled subset fails or errors. Expensive (one
+      build per activation switch) — best scheduled in a low-traffic window.
   """
   use Mix.Task
 
-  alias MobCi.Sweep
+  alias MobCi.{Dist, Sweep}
 
   @switches [static: :boolean, runs: :integer, count: :integer]
 
@@ -37,13 +33,28 @@ defmodule Mix.Tasks.Ci.Sweep do
     if opts[:static] or is_nil(opts[:runs]) do
       static(opts)
     else
-      Mix.shell().error(
-        "device sweep needs a distributed node — run:\n" <>
-          "  elixir --name s@127.0.0.1 --cookie mob_secret -S mix run -e " <>
-          "'MobCi.Sweep.device_sweep(runs: #{opts[:runs]}) |> MobCi.Sweep.summarize() |> IO.puts()'"
-      )
+      device(opts[:runs])
+    end
+  end
 
-      exit({:shutdown, 2})
+  defp device(runs) do
+    Dist.ensure!(:"mob_ci_sweep@127.0.0.1")
+
+    case Sweep.device_sweep(runs: runs) do
+      {:error, reason} ->
+        Mix.shell().error("device sweep could not start: #{inspect(reason)}")
+        exit({:shutdown, 2})
+
+      %{ran: ran} = summary ->
+        Mix.shell().info("\n" <> Sweep.summarize(summary))
+        failed = Enum.count(ran, fn {_subset, {v, _}} -> v in [:fail, :error] end)
+
+        if failed > 0 do
+          Mix.shell().error("device sweep: #{failed}/#{length(ran)} sampled subset(s) failed.")
+          exit({:shutdown, 1})
+        else
+          Mix.shell().info("device sweep: all #{length(ran)} sampled subset(s) green.")
+        end
     end
   end
 

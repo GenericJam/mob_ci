@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the mob_ci device sweep nightly in a low-traffic window
+
+[Timer]
+# 04:30 local — staging traffic is lowest overnight. Persistent so a sweep still
+# runs after the box was asleep at the scheduled time; randomized jitter avoids
+# starting at the exact instant other nightly jobs do.
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

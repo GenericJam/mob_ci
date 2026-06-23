@@ -5,65 +5,99 @@ defmodule Mix.Tasks.Ci.Device do
   (systemd timer, git hook, Forgejo/GH adapter) is a thin wrapper that checks out
   and calls this.
 
-      mix ci.device                          # the milestone-1 fixed sample set
-      mix ci.device --plugins haptic,notes   # an explicit set (mob_ci_ prefix optional)
+      mix ci.device                          # full P1–P11 on the harness sample set
       mix ci.device --static                 # static composability only, no device/build
-      mix ci.device --junit artifacts/junit.xml
+      mix ci.device --plugins haptic,notes   # an explicit harness set (mob_ci_ prefix optional)
+      mix ci.device --host sloppy_joe        # realism gate: the real app's buildable set
+      mix ci.device --host sloppy_joe --plugins touch,notify
+      mix ci.device --artifacts artifacts/ci # JUnit + summary.json destination
 
   ## Modes
 
     * `--static` — runs only the manifest-level checks: `cross_validate` (the
       static half of P1) plus the projection summary (expected permission union,
       screen routes, NIF modules, …). Fast, no farm slot, no build. Exit code is
-      non-zero when the set has cross-plugin conflicts — usable as a pre-build
-      gate in any pipeline today.
+      non-zero when the set has cross-plugin conflicts — the fast pre-build gate a
+      git hook can run on every push.
 
     * default (device) — the full P1–P11 run: build the set, lease a farm slot,
-      boot, probe, assert, tear down. The build/farm layers (L0–L2) are wired in
-      the milestone-1 farm-integration slice; until then this prints the plan and
-      runs the static checks, so the command is useful immediately and grows into
-      the full run without changing its interface.
+      boot, deploy, probe, assert, tear down (`MobCi.Run.run/2`). Self-starts
+      distribution (`mob_ci@127.0.0.1`, cookie `mob_secret`) so it works as a plain
+      `mix` invocation — no `elixir --name` wrapper needed. Exit 0 on pass, 1 on a
+      failing invariant, 2 on an orchestration error (boot/build/launch). Best
+      scheduled in a low-traffic window (each device build is ~minutes); the
+      systemd timer adapter does exactly that.
   """
   use Mix.Task
 
-  alias MobCi.{Invariants, Plugins, Report}
+  alias MobCi.{Build, DeviceCaps, Dist, Invariants, Plugins, Report, Run}
   alias MobDev.Plugin.Validator
 
-  @switches [plugins: :string, static: :boolean, junit: :string, host: :string]
+  @switches [plugins: :string, static: :boolean, junit: :string, host: :string, artifacts: :string]
 
   @impl Mix.Task
   def run(argv) do
     {opts, _rest, _invalid} = OptionParser.parse(argv, switches: @switches)
-    set = resolve_set(opts[:plugins])
+    host = parse_host(opts[:host])
+    set = resolve_set(opts[:plugins], host)
 
-    Mix.shell().info(plan(set))
-
-    static = run_static(set)
+    Mix.shell().info(plan(set, host))
 
     if opts[:static] do
-      finish_static(static, opts)
+      finish_static(run_static(set), opts)
     else
-      Mix.shell().info("""
-
-      Device run (P2–P11) requires the farm layer (L0–L2), landing in the
-      milestone-1 farm-integration slice. See decisions/2026-06-19-mob-ci-design.md.
-      Ran the static checks above; re-run with --static to gate on them alone.
-      """)
-
-      finish_static(static, opts)
+      finish_device(set, host, opts)
     end
   end
 
-  # ── set resolution ──────────────────────────────────────────────────────────
+  # ── host + set resolution ─────────────────────────────────────────────────────
 
-  defp resolve_set(nil), do: Plugins.sample_set()
+  @doc false
+  def parse_host(nil), do: :harness
+  def parse_host("harness"), do: :harness
+  def parse_host("sloppy_joe"), do: :sloppy_joe
 
-  defp resolve_set(csv) do
+  def parse_host(other) do
+    Mix.raise("unknown --host #{inspect(other)} (expected: harness | sloppy_joe)")
+  end
+
+  # No --plugins: the host's default set. Harness → the fixture sample; sloppy_joe
+  # → its real buildable plugins (screencast excluded, see device_caps F4).
+  @doc false
+  def resolve_set(nil, :harness), do: Plugins.sample_set()
+  def resolve_set(nil, :sloppy_joe), do: DeviceCaps.buildable(Build.sloppy_joe_plugins())
+
+  # Explicit --plugins: a shorthand CSV. Harness names get the `mob_ci_` prefix,
+  # sloppy_joe names the `mob_` prefix, when not already qualified.
+  def resolve_set(csv, host) do
+    prefix = if host == :harness, do: "mob_ci_", else: "mob_"
+
     csv
     |> String.split(",", trim: true)
     |> Enum.map(&String.trim/1)
-    |> Enum.map(fn n -> if String.starts_with?(n, "mob_ci_"), do: n, else: "mob_ci_" <> n end)
+    |> Enum.map(fn n -> if String.starts_with?(n, prefix), do: n, else: prefix <> n end)
     |> Enum.map(&String.to_atom/1)
+  end
+
+  # ── device run (default) ──────────────────────────────────────────────────────
+
+  defp finish_device(set, host, opts) do
+    Dist.ensure!()
+    artifacts = opts[:artifacts] || "artifacts/ci-device"
+
+    case Run.run(set, host: host, artifacts_dir: artifacts) do
+      {:ok, _results} ->
+        Mix.shell().info("\nmob_ci device run: PASS (artifacts → #{artifacts})")
+
+      {:fail, results} ->
+        bad = for r <- results, r.status in [:fail, :error], do: r.id
+        Mix.shell().error("\nmob_ci device run: FAIL — #{inspect(bad)} (artifacts → #{artifacts})")
+        exit({:shutdown, 1})
+
+      {:error, reason} ->
+        Mix.shell().error("\nmob_ci device run: ERROR — #{inspect(reason)}")
+        exit({:shutdown, 2})
+    end
   end
 
   # ── static composability ────────────────────────────────────────────────────
@@ -127,7 +161,7 @@ defmodule Mix.Tasks.Ci.Device do
 
   # ── the plan (always printed) ────────────────────────────────────────────────
 
-  defp plan(set) do
+  defp plan(set, host) do
     rows =
       Enum.map_join(Invariants.all(), "\n", fn {id, title, layer} ->
         "  #{String.pad_trailing(to_string(id), 4)} [#{String.pad_trailing(to_string(layer), 6)}] #{title}"
@@ -135,7 +169,8 @@ defmodule Mix.Tasks.Ci.Device do
 
     """
     ── mob_ci device invariant catalog ───────────────────────────
-      set: #{Enum.map_join(set, ", ", &Atom.to_string/1)}
+      host: #{host}
+      set:  #{Enum.map_join(set, ", ", &Atom.to_string/1)}
 
     #{rows}
     """

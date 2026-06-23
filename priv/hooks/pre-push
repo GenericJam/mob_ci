@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# mob_ci pre-push hook (L5 trigger) — runs the FAST static composability gate
+# before every push: cross_validate over the activated fixture set plus the
+# static sweep (validator soundness over the subset space). No device, no build,
+# ~1s. A non-zero exit blocks the push.
+#
+# The full device run (~minutes/build) is deliberately NOT here — that is the
+# systemd timer's job (priv/systemd/mob-ci.timer). For a low-frequency repo where
+# a slow gate is acceptable, point this at `realism` or `sweep` instead.
+#
+# Installed by priv/install-triggers.sh (sets core.hooksPath → priv/hooks).
+exec "$(git rev-parse --show-toplevel)/priv/ci-run.sh" static
