@@ -61,7 +61,7 @@ defmodule Mix.Tasks.Ci.Queue do
     est = Triggers.estimate_minutes(jobs)
 
     Mix.shell().info(
-      "nightly: cells not started by #{DateTime.to_iso8601(not_after)} expire; worst-case lane minutes #{inspect(est)} " <>
+      "nightly: cells not started by #{DateTime.to_iso8601(not_after)} expire; expected lane minutes #{inspect(est)} " <>
         "(window #{Triggers.nightly_window_minutes()})"
     )
 

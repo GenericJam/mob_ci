@@ -17,8 +17,8 @@ ENABLE="${1:-}"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UNITS=(mob-ci-nightly.service mob-ci-nightly.timer mob-ci-poll.service mob-ci-poll.timer mob-ci-drain@.service)
 TIMERS=(mob-ci-nightly.timer mob-ci-poll.timer)
-# Replaced by the queue (2026-10-09): the old standalone sweep timer would race
-# the android lane for the farm and the mob_ci@127.0.0.1 node name.
+# Replaced by the queue (2026-10-09): the old standalone sweep timer would
+# compete with the android lane for the farm, outside the queue's budget.
 OBSOLETE=(mob-ci.timer mob-ci.service)
 
 # 1. git pre-push hook → the fast static gate. core.hooksPath points git at the

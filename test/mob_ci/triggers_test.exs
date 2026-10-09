@@ -72,12 +72,12 @@ defmodule MobCi.TriggersTest do
       assert Triggers.cell_paths("all", "android") == nil
     end
 
-    test "fits the window on every lane, worst case (a new plugin or set must be pruned deliberately)" do
+    test "fits the window on every lane (a new plugin or set must be pruned deliberately)" do
       window = Triggers.nightly_window_minutes()
       assert window == 9 * 60
 
       for {lane, minutes} <- Triggers.estimate_minutes(Triggers.nightly_jobs(nil)) do
-        assert minutes <= window, "#{lane} lane: #{minutes} worst-case minutes > the #{window}-minute window"
+        assert minutes <= window, "#{lane} lane: #{minutes} expected minutes > the #{window}-minute window"
       end
     end
 

@@ -21,6 +21,8 @@
 #   priv/ci-run.sh push <repo> <sha> [<ref>]  # a pre-push notice from the Mac
 #   priv/ci-run.sh confirm           # wait for noticed pushes to land, then poll
 #   priv/ci-run.sh drain <lane>      # run the queued cells of android | ios
+#   priv/ci-run.sh pause <lane>      # stop a lane (its running cell is requeued) until resume
+#   priv/ci-run.sh resume <lane>     # let a paused lane drain again
 #   priv/ci-run.sh queue [args…]     # mix ci.queue (status, show <id>, enqueue …)
 #
 # Every queueing mode then starts both lane workers (kick_lanes); a worker
@@ -61,8 +63,10 @@ echo "[ci-run] mode=$MODE repo=$REPO at=$TS → $LOG"
 # units are the normal path; without them, say how to drain by hand.
 kick_lanes() {
   if command -v systemctl >/dev/null && systemctl --user cat mob-ci-drain@.service >/dev/null 2>&1; then
-    systemctl --user start --no-block mob-ci-drain@android.service mob-ci-drain@ios.service
-    echo "[ci-run] lane workers started (mob-ci-drain@android, mob-ci-drain@ios)"
+    # A start can fail (e.g. a unit being reloaded); the next poll kicks again.
+    systemctl --user start --no-block mob-ci-drain@android.service mob-ci-drain@ios.service \
+      && echo "[ci-run] lane workers started (mob-ci-drain@android, mob-ci-drain@ios)" \
+      || echo "[ci-run] could not start the lane workers; the next poll retries"
   else
     echo "[ci-run] lane units not installed (priv/install-triggers.sh); drain by hand: priv/ci-run.sh drain android|ios"
   fi
@@ -120,6 +124,10 @@ case "$MODE" in
     LANE="${2:-}"
     case "$LANE" in android|ios) ;; *) echo "usage: ci-run.sh drain android|ios" >&2; exit 64 ;; esac
     mkdir -p "$LOCK_DIR"
+    if [ -e "$LOCK_DIR/pause-$LANE" ]; then
+      echo "[ci-run] $LANE lane paused ($LOCK_DIR/pause-$LANE); priv/ci-run.sh resume $LANE"
+      exit 0
+    fi
     # One worker per lane: the farm is shared, and the Mac builds one host at a time.
     set +e
     flock -n -E 75 "$LOCK_DIR/drain-$LANE.lock" mix ci.queue drain --lane "$LANE" 2>&1 | tee "$LOG"
@@ -128,6 +136,22 @@ case "$MODE" in
     if [ "$status" -eq 75 ]; then echo "[ci-run] $LANE lane already draining"; exit 0; fi
     exit "$status"
     ;;
+  pause|resume)
+    LANE="${2:-}"
+    case "$LANE" in android|ios) ;; *) echo "usage: ci-run.sh $MODE android|ios" >&2; exit 64 ;; esac
+    mkdir -p "$LOCK_DIR"
+    if [ "$MODE" = pause ]; then
+      # The pause file keeps the poller's kicks from restarting the lane; the
+      # stopped worker's cell goes back to queued when the lane next starts.
+      touch "$LOCK_DIR/pause-$LANE"
+      systemctl --user stop "mob-ci-drain@$LANE.service" 2>/dev/null || true
+      echo "[ci-run] $LANE lane paused"
+    else
+      rm -f "$LOCK_DIR/pause-$LANE"
+      echo "[ci-run] $LANE lane resumed"
+      kick_lanes
+    fi
+    ;;
   queue)
     shift
     mix ci.queue "$@" 2>&1 | tee "$LOG"
@@ -135,7 +159,7 @@ case "$MODE" in
   *)
     echo "usage: ci-run.sh {static | device [harness|sloppy_joe] | realism | sweep [runs] |" >&2
     echo "                  nightly | poll | rc <repo>@<sha> | push <repo> <sha> [<ref>] | confirm |" >&2
-    echo "                  drain android|ios | queue [args…]}" >&2
+    echo "                  drain|pause|resume android|ios | queue [args…]}" >&2
     exit 64
     ;;
 esac

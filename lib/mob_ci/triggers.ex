@@ -35,17 +35,27 @@ defmodule MobCi.Triggers do
   @urgent 10
   @nightly 0
 
-  # Worst-case minutes per cell and lane (docs/budgets.md, 2026-10-09): a cold
-  # Android cell with both paths took 6.5–10 min on master, a warm one 2.3; a
-  # deploy-only cold cell about half. An iOS cell rebuilds from nothing every
-  # time (the Mac deletes the host): deploy:ios_sim 105 s cold for `default`,
-  # the device and release paths about as long again each.
-  @cell_minutes %{
-    {"android", :all_paths} => 9,
-    {"android", :deploy_only} => 5,
-    {"ios", :all_paths} => 6,
-    {"ios", :deploy_only} => 3
+  # Seconds per cell, from the first queued runs on the NUC (2026-10-09, job 1
+  # and 2; docs/budgets.md "The nightly"): an Android master cell is cold (some
+  # repo moves nearly every day, and a mob move recompiles every dep) — 480–510 s
+  # with both paths for default and the singletons, 1000 s for `all`; a hex cell
+  # reuses its host (Hex pins change only on a release) — 140–180 s. A
+  # deploy-only pairwise row (10–19 plugins) costs about a cold singleton. The
+  # Mac rebuilds every iOS host from nothing: ~185 s today with the device path
+  # skipped and the release path failing at signing, budgeted at 360 s for all
+  # three paths working; `deploy:ios_sim` alone ~150 s.
+  @cell_seconds %{
+    {"android", :warm, :all_paths} => 180,
+    {"android", :warm, :deploy_only} => 120,
+    {"android", :cold, :all_paths} => 510,
+    {"android", :cold, :deploy_only} => 480,
+    {"ios", :warm, :all_paths} => 360,
+    {"ios", :warm, :deploy_only} => 150,
+    {"ios", :cold, :all_paths} => 360,
+    {"ios", :cold, :deploy_only} => 150
   }
+  # `all` builds every plugin: twice a singleton's cost, warm or cold.
+  @all_factor 2
 
   # The nightly starts at 22:00 local (priv/systemd/mob-ci-nightly.timer) and
   # must leave the farm to sloppy_joe staging by 07:00: 540 minutes.
@@ -96,18 +106,25 @@ defmodule MobCi.Triggers do
   end
 
   @doc """
-  Worst-case minutes per lane to drain `jobs` (every cell cold, per
-  `@cell_minutes`). The nightly must fit `nightly_window_minutes/0` on each
-  lane; the test suite holds it to that.
+  Expected minutes per lane to drain `jobs`: `hex` cells warm (hosts reused,
+  Hex pins move only on a release), every other row cold, per
+  `@cell_seconds`. The nightly must fit `nightly_window_minutes/0` on each
+  lane; the test suite holds it to that. A night after a Hex release (every
+  `hex` cell cold too) costs ~150 Android minutes more and loses the last
+  `master` pairwise rows to the 07:00 expiry.
   """
   @spec estimate_minutes([job()]) :: %{String.t() => non_neg_integer()}
   def estimate_minutes(jobs) do
-    cells = for job <- jobs, set <- job.sets, platform <- job.platforms, do: {platform, set}
+    seconds =
+      for job <- jobs, set <- job.sets, platform <- job.platforms, reduce: Map.new(@platforms, &{&1, 0}) do
+        acc ->
+          temp = if job.versions_row == "hex", do: :warm, else: :cold
+          kind = if cell_paths(set, platform), do: :deploy_only, else: :all_paths
+          s = Map.fetch!(@cell_seconds, {platform, temp, kind}) * if(set == "all", do: @all_factor, else: 1)
+          Map.update(acc, platform, s, &(&1 + s))
+      end
 
-    Enum.reduce(cells, Map.new(@platforms, &{&1, 0}), fn {platform, set}, acc ->
-      kind = if cell_paths(set, platform), do: :deploy_only, else: :all_paths
-      Map.update(acc, platform, 0, &(&1 + Map.fetch!(@cell_minutes, {platform, kind})))
-    end)
+    Map.new(seconds, fn {lane, s} -> {lane, div(s + 59, 60)} end)
   end
 
   @doc """
