@@ -10,25 +10,21 @@
 # (elixir, erlang, zig), ~/.local/bin (mise, agent-lease), the mix escripts,
 # Homebrew, and the Android platform-tools (`mix mob.doctor` requires adb
 # even for an iOS-only host). Xcode's tools are in /usr/bin. The worker runs
-# as the user that owns the signing keychain.
+# as the user that owns the CI signing keychain.
 set -euo pipefail
 
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.mix/escripts:/opt/homebrew/bin:/usr/local/bin:$ANDROID_HOME/platform-tools:$PATH"
 export MIX_ENV=dev
 
-# An ssh session cannot use the login keychain while it is locked to that
-# session: codesign fails with errSecInternalComponent (the iPhone and release
-# paths). If Kevin has left the login password in a kevin-only file, unlock
-# the keychain for this session; otherwise those paths fail at
-# build:<path> with that error and the simulator path still runs.
-pw_file="${MOB_CI_KEYCHAIN_PASSWORD_FILE:-$HOME/.config/mob_ci/keychain-password}"
-if [ -r "$pw_file" ]; then
-  security unlock-keychain -p "$(cat "$pw_file")" "$HOME/Library/Keychains/login.keychain-db" \
-    || echo "worker: could not unlock the login keychain with $pw_file" >&2
-fi
+here="$(cd "$(dirname "$0")" && pwd)"
 
-cd "$(dirname "$0")/../.."
+# Sign from the dedicated CI keychain (ci_keychain.sh, README step 5).
+# shellcheck source=ci_keychain.sh
+. "$here/ci_keychain.sh"
+mob_ci_signing_keychain "$here/bin"
+
+cd "$here/../.."
 
 # mob_ci's own deps and build; output only when they fail.
 if ! out=$(mix deps.get 2>&1 && mix compile 2>&1); then

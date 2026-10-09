@@ -96,6 +96,34 @@ id with an App Store profile ("Io App Store"); nothing is installed or
 uploaded. Both go into the host's `mob.exs` as `ios_bundle_id` and
 `ios_team_id` (`MobCi.Host.mob_exs/5`).
 
+### Signing over ssh: a dedicated CI keychain (2026-10-09)
+
+The login keychain is unlocked only in Kevin's GUI session. `codesign` takes
+the signing identity from the first keychain on the search list holding it,
+so in an ssh session it finds the login keychain, locked there, and fails
+with `errSecInternalComponent`: the iPhone and release paths stopped at
+`build:<path>`. The first version unlocked the login keychain with Kevin's
+login password from a file; Kevin chose not to keep that password on disk.
+
+Instead the two signing identities (`Apple Development: genericjam@gmail.com
+(HAWF754E8H)` for `mob.deploy --native --ios --device`, which auto-detects the
+one `Apple Development` identity; `Apple Distribution: Kevin Edey
+(Q89CW299G8)` for `mob.release --ios`) were exported once from the login
+keychain and imported into `~/Library/Keychains/mob_ci.keychain-db`, which
+has its own random password in `~/.config/mob_ci/ci-keychain-password`
+(mode 600, directory 700), no auto-lock, `codesign` in its ACL and partition
+list, and an entry at the end of the user search list.
+
+Unlocking it is not enough: the login keychain still comes first on the
+search list and holds identities of the same name, so `codesign --sign
+<name>` still fails on it. Each cell therefore (`worker/mac/ci_keychain.sh`,
+sourced by `mob_ci_ios_cell.sh`) unlocks the CI keychain for its ssh session,
+the password on stdin rather than argv, and puts `worker/mac/bin` first on
+PATH; its `codesign` execs `/usr/bin/codesign --keychain <CI keychain> "$@"`.
+mob_dev runs `codesign` by name, from Elixir and from its release script,
+so every version of it signs from the CI keychain without a mob_dev option.
+Setup, rotation and revocation are in `worker/mac/README.md` step 5.
+
 ### Simulator choice: iOS 27+ by default, newest first
 
 `xcrun simctl privacy grant photos` on an iOS 26.x simulator runtime writes a
@@ -123,6 +151,15 @@ path (`Store.singleton_selftest/3`, `Invariants.p12_layer/3`), as on Android.
 
 ## Alternatives considered
 
+- **The login password in a file** (the first version of the signing step):
+  the most valuable secret on the Mac stored to sign test builds.
+- **The CI keychain first on the user search list**, permanently or for the
+  length of a cell: the search list is per user, not per session, so Kevin's
+  GUI session and other agents' builds would then look in a keychain locked
+  in their session and fail or prompt; a cell killed mid-run would leave the
+  order changed.
+- **A `--keychain` option in mob_dev**: only new mob_dev releases would have
+  it, and the matrix builds old ones too.
 - **Run the whole of mob_ci on the Mac.** It would need the farm, the store
   and the versions cache in two places, and the Mac has no room for the
   Android side.
@@ -136,8 +173,12 @@ path (`Store.singleton_selftest/3`, `Invariants.p12_layer/3`), as on Android.
 
 ## Consequences
 
-- One-time setup on the Mac (Remote Login, the NUC's key for `kevin`): see
-  `worker/mac/README.md`.
+- One-time setup on the Mac (Remote Login, the NUC's key for `kevin`, the CI
+  keychain): see `worker/mac/README.md`.
+- The signing private keys exist twice on the Mac, in the login keychain and
+  in `mob_ci.keychain-db`, whose password is a file readable by `kevin`;
+  `security delete-keychain` undoes it. Renewed certificates must be
+  re-exported into it (README step 5, "Rotate").
 - The NUC's mob_ci sha must be pushed before a run (the worker checks it out
   from origin).
 - `MobCi.Host` gained `platform:`, `root:` and `mob_exs:` options; its reuse
