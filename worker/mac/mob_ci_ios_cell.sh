@@ -6,12 +6,15 @@
 #   mob_ci_ios_cell.sh --set default --versions hex --path release:ios
 #
 # A non-interactive ssh session gets a bare PATH (/usr/bin:/bin:…), so the
-# toolchain is put on it here: mise's shims (elixir, erlang, zig), ~/.local/bin
-# (mise, agent-lease), Homebrew and the mix escripts. Xcode's tools are in
-# /usr/bin. The worker runs as the user that owns the signing keychain.
+# toolchain is put on it here, as Kevin's login shell has it: mise's shims
+# (elixir, erlang, zig), ~/.local/bin (mise, agent-lease), the mix escripts,
+# Homebrew, and the Android platform-tools (`mix mob.doctor` requires adb
+# even for an iOS-only host). Xcode's tools are in /usr/bin. The worker runs
+# as the user that owns the signing keychain.
 set -euo pipefail
 
-export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.mix/escripts:/opt/homebrew/bin:/usr/local/bin:$PATH"
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.mix/escripts:/opt/homebrew/bin:/usr/local/bin:$ANDROID_HOME/platform-tools:$PATH"
 export MIX_ENV=dev
 
 # An ssh session cannot use the login keychain while it is locked to that
