@@ -17,11 +17,11 @@
 # running redroid* containers would exceed the ceiling, so CI yields to staging.
 #
 # Ownership (MOB-467): `boot` writes $STATE/ci-redroid<i>.owner (the owner's
-# pid and its start time, run/job/cell, boot time) under the flock before the
-# container exists; `down` removes it. `reap` downs every ci-redroid<i> whose
-# owner is dead, or that has no record and is older than
-# MOB_CI_FARM_REAP_AFTER_MIN (20) minutes. Only ^ci-redroid[0-9]+$ is ever
-# touched: staging's redroid<i> never is.
+# pid, $MOB_CI_FARM_OWNER_PID, and its /proc start time; run/job/cell; boot
+# time) under the flock before the container exists; `down` removes it.
+# `reap` downs every ci-redroid<i> whose owner is dead, or that has no owner
+# and is older than MOB_CI_FARM_REAP_AFTER_MIN (20) minutes. Only
+# ^ci-redroid[0-9]+$ is ever touched: staging's redroid<i> never is.
 #
 # SAFE-NETWORKING INVARIANTS (a bad change here once cut host wifi):
 #   default docker bridge only; NEVER --network host / macvlan / overlapping
@@ -33,6 +33,7 @@ FARM_ROOT=/home/kevin/code/.redroid-farm
 LOCK=${MOB_CI_FARM_LOCK:-$FARM_ROOT/.farm.lock}
 STATE=${MOB_CI_FARM_STATE:-$HOME/.local/share/mob_ci/farm}
 REAP_AFTER_MIN=${MOB_CI_FARM_REAP_AFTER_MIN:-20}
+PROC=${MOB_CI_FARM_PROC:-/proc}
 DOCKER="sudo docker"
 ADB=adb
 CEILING=${MOB_CI_FARM_CEILING:-5}
@@ -44,26 +45,30 @@ ensure_epmd() { epmd -daemon 2>/dev/null || true; }
 
 running_count() { $DOCKER ps --format '{{.Names}}' 2>/dev/null | grep -cE '^(ci-)?redroid[0-9]+$' || true; }
 ci_indices()    { $DOCKER ps -a --format '{{.Names}}' 2>/dev/null | sed -n 's/^ci-redroid\([0-9]\+\)$/\1/p' | sort -n; }
-ci_names()      { $DOCKER ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^ci-redroid[0-9]+$' || true; }
+ci_names()      { grep -E '^ci-redroid[0-9]+$' || true; }   # filter `docker ps -a` names on stdin
 
 # ── ownership ────────────────────────────────────────────────────────────────
 
 record() { echo "$STATE/ci-redroid$1.owner"; }
 # field <record> <key>: one value (empty if absent); records are written by write_record only.
 field() { { sed -n "s/^$2=//p" "$1" 2>/dev/null || true; } | head -n 1; }
-# A process's start time ("Thu Oct  9 12:00:00 2026"), empty when it is gone.
-# Kept with the pid so a reused pid never passes for the owner.
-pid_start() { ps -o lstart= -p "$1" 2>/dev/null | tr -s ' ' | sed 's/^ //; s/ $//' || true; }
+# A process's start time in clock ticks since boot (/proc/<pid>/stat field 22),
+# empty when it is gone. Kept with the pid so a reused pid never passes for
+# the owner; unlike `ps -o lstart` it moves with no clock step, TZ or locale.
+# The comm field (2) may hold spaces and parens: cut after its last ") ".
+pid_start() { { sed 's/.*) //' "$PROC/$1/stat" 2>/dev/null || true; } | cut -d' ' -f20; }
 
 # write_record <i>: the owner is $MOB_CI_FARM_OWNER_PID (MobCi.Farm passes its
-# BEAM's pid), else whoever ran this script. Run/job/cell are labels only.
+# BEAM's pid). A hand boot without it records no pid, so its instance goes
+# by the orphan age rule; set MOB_CI_FARM_OWNER_PID=$$ from a shell that stays
+# open (tmux) to keep it. Run/job/cell are labels only.
 write_record() {
-  local f pid=${MOB_CI_FARM_OWNER_PID:-$PPID} run=${MOB_CI_FARM_RUN:-}
+  local f pid=${MOB_CI_FARM_OWNER_PID:-} run=${MOB_CI_FARM_RUN:-}
   f=$(record "$1")
   mkdir -p "$STATE"
   {
     echo "pid=$pid"
-    echo "pid_start=$(pid_start "$pid")"
+    echo "pid_start=$([ -n "$pid" ] && pid_start "$pid")"
     echo "run=${run//[$'\n\r']/ }"
     echo "job=${MOB_CI_JOB_ID:-}"
     echo "cell=${MOB_CI_CELL_ID:-}"
@@ -71,6 +76,9 @@ write_record() {
   } >"$f.tmp"
   mv "$f.tmp" "$f"
 }
+
+# owned <i>: a record naming an owner pid exists.
+owned() { [[ "$(field "$(record "$1")" pid)" =~ ^[0-9]+$ ]]; }
 
 # owner_alive <record>: the pid runs and is the same process that booted.
 owner_alive() {
@@ -91,8 +99,13 @@ owner_text() {
     echo "none (no record: reaped once ${REAP_AFTER_MIN} min old)"
     return
   fi
-  if owner_alive "$f"; then s=alive; else s=DEAD; fi
-  s="pid $(field "$f" pid) $s"
+  if ! owned "$1"; then
+    s="none (no owner pid: reaped once ${REAP_AFTER_MIN} min old)"
+  elif owner_alive "$f"; then
+    s="pid $(field "$f" pid) alive"
+  else
+    s="pid $(field "$f" pid) DEAD"
+  fi
   run=$(field "$f" run); job=$(field "$f" job); cell=$(field "$f" cell); booted=$(field "$f" booted)
   [ -n "$run" ] && s="$s, run $run"
   [ -n "$job" ] && s="$s, job $job"
@@ -165,11 +178,13 @@ launch() {
   echo "LAUNCHED suffix=$suffix dist=$dp pkg=$pkg"
 }
 
-# remove <i>: the container, its adb transport and its ownership record.
+# remove <i>: the ownership record, the container and its adb transport. The
+# record goes first: once the container is gone a boot may reuse index <i>
+# and write its own record, which a late `rm` here would delete.
 remove() {
+  rm -f "$(record "$1")"
   $DOCKER rm -f "ci-redroid$1" >/dev/null 2>&1 || true
   $ADB disconnect "$(serial "$1")" >/dev/null 2>&1 || true
-  rm -f "$(record "$1")"
   echo "removed ci-redroid$1"
 }
 
@@ -189,30 +204,38 @@ down_owned() {
 }
 
 # reap — down every ci-redroid<i> no live cell owns: its owner is dead, or it
-# has no record and is older than REAP_AFTER_MIN. A record without a container
-# is dropped. Runs under the flock, so a boot in flight (record written, then
-# docker run) is never seen half-done. Prints `down|keep|forget <name>: why`
-# per instance and `REAPED <n>`.
+# has no owner (no record, or a hand boot's pid-less one) and is older than
+# REAP_AFTER_MIN. A record without a container is dropped. Runs under the
+# flock, so a boot in flight (record written, then docker run) is never seen
+# half-done. Prints `down|keep|forget <name>: why` per instance and
+# `REAPED <n>`; exits 1 without touching anything when docker can't list.
 reap() {
-  local after=$((REAP_AFTER_MIN * 60)) now names c i f created age n=0
+  local after=$((REAP_AFTER_MIN * 60)) now all names c i f why created age n=0
   now=$(date +%s)
   exec 9>"$LOCK"; flock 9
-  names=$(ci_names)
+  if ! all=$($DOCKER ps -a --format '{{.Names}}' 2>&1); then
+    flock -u 9
+    echo "reap: docker ps failed, nothing reaped: $all" >&2
+    exit 1
+  fi
+  names=$(echo "$all" | ci_names)
   for c in $names; do
     i=${c#ci-redroid}
     f=$(record "$i")
-    if [ -f "$f" ]; then
+    if owned "$i"; then
       if owner_alive "$f"; then echo "keep $c: owner $(owner_text "$i")"; continue; fi
       echo "down $c: owner $(owner_text "$i")"
     else
+      why="no owner record"
+      [ -f "$f" ] && why="no owner pid"
       created=$(to_epoch "$($DOCKER inspect -f '{{.Created}}' "$c" 2>/dev/null || true)")
-      if [ -z "$created" ]; then echo "keep $c: no owner record, age unknown"; continue; fi
+      if [ -z "$created" ]; then echo "keep $c: $why, age unknown"; continue; fi
       age=$((now - created))
       if [ "$age" -lt "$after" ]; then
-        echo "keep $c: no owner record, $((age / 60)) min old (reaped at $REAP_AFTER_MIN)"
+        echo "keep $c: $why, $((age / 60)) min old (reaped at $REAP_AFTER_MIN)"
         continue
       fi
-      echo "down $c: no owner record, $((age / 60)) min old"
+      echo "down $c: $why, $((age / 60)) min old"
     fi
     remove "$i" >/dev/null
     n=$((n + 1))
@@ -248,7 +271,7 @@ alive() {
   echo "LOST adb $ser: $state"
 }
 
-nuke() { for c in $(ci_names); do remove "${c#ci-redroid}"; done; }
+nuke() { for c in $($DOCKER ps -a --format '{{.Names}}' | ci_names); do remove "${c#ci-redroid}"; done; }
 
 status() {
   local c st ports

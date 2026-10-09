@@ -178,15 +178,16 @@ defmodule MobCi.Farm do
 
   @doc """
   Down every CI instance no live cell owns (`ci-farm.sh reap`): its owner
-  process is gone, or it has no ownership record and is older than
+  process is gone, or it has no owner and is older than
   `MOB_CI_FARM_REAP_AFTER_MIN` (20) minutes. Never a live owner's, never a
-  staging `redroid<N>`. Returns the script's `down|keep|forget` lines.
+  staging `redroid<N>`. Returns the script's `down|keep|forget` lines, or
+  its `reap: …` error (docker couldn't list: nothing was touched).
   """
   @spec reap() :: [String.t()]
   def reap do
     sh(["reap"])
     |> String.split("\n", trim: true)
-    |> Enum.filter(&String.match?(&1, ~r/^(down|keep|forget) /))
+    |> Enum.filter(&String.match?(&1, ~r/^(down|keep|forget|reap:) /))
   end
 
   @doc """
