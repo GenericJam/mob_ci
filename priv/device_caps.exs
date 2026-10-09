@@ -28,10 +28,12 @@
 #   2026-10-08 — realism gate on sloppy_joe master (mob 0.9.14 / mob_dev 0.7.16,
 #                `~/mob_ci_logs/realism7.log`, `realism8.log`) and the harness
 #                discovery over the other 15 plugins (`~/mob_ci_logs/disco1.log`).
-#   2026-10-09 — the self-test releases (MOB-418; mob 0.9.15 / mob_dev 0.7.17):
-#                `singleton:<p>` cells on the `hex` row for mob_background and
-#                mob_screencast (`~/mob_ci_logs/caps1.log`), then `all` and
-#                `default` on `hex` (`~/mob_ci_logs/caps2.log`).
+#   2026-10-09 — the self-test releases (MOB-418) on the `hex` row (mob 0.9.15→0.9.16,
+#                mob_dev 0.7.17→0.7.19 as Hex moved that day): `singleton:<p>` for mob_background and
+#                mob_screencast (`~/mob_ci_logs/caps1.log`, `caps3.log`),
+#                `default` (`caps2.log`, store run 94) and `all`, 24 plugins
+#                (`caps4.log`, store run 116: P3 initialized every probed NIF,
+#                incl. the new scanner/biometric/sms/background probes).
 # P12 (each plugin's own self-test) now proves native init on the hex row; a
 # :probe is the read-only export the self-test itself calls where one exists,
 # and P3 skips (not errors) when a host's locked release predates that export.
