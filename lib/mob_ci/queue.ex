@@ -52,7 +52,7 @@ defmodule MobCi.Queue do
   # A cell runs at most this long, then `timeout` kills it (exit 124).
   @cell_timeout_s 90 * 60
   @publish_timeout_s 15 * 60
-  # `mix ci.device`: a path lost its instance (layer farm).
+  # `mix ci.device`: infrastructure failed under a path (layer farm or toolchain).
   @infra_exit 3
 
   # ── enqueue ──────────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ defmodule MobCi.Queue do
 
     retry = Store.last_id(store)
     Store.exec!(store, "UPDATE job_cells SET duplicate_of = ?2 WHERE duplicate_of = ?1", [cell_id, retry])
-    say("[queue] cell #{cell_id} lost its instance (layer farm); retrying once as cell #{retry}")
+    say("[queue] cell #{cell_id} failed on infrastructure (layer farm or toolchain); retrying once as cell #{retry}")
   end
 
   # Expiring cells can release jobs whose duplicates pointed at them.

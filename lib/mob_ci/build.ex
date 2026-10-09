@@ -604,12 +604,25 @@ defmodule MobCi.Build do
     if code == 0, do: :ok, else: classify_failure(out)
   end
 
+  # What the JVM prints when it crashes under the build (the Gradle wrapper or
+  # its daemon): its fatal-error banner, or the hs_err report path.
+  @jvm_crash_patterns [
+    ~r/A fatal error has been detected by the Java Runtime Environment/,
+    ~r/hs_err_pid\d+\.log/
+  ]
+
+  # The lines of a JVM crash worth keeping as the failure's evidence.
+  @jvm_crash_lines ~r/A fatal error has been detected|\b(SIGSEGV|SIGBUS|SIGILL)\b|Problematic frame|^#\s+[CjJV]\s+\[|hs_err_pid\d+\.log/
+
   @doc """
   Name the cause of a failed deploy from its output: a cross-plugin rejection
   (`{:conflict, lines}`, P1's expected path), a refused plugin signature
   (`{:error, {:signature_gate, lines}}` — the lines naming each plugin), a zig
-  toolchain mismatch (`{:error, {:toolchain, line}}`), else the native build's
-  tail. Pure, so each shape is pinned by a test.
+  toolchain mismatch (`{:error, {:toolchain, line}}`), a JVM crash under
+  Gradle (`{:error, {:jvm_crash, lines}}`: the banner, signal, frame and
+  hs_err lines, read from the whole output since the tail kept otherwise may
+  have lost them), else the native build's tail. Pure, so each shape is
+  pinned by a test.
   """
   @spec classify_failure(String.t()) :: {:conflict, [String.t()]} | {:error, term()}
   def classify_failure(out) do
@@ -622,6 +635,9 @@ defmodule MobCi.Build do
 
       out =~ "zig version mismatch" ->
         {:error, {:toolchain, lines_matching(out, ~r/zig version mismatch/) |> List.first()}}
+
+      toolchain_crash?(out) ->
+        {:error, {:jvm_crash, lines_matching(out, @jvm_crash_lines)}}
 
       true ->
         {:error, {:native_build, String.slice(out, -800, 800)}}
@@ -689,14 +705,6 @@ defmodule MobCi.Build do
       plugin -> {:build, path_label(path), plugin}
     end
   end
-
-  # What the JVM prints when it crashes under the build (the Gradle wrapper or
-  # its daemon): its fatal-error banner, or the hs_err report path, which
-  # survives when mob_dev keeps only the tail of the output.
-  @jvm_crash_patterns [
-    ~r/A fatal error has been detected by the Java Runtime Environment/,
-    ~r/hs_err_pid\d+\.log/
-  ]
 
   @doc """
   Did the build's toolchain itself crash (a JVM fatal error under Gradle)?

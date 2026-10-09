@@ -187,8 +187,8 @@ defmodule MobCi.AttributionTest do
 
     test "a build whose JVM crashed is the toolchain, not the build or the plugin" do
       # mob_ci cell 105 (2026-10-09): the Gradle wrapper and its daemon both
-      # SIGSEGV'd; mob_dev kept only the tail, so the banner is gone but the
-      # hs_err path survives.
+      # SIGSEGV'd; the stored reason then held only mob_ci's 800-char tail, so
+      # the banner was gone but the hs_err path survived.
       tail =
         ~s{u -g%g -F%F -- %E" (or dumping to /home/kevin/hosts/android/core.417075)\n#\n} <>
           "# An error report file with more information is saved as:\n# /home/kevin/hosts/android/hs_err_pid417075.log\n" <>

@@ -89,8 +89,8 @@ the run rows (`runs.job_id`). `MobCi.Queue` owns `jobs` and `job_cells`;
   cell is compared with (`MobCi.Matrix.regressions/2`, `Store.retained/2`).
 - **A crashed toolchain is infrastructure too** (amended 2026-10-09, MOB-468,
   FINDINGS F15). A build whose output carries a JVM fatal error (`A fatal
-  error has been detected by the Java Runtime Environment`, or the
-  `hs_err_pid<N>.log` path when mob_dev kept only the tail) is layer
+  error has been detected by the Java Runtime Environment`, or an
+  `hs_err_pid<N>.log` path, read from the whole output) is layer
   `toolchain`, never `build:*` or a plugin. It is treated exactly like
   `farm`: exit 3, one retry, shown in the report, never a regression, a
   regression baseline or the P12 singleton result (`Store.infra?/1`).

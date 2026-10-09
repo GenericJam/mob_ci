@@ -424,9 +424,10 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 - **Fix (mob_dev):** keep the native-platform locks (GenericJam/mob_dev#134).
   The wrapper, daemon-registry and cache locks mob_dev still deletes are real
   OS locks, and deleting one another Gradle holds breaks its exclusion
-  (follow-up issue).
+  (MOB-469).
 - **Fix (mob_ci):** a JVM fatal error in a build's output (`A fatal error has
-  been detected by the Java Runtime Environment`, or the `hs_err_pid<N>.log`
-  path that survives mob_dev's tail) is layer `toolchain`, an infra layer like
+  been detected by the Java Runtime Environment`, or an `hs_err_pid<N>.log`
+  path; read from the whole output, not mob_ci's 800-char tail, and kept as
+  `{:jvm_crash, lines}`) is layer `toolchain`, an infra layer like
   `farm`: exit 3, one retry, shown in the report, never a regression, a
   baseline or the P12 singleton result.
