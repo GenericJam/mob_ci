@@ -31,8 +31,8 @@ maps each entry to a `:p12_item` result titled with the plugin:
 | `:pass` | pass |
 | `{:skip, :needs_hardware \| :needs_user \| reason}` | skip with that reason |
 | no `selftest:` in the manifest | skip, reason `no_selftest` (23 plugins on 2026-10-08; MOB-418 adds them) |
-| `{:fail, reason}`, including a raise, a timeout, a missing module | fail |
-| `{:fail, "node … is not reachable"}` / `"could not spawn on …"` | error @ `boot` (the call never reached the device) |
+| `{:fail, reason}`, including a raise, a timeout, a missing module, and the node dropping while the test ran (`"node … is not reachable"`: the test most likely took the app BEAM down) | fail |
+| `{:fail, "could not spawn on …"}` / `"no answer from …"` | error @ `boot` (the call never started on the device) |
 
 The items roll up the usual way (any fail fails P12, skips never do) and
 stay on the result as `evidence.items`, so the store keeps one row per
@@ -61,7 +61,9 @@ not fatal.
 ### The `release:android` cell
 
 A cell now has build paths (`--paths deploy,release`; a cell runs both by
-default, the fixture harness and sloppy_joe only `deploy`):
+default, the fixture harness only `deploy` unless asked, and the shared
+sloppy_joe checkout refuses `release`: it writes otp.zip, the AAB and
+bundletool output into the host tree):
 
 - `deploy:android` — unchanged: `mix mob.deploy --native --device`, P1–P12.
 - `release:android` — `mix mob.release --android` in the same generated
@@ -83,10 +85,12 @@ Findings that shaped it (code read 2026-10-08):
    SELinux label (`run-as` is refused: release builds are not debuggable),
    then launches for real (`Farm.provision_release/2`).
 3. The generated `build.gradle` signs the release only when
-   `android/keystore.properties` exists. mob_ci writes a throwaway JKS upload
-   key in the shape `mix mob.google_play` writes (alias `upload`,
-   `upload_jks.keystore`) into the gitignored host, so the release is signed
-   the way a user's is; bundletool signs the universal APK with the same key.
+   `android/keystore.properties` exists. A host without one gets a throwaway
+   JKS upload key in the shape `mix mob.google_play` writes (alias `upload`,
+   `upload_jks.keystore`), so the release is signed the way a user's is; a
+   host with one keeps it untouched and mob_ci reads it
+   (`Build.release_signing/1`). bundletool signs the universal APK with the
+   same key.
 4. The template's `abiFilters` include x86_64, so the release carries the
    x86_64 `lib<app>.so` the farm runs; `otp.zip` is the arm64 OTP tree,
    which works because the BEAM is linked into the per-ABI `.so` and the

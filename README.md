@@ -79,7 +79,8 @@ Details and rationale: `decisions/2026-10-08-version-rows-and-deterministic-sets
 ## Build paths, P12 and the results store
 
 A cell runs two **build paths** (`--paths deploy,release`, the default for a
-cell; the harness and sloppy_joe hosts default to `deploy`):
+cell; the fixture harness defaults to `deploy` and may add `release`; the
+shared sloppy_joe checkout refuses `release`, which builds in the host tree):
 
 | path | what is built and installed | invariants |
 |---|---|---|

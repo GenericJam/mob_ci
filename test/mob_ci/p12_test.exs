@@ -73,13 +73,29 @@ defmodule MobCi.P12Test do
       assert Enum.all?(skipped.evidence.items, &(&1.detail == "no_selftest"))
     end
 
-    test "a self-test the device never received is the boot layer's error, not the plugin's failure" do
-      r = Invariants.p12(ctx([:mob_a], [entry(:mob_a, {:fail, "node #{@node} is not reachable"})]))
+    test "a self-test that never started on the device is the boot layer's error, not the plugin's failure" do
+      r = Invariants.p12(ctx([:mob_a], [entry(:mob_a, {:fail, "could not spawn on #{@node}: :noconnection"})]))
       assert %{status: :error, layer: :boot} = r
       assert %{status: :error, layer: :boot} = items(r)["mob_a"]
 
-      r = Invariants.p12(ctx([:mob_a], [entry(:mob_a, {:fail, "could not spawn on #{@node}: :noconnection"})]))
+      r = Invariants.p12(ctx([:mob_a], [entry(:mob_a, {:fail, "no answer from #{@node} in 30000 ms"})]))
       assert %{status: :error, layer: :boot} = r
+    end
+
+    test "the node dropping while a self-test ran is that plugin's failure (it most likely took the BEAM down)" do
+      set = [:mob_a, :mob_b]
+
+      r =
+        Invariants.p12(
+          ctx(set, [
+            entry(:mob_a, {:fail, "node #{@node} is not reachable"}),
+            entry(:mob_b, {:fail, "could not spawn on #{@node}: :noconnection"})
+          ])
+        )
+
+      assert %{status: :fail, layer: {:plugin_unconfirmed, :mob_a}} = items(r)["mob_a"]
+      assert %{status: :error, layer: :boot} = items(r)["mob_b"]
+      assert %{status: :fail} = r
     end
 
     test "a runner that raises is an error, and no node at all is the boot layer's" do

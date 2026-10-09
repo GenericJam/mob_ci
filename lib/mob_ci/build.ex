@@ -679,13 +679,15 @@ defmodule MobCi.Build do
     end
   end
 
-  # A throwaway upload key for CI hosts: the release path signs exactly as a
-  # user's does (android/keystore.properties → upload_jks.keystore, alias
-  # upload, JKS — the shape `mix mob.google_play` writes); the key itself never
-  # leaves the generated host dir.
+  # A throwaway upload key for hosts that have no signing config of their own:
+  # the release path signs exactly as a user's does (android/keystore.properties
+  # → upload_jks.keystore, alias upload, JKS — the shape `mix mob.google_play`
+  # writes); the key never leaves the (gitignored) generated host dir.
   @release_keystore "upload_jks.keystore"
   @release_key_alias "upload"
   @release_key_pass "mob_ci_release"
+
+  @type signing :: %{ks: Path.t(), alias: String.t(), store_pass: String.t(), key_pass: String.t()}
 
   @doc "The `android/keystore.properties` body for the CI upload key."
   @spec keystore_properties() :: String.t()
@@ -698,6 +700,30 @@ defmodule MobCi.Build do
     """
   end
 
+  @doc """
+  Parse an `android/keystore.properties` body (what the generated
+  `build.gradle` reads: `storeFile` relative to `android/`, `storePassword`,
+  `keyAlias`, `keyPassword`) into the signing bundletool needs.
+  """
+  @spec parse_keystore_properties(String.t(), Path.t()) :: {:ok, signing()} | {:error, term()}
+  def parse_keystore_properties(body, android_dir) do
+    props =
+      for line <- String.split(body, "\n"),
+          line = String.trim(line),
+          line != "" and not String.starts_with?(line, "#"),
+          [k, v] <- [String.split(line, "=", parts: 2)],
+          into: %{},
+          do: {String.trim(k), String.trim(v)}
+
+    case props do
+      %{"storeFile" => file, "storePassword" => sp, "keyAlias" => a, "keyPassword" => kp} ->
+        {:ok, %{ks: Path.expand(file, android_dir), alias: a, store_pass: sp, key_pass: kp}}
+
+      _ ->
+        {:error, {:keystore_properties, "needs storeFile, storePassword, keyAlias and keyPassword"}}
+    end
+  end
+
   @doc "`keytool` args creating the CI upload key at `path`."
   @spec keytool_args(Path.t()) :: [String.t()]
   def keytool_args(path) do
@@ -706,14 +732,28 @@ defmodule MobCi.Build do
        -dname CN=mob_ci)
   end
 
-  @doc "Write the CI upload key + keystore.properties into a host, unless it has them."
-  @spec ensure_release_keystore(Path.t()) :: :ok | {:error, term()}
-  def ensure_release_keystore(dir) do
-    ks = Path.join(dir, "android/#{@release_keystore}")
-    props = Path.join(dir, "android/keystore.properties")
+  @doc """
+  The release signing of a host: its own `android/keystore.properties` when it
+  has one (read, never rewritten — a real app's upload key stays its own),
+  else the CI upload key, created with its keystore.properties on first use.
+  """
+  @spec release_signing(Path.t()) :: {:ok, signing()} | {:error, term()}
+  def release_signing(dir) do
+    android = Path.join(dir, "android")
+    props = Path.join(android, "keystore.properties")
+    ks = Path.join(android, @release_keystore)
 
-    with :ok <- if(File.exists?(ks), do: :ok, else: keytool(ks)) do
-      File.write(props, keystore_properties())
+    cond do
+      File.exists?(props) ->
+        parse_keystore_properties(File.read!(props), android)
+
+      File.exists?(ks) ->
+        {:error, {:keystore_properties, "#{ks} exists without keystore.properties; not overwriting it"}}
+
+      true ->
+        with :ok <- keytool(ks), :ok <- File.write(props, keystore_properties()) do
+          parse_keystore_properties(keystore_properties(), android)
+        end
     end
   end
 
@@ -731,21 +771,21 @@ defmodule MobCi.Build do
   @doc """
   Build the host's release bundle with `mix mob.release --android` and turn it
   into one installable universal APK (`bundletool build-apks --mode=universal`,
-  signed with the same upload key). `log: path` keeps the release build's
-  complete output. Returns `{:ok, apk}`, or the failure classified as
-  `classify_failure/1` does (a release that fails with output naming no
-  known cause is `{:error, {:release_build, tail}}`).
+  signed with the host's upload key, `release_signing/1`). `log: path` keeps
+  the release build's complete output. Returns `{:ok, apk}`, or the failure
+  classified as `classify_failure/1` does (a release that fails with output
+  naming no known cause is `{:error, {:release_build, tail}}`).
   """
   @spec build_release(Path.t(), keyword()) :: {:ok, Path.t()} | {:conflict, [String.t()]} | {:error, term()}
   def build_release(dir, opts \\ []) do
-    with :ok <- ensure_release_keystore(dir),
+    with {:ok, signing} <- release_signing(dir),
          :ok <- mob_release(dir, Keyword.get(opts, :log)) do
-      universal_apk(dir)
+      universal_apk(dir, signing)
     end
   end
 
   defp mob_release(dir, log) do
-    File.rm(release_aab(dir))
+    before = aab_mtime(dir)
     {out, code} = sh(["mob.release", "--android"], dir)
 
     if log do
@@ -754,9 +794,17 @@ defmodule MobCi.Build do
     end
 
     cond do
-      code == 0 and File.exists?(release_aab(dir)) -> :ok
-      code == 0 -> {:error, {:release_build, "mob.release exited 0 but wrote no #{release_aab(dir)}"}}
-      true -> classify_release_failure(out)
+      code != 0 -> classify_release_failure(out)
+      # A leftover bundle from an earlier build must not pass for this one.
+      aab_mtime(dir) in [nil, before] -> {:error, {:release_build, "mob.release exited 0 but wrote no new #{release_aab(dir)}"}}
+      true -> :ok
+    end
+  end
+
+  defp aab_mtime(dir) do
+    case File.stat(release_aab(dir), time: :posix) do
+      {:ok, %{mtime: mtime}} -> mtime
+      _ -> nil
     end
   end
 
@@ -785,25 +833,24 @@ defmodule MobCi.Build do
       Path.expand("~/.local/share/mob_ci/bundletool-all-#{@bundletool_version}.jar")
   end
 
-  @doc "`java` args turning `aab` into a universal `.apks` set signed with the CI upload key at `ks`."
-  @spec bundletool_args(Path.t(), Path.t(), Path.t(), Path.t()) :: [String.t()]
-  def bundletool_args(jar, aab, apks, ks) do
+  @doc "`java` args turning `aab` into a universal `.apks` set signed with `signing`."
+  @spec bundletool_args(Path.t(), Path.t(), Path.t(), signing()) :: [String.t()]
+  def bundletool_args(jar, aab, apks, signing) do
     [
       "-jar", jar, "build-apks", "--mode=universal", "--overwrite",
       "--bundle=#{aab}", "--output=#{apks}",
-      "--ks=#{ks}", "--ks-key-alias=#{@release_key_alias}",
-      "--ks-pass=pass:#{@release_key_pass}", "--key-pass=pass:#{@release_key_pass}"
+      "--ks=#{signing.ks}", "--ks-key-alias=#{signing.alias}",
+      "--ks-pass=pass:#{signing.store_pass}", "--key-pass=pass:#{signing.key_pass}"
     ]
   end
 
-  defp universal_apk(dir) do
+  defp universal_apk(dir, signing) do
     out = Path.join(dir, "_build/mob_ci_release")
     File.mkdir_p!(out)
     apks = Path.join(out, "app-release.apks")
 
     with {:ok, jar} <- ensure_bundletool(),
-         ks = Path.join(dir, "android/#{@release_keystore}"),
-         {:ok, _} <- run(System.find_executable("java") || "java", bundletool_args(jar, release_aab(dir), apks, ks)),
+         {:ok, _} <- run(System.find_executable("java") || "java", bundletool_args(jar, release_aab(dir), apks, signing)),
          {:ok, [apk]} <- :zip.unzip(String.to_charlist(apks), file_list: [~c"universal.apk"], cwd: String.to_charlist(out)) do
       {:ok, to_string(apk)}
     else

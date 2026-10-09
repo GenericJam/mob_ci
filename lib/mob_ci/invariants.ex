@@ -396,8 +396,9 @@ defmodule MobCi.Invariants do
   # module on the device (MOB-411). Its answer maps one to one: :pass → pass,
   # {:skip, reason} → skip with the reason (a plugin without a selftest is the
   # skip `no_selftest`, so it stays visible), {:fail, reason} → fail, except a
-  # node that could not be reached, which is the boot layer's error. A failure
-  # is attributed by comparing with the plugin's singleton cell (`p12_layer/3`).
+  # call that never started on the device, which is the boot layer's error. A
+  # failure is attributed by comparing with the plugin's singleton cell
+  # (`p12_layer/3`).
   def p12(%Context{node: nil}), do: Result.error(:p12, title(:p12), "no node leased") |> Result.at(:boot)
 
   def p12(%Context{set: set, node: node} = ctx) do
@@ -444,7 +445,7 @@ defmodule MobCi.Invariants do
           Result.skip(:p12_item, name, to_string(reason))
 
         {:fail, reason} when is_binary(reason) ->
-          if unreachable?(reason),
+          if never_started?(reason),
             do: Result.error(:p12_item, name, reason) |> Result.at(:boot),
             else: Result.fail(:p12_item, name, "#{name}: #{reason}") |> Result.at(p12_layer(plugin, set, singleton.(plugin)))
 
@@ -455,10 +456,13 @@ defmodule MobCi.Invariants do
     %{item | evidence: evidence}
   end
 
-  # SelfTest's wording for "the call never reached the device" (spawn failed,
-  # :noconnection): infrastructure, not the plugin.
-  defp unreachable?(reason),
-    do: reason =~ ~r/^node \S+ is not reachable$/ or String.starts_with?(reason, "could not spawn on ")
+  # SelfTest's wording for a call that never started on the device: the spawn
+  # was refused, or no spawn reply came before the deadline (node hung or the
+  # link wedged). Infrastructure, not the plugin. A connection lost *while* a
+  # test ran ("node … is not reachable") is the plugin's: its test most likely
+  # took the app BEAM down.
+  defp never_started?(reason),
+    do: String.starts_with?(reason, "could not spawn on ") or String.starts_with?(reason, "no answer from ")
 
   @doc """
   Where a P12 failure of `plugin` in `set` belongs, given the plugin's newest

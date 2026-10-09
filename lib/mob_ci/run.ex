@@ -53,24 +53,27 @@ defmodule MobCi.Run do
     Process.put(@timings_key, [])
 
     {runs, opts} =
-      case step(:prepare, fn -> prepare(host, set, opts) end) do
-        {:ok, prep} ->
-          # Restore any transient host mutation (e.g. sloppy_joe's swapped mob.exs)
-          # no matter how the run exits.
-          cleanup = Map.get(prep, :cleanup, fn -> :ok end)
-          opts = stamp_opts(prep, opts)
+      try do
+        case step(:prepare, fn -> prepare(host, set, opts) end) do
+          {:ok, prep} ->
+            # Restore any transient host mutation (e.g. sloppy_joe's swapped mob.exs)
+            # no matter how the run exits.
+            cleanup = Map.get(prep, :cleanup, fn -> :ok end)
+            opts = stamp_opts(prep, opts)
 
-          try do
-            {for(path <- paths, do: run_path(path, set, host, prep, artifacts, opts)), opts}
-          after
-            cleanup.()
-          end
+            try do
+              {for(path <- paths, do: run_path(path, set, host, prep, artifacts, opts)), opts}
+            after
+              cleanup.()
+            end
 
-        {:error, reason} ->
-          {for(path <- paths, do: errored(path, error({:prepare_failed, host_dir(host), reason}), 0, nil)), opts}
+          {:error, reason} ->
+            {for(path <- paths, do: errored(path, error({:prepare_failed, host_dir(host), reason}), 0, nil)), opts}
+        end
+      after
+        # The budget data survives even a run that raised.
+        write_timings(artifacts)
       end
-
-    write_timings(artifacts)
 
     results = for %{outcome: {v, rs}} <- runs, v in [:ok, :fail], r <- rs, do: r
     Report.write_artifacts(artifacts, set, results)
@@ -260,7 +263,7 @@ defmodule MobCi.Run do
       results =
         step(:"release:probe", fn -> [Invariants.p2(ctx), Invariants.p12(ctx), Invariants.p10(ctx)] end)
 
-      Farm.release(live)
+      step(:"release:release_live", fn -> Farm.release(live) end)
       finalize(:release, set, results ++ [Invariants.p11(ctx)], opts)
     end
   end

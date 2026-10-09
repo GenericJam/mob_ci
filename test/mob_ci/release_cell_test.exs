@@ -89,14 +89,53 @@ defmodule MobCi.ReleaseCellTest do
       assert ["-genkeypair", "-keystore", "/h/android/upload_jks.keystore", "-storetype", "JKS", "-alias", "upload" | _] = args
     end
 
-    test "bundletool builds one universal APK signed with that key" do
-      args = Build.bundletool_args("/bt.jar", "/a.aab", "/o.apks", "/h/android/upload_jks.keystore")
+    test "bundletool builds one universal APK signed with the host's key" do
+      signing = %{ks: "/h/android/upload_jks.keystore", alias: "upload", store_pass: "sp", key_pass: "kp"}
+      args = Build.bundletool_args("/bt.jar", "/a.aab", "/o.apks", signing)
       assert ["-jar", "/bt.jar", "build-apks" | _] = args
       assert "--mode=universal" in args
       assert "--bundle=/a.aab" in args
       assert "--output=/o.apks" in args
       assert "--ks=/h/android/upload_jks.keystore" in args
       assert "--ks-key-alias=upload" in args
+      assert "--ks-pass=pass:sp" in args
+      assert "--key-pass=pass:kp" in args
+    end
+
+    @tag :tmp_dir
+    test "a host's own keystore.properties is read, never rewritten", %{tmp_dir: dir} do
+      android = Path.join(dir, "android")
+      File.mkdir_p!(android)
+      props = Path.join(android, "keystore.properties")
+      real = "# the app's real upload key\nstoreFile=keys/real.jks\nstorePassword=s3cret\nkeyAlias=release\nkeyPassword=k3y\n"
+      File.write!(props, real)
+
+      assert {:ok, %{ks: ks, alias: "release", store_pass: "s3cret", key_pass: "k3y"}} = Build.release_signing(dir)
+      assert ks == Path.join(android, "keys/real.jks")
+      assert File.read!(props) == real
+      refute File.exists?(Path.join(android, "upload_jks.keystore"))
+    end
+
+    @tag :tmp_dir
+    test "an upload keystore without its properties is left alone, not overwritten", %{tmp_dir: dir} do
+      android = Path.join(dir, "android")
+      File.mkdir_p!(android)
+      File.write!(Path.join(android, "upload_jks.keystore"), "binary")
+
+      assert {:error, {:keystore_properties, _}} = Build.release_signing(dir)
+      refute File.exists?(Path.join(android, "keystore.properties"))
+      assert File.read!(Path.join(android, "upload_jks.keystore")) == "binary"
+    end
+
+    test "keystore.properties missing a key is an error, not a guess" do
+      assert {:error, {:keystore_properties, _}} = Build.parse_keystore_properties("storeFile=a.jks\nkeyAlias=x\n", "/h/android")
+      assert {:ok, %{ks: "/h/android/upload_jks.keystore"}} = Build.parse_keystore_properties(Build.keystore_properties(), "/h/android")
+    end
+
+    test "the shared sloppy_joe checkout refuses the release path; mob_ci's own hosts take it" do
+      assert_raise Mix.Error, ~r/not on the shared sloppy_joe checkout/, fn -> Device.host_paths!(:sloppy_joe, [:deploy, :release]) end
+      assert Device.host_paths!(:sloppy_joe, [:deploy]) == [:deploy]
+      assert Device.host_paths!(:harness, [:deploy, :release]) == [:deploy, :release]
     end
 
     test "the cookie script writes Mob.Dist's file with the app's owner and label, and refuses shell metacharacters" do

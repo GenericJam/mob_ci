@@ -37,8 +37,9 @@ defmodule Mix.Tasks.Ci.Device do
   `deploy` (`deploy:android`) is the dev APK `mix mob.deploy --native`
   installs, probed P1–P12. `release` (`release:android`) is the
   `mix mob.release --android` bundle as a universal APK on a fresh redroid,
-  probed P2, P12, P10 and P11. A cell runs both by default; the harness and
-  sloppy_joe hosts only `deploy` (pass `--paths deploy,release` for both).
+  probed P2, P12, P10 and P11. A cell runs both by default; the fixture
+  harness only `deploy` (pass `--paths deploy,release` for both). The shared
+  sloppy_joe checkout refuses `release`: it builds in the host tree.
 
   ## Results store
 
@@ -223,6 +224,7 @@ defmodule Mix.Tasks.Ci.Device do
   # ── device run (default) ──────────────────────────────────────────────────────
 
   defp finish_device(set, host, opts) do
+    paths = host_paths!(host, parse_paths(opts[:paths], [:deploy]))
     Dist.ensure!()
     artifacts = opts[:artifacts] || "artifacts/ci-device"
     {store, run_id} = open_run(opts, to_string(host))
@@ -230,7 +232,7 @@ defmodule Mix.Tasks.Ci.Device do
     runs =
       Run.run(set,
         host: host,
-        paths: parse_paths(opts[:paths], [:deploy]),
+        paths: paths,
         artifacts_dir: artifacts,
         fresh: opts[:fresh] == true,
         store: store,
@@ -240,6 +242,19 @@ defmodule Mix.Tasks.Ci.Device do
 
     report_device(runs, artifacts, store)
   end
+
+  @doc false
+  # The release path builds in the host's own tree (otp.zip, the AAB,
+  # bundletool output): fine for mob_ci's generated and fixture hosts, not for
+  # the shared sloppy_joe checkout with its real upload key.
+  def host_paths!(:sloppy_joe, paths) do
+    if :release in paths,
+      do: Mix.raise("--paths release builds in the host tree; not on the shared sloppy_joe checkout (use a cell: --set/--versions)")
+
+    paths
+  end
+
+  def host_paths!(_host, paths), do: paths
 
   defp report_device(runs, artifacts, store) do
     for %{path: path, outcome: outcome, duration_ms: ms} <- runs do
