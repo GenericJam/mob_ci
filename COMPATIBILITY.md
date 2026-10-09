@@ -335,6 +335,7 @@ which build paths.
 | `mob_screencast` | 0.1.3 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_screencast` | 0.1.3 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android` |
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.17 (git 5d85492) | 0.7.21 (git 04feb5b) | `static` |
+| `mob_sensors` | 0.2.0 | 0.9.17 | 0.7.21 | `deploy:android_physical` |
 | `mob_sensors` | 0.1.0 (git fac92ed) | 0.9.17 (git 5d85492) | 0.7.20 (git 8f8a9be) | `static` |
 | `mob_sensors` | 0.1.0 (git fac92ed) | 0.9.17 (git 5d85492) | 0.7.19 (git 85cb423) | `static` |
 | `mob_sensors` | 0.1.0 (git fac92ed) | 0.9.16 (git f17bb11) | 0.7.19 (git 85cb423) | `static` |

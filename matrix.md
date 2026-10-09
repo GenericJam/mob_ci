@@ -11,7 +11,7 @@ described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
 
 ## hex
 
-Latest run 2026-10-09T17:42:52Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8; mob 0.9.16 · mob_dev 0.7.19 · mob_new 0.6.7; mob 0.9.16 · mob_dev 0.7.18 · mob_new 0.6.7; mob 0.9.15 · mob_dev 0.7.17 · mob_new 0.6.7.
+Latest run 2026-10-09T17:47:47Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8; mob 0.9.16 · mob_dev 0.7.19 · mob_new 0.6.7; mob 0.9.16 · mob_dev 0.7.18 · mob_new 0.6.7; mob 0.9.15 · mob_dev 0.7.17 · mob_new 0.6.7.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -26,9 +26,10 @@ Latest run 2026-10-09T17:42:52Z. Core versions in this grid: mob 0.9.17 · mob_d
 | `singleton:mob_photos` | · | · | · | · | ✓ pass | ✓ pass | · |
 | `singleton:mob_scanner` | · | · | · | · | ✓ pass | ✓ pass | · |
 | `singleton:mob_screencast` | · | ✓ pass | ✓ pass | · | · | · | · |
+| `singleton:mob_sensors` | · | · | · | · | · | ✓ pass | · |
 | `singleton:mob_speech` | · | · | · | · | ✓ pass | ✓ pass | · |
 
-30 pass, 0 fail, 1 error, 0 skip.
+31 pass, 0 fail, 1 error, 0 skip.
 
 ## master
 
