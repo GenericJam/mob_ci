@@ -71,7 +71,9 @@ itself:
 
 - `:probe` is the read-only export the plugin's own self-test calls where one
   exists (`scanner_available/0`, `biometric_availability/0`, `sms_available/0`
-  are new). Existing probes that also work on older releases stay. A host can
+  are new; mob_background's `background_status/0` replaces `background_stop/0`,
+  which starts the service to stop it). Existing read-only probes that also
+  work on older releases stay. A host can
   lock a release older than the export (sloppy_joe locks mob_biometric 0.1.5
   and mob_scanner 0.1.5), so `Probe.nif_initialized?/3` reports `:no_export`
   when the probe function itself is undefined, and P3 records a skip for it,

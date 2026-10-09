@@ -204,12 +204,13 @@
   },
   mob_background: %{
     nif: :mob_background_nif,
-    probe: {:background_stop, []},
+    probe: {:background_status, []},
     screen: nil,
     note:
       "F10 resolved (MOB-423): 0.2.0 ships BeamForegroundService and contributes its " <>
-        "<service>, so the --blank host builds; background_stop initialized and " <>
-        "MobBackground.SelfTest (background_status/0) passed on deploy and release " <>
+        "<service>, so the --blank host builds. background_status/0 is the read-only " <>
+        "query MobBackground.SelfTest makes (0.2.0+; background_stop/0 starts the " <>
+        "service to stop it); the self-test passed on deploy and release " <>
         "(singleton:mob_background hex, 2026-10-09)"
   },
   mob_vision: %{
