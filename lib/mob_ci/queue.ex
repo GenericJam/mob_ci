@@ -31,9 +31,11 @@ defmodule MobCi.Queue do
   once, ahead of the rest of its priority. A worker that
   starts finds what a crashed worker of its lane left behind: `running`
   cells (requeued) and jobs it completed without publishing (published).
+  Before every Android cell the worker reaps the farm (`MobCi.Farm.reap/0`):
+  a `ci-redroid` whose owning cell died without releasing it is downed.
   """
 
-  alias MobCi.{Store, Triggers}
+  alias MobCi.{Farm, Store, Triggers}
 
   @type cell :: %{
           id: pos_integer(),
@@ -314,6 +316,8 @@ defmodule MobCi.Queue do
     * `:publish` — `fn job -> exit_code end` (default `publish/2`).
     * `:now` — `fn -> DateTime.t() end`.
     * `:log_dir` — where cell and publish logs go (default `log_dir/0`).
+    * `:reap` — `fn -> any end`, run before every Android cell (default
+      `MobCi.Farm.reap/0`, its lines logged).
 
   Returns `%{ran: [cell], published: [job_id], recovered: n}`.
   """
@@ -324,6 +328,11 @@ defmodule MobCi.Queue do
     now = Keyword.get(opts, :now, &DateTime.utc_now/0)
     run_cell = Keyword.get(opts, :run_cell, &run_cell(&1, log_dir))
     publish = Keyword.get(opts, :publish, &publish(&1, log_dir))
+    reap = Keyword.get(opts, :reap, &reap_farm/0)
+
+    # A cell killed mid-run (SIGKILL, a reboot) left its instance up; take the
+    # slot back before this cell asks for one.
+    run_cell = if lane == "android", do: fn cell -> reap.(); run_cell.(cell) end, else: run_cell
 
     recovered = recover(store, lane)
     if recovered > 0, do: say("[#{lane}] requeued #{recovered} cell(s) a dead worker left running")
@@ -388,11 +397,19 @@ defmodule MobCi.Queue do
     [{"MOB_CI_TRIGGER", trigger}, {"MOB_CI_JOB_ID", to_string(id)}]
   end
 
-  @doc "Run one cell as its own `mix ci.device`, output to `<log_dir>/cell-<id>.log`."
+  @doc """
+  Run one cell as its own `mix ci.device`, output to `<log_dir>/cell-<id>.log`.
+  `MOB_CI_CELL_ID` labels the farm instance it boots (`ci-farm.sh status`).
+  """
   @spec run_cell(cell(), Path.t()) :: {integer(), Path.t()}
   def run_cell(cell, log_dir) do
     log = Path.join(log_dir, "cell-#{cell.id}.log")
-    {mix_cmd(cell_argv(cell, log_dir), run_env(cell), log, @cell_timeout_s), log}
+    env = run_env(cell) ++ [{"MOB_CI_CELL_ID", to_string(cell.id)}]
+    {mix_cmd(cell_argv(cell, log_dir), env, log, @cell_timeout_s), log}
+  end
+
+  defp reap_farm do
+    for line <- Farm.reap(), do: say("[android] reap: #{line}")
   end
 
   @doc """

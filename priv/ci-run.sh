@@ -16,7 +16,7 @@
 # The trigger queue (MobCi.Queue, decisions/2026-10-09-trigger-queue.md):
 #
 #   priv/ci-run.sh nightly           # queue tonight's hex + master sets, Android + iOS
-#   priv/ci-run.sh poll              # one git-remote poll cycle (static gate + queue)
+#   priv/ci-run.sh poll              # one git-remote poll cycle (static gate + queue), then a farm reap
 #   priv/ci-run.sh rc <repo>@<sha>   # static gate + queue the rc:<repo>@<sha> row
 #   priv/ci-run.sh push <repo> <sha> [<ref>]  # a pre-push notice from the Mac
 #   priv/ci-run.sh confirm           # wait for noticed pushes to land, then poll
@@ -102,6 +102,11 @@ case "$MODE" in
     status=${PIPESTATUS[0]}
     set -e
     [ "$status" -eq 75 ] && { echo "[ci-run] another poll cycle is running; skipped"; status=0; }
+    # A CI instance whose cell died without releasing it (MOB-467) is downed
+    # here too, so a leak never waits for the next Android cell.
+    if ! command -v systemctl >/dev/null || systemctl is-active --quiet docker.service; then
+      bash "$REPO/priv/ci-farm.sh" reap 2>&1 | sed 's/^/[ci-run] farm reap: /' | tee -a "$LOG" || true
+    fi
     # Always kick, even after a failed cycle: it also starts a job queued while
     # a worker was exiting.
     kick_lanes
