@@ -1,0 +1,22 @@
+[Unit]
+Description=mob_ci %i lane worker: run queued cells one at a time until the lane is empty
+Documentation=file:%h/code/mob_ci/decisions/2026-10-09-trigger-queue.md
+# The android lane needs Docker for the redroid farm.
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+# Started (a no-op when already running) by every queueing mode of
+# priv/ci-run.sh; exits when the lane is empty. flock inside ci-run.sh keeps a
+# hand-run drain from doubling up with this one.
+Type=exec
+WorkingDirectory=%h/code/mob_ci
+ExecStart=%h/code/mob_ci/priv/ci-run.sh drain %i
+# A nightly lane runs for hours; each cell has its own 90-minute timeout.
+TimeoutStartSec=infinity
+# Stopping the worker requeues its running cell on the next start.
+KillMode=control-group
+TimeoutStopSec=120
+# Be a polite neighbour to the live staging pool sharing this box.
+Nice=10
+IOSchedulingClass=idle

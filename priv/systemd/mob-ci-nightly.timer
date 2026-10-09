@@ -1,0 +1,13 @@
+[Unit]
+Description=Queue the mob_ci nightly at 22:00 (the farm is quiet until 07:00)
+
+[Timer]
+# 22:00 local: nine hours to 07:00, when staging traffic picks up and every
+# nightly cell that has not started expires (MobCi.Triggers.nightly_window/0;
+# the budget is in docs/budgets.md). Persistent: a nightly missed while the box
+# was off is queued at boot instead.
+OnCalendar=*-*-* 22:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

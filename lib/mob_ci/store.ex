@@ -8,7 +8,7 @@ defmodule MobCi.Store do
   `MOB_CI_STORE`. Two tables (`priv/schema.sql`):
 
     * `runs` — one per invocation: started_at, trigger, versions_row, host,
-      mob_ci_sha.
+      mob_ci_sha, job_id (the `MobCi.Queue` job that ran it, else NULL).
     * `cells` — the outcomes of a run. A row with `invariant` NULL is a cell's
       summary (set × platform × path, outcome rolled up); the other rows of
       the same cell are its invariants (`"p2"`, `"p12"`) and each plugin's
@@ -17,13 +17,16 @@ defmodule MobCi.Store do
       `detail` and `versions` JSON.
 
   `open/1` applies the schema on every open (every statement is
-  `IF NOT EXISTS`) and records `PRAGMA user_version`; WAL mode and a busy
-  timeout let the iOS lane and an Android run write the same file.
+  `IF NOT EXISTS`), adds the columns a later version needs and records
+  `PRAGMA user_version`; WAL mode and a busy timeout let the iOS lane, the
+  queue's lane workers and an Android run write the same file. The trigger
+  queue's tables (`jobs`, `job_cells`, `heads`, `pushes`, schema 2) live in
+  the same file; `MobCi.Queue` and `MobCi.Poller` own them.
   """
 
   alias MobCi.{Report, Result}
 
-  @schema_version 1
+  @schema_version 2
   @schema_file Path.expand("../../priv/schema.sql", __DIR__)
   @external_resource @schema_file
   @schema File.read!(@schema_file)
@@ -39,7 +42,8 @@ defmodule MobCi.Store do
           required(:versions_row) => String.t(),
           optional(:host) => String.t(),
           optional(:started_at) => DateTime.t(),
-          optional(:mob_ci_sha) => String.t() | nil
+          optional(:mob_ci_sha) => String.t() | nil,
+          optional(:job_id) => pos_integer() | nil
         }
 
   @type cell :: %{
@@ -103,15 +107,23 @@ defmodule MobCi.Store do
 
   @doc """
   Bring the schema to `schema_version/0`. Idempotent: running it on a current
-  store changes nothing (every statement is `IF NOT EXISTS`).
+  store changes nothing (every statement is `IF NOT EXISTS`, and a column is
+  only added when missing).
   """
   @spec migrate(t()) :: :ok | {:error, term()}
   def migrate(%__MODULE__{conn: conn} = store) do
-    with :ok <- Exqlite.Sqlite3.execute(conn, @schema) do
+    with :ok <- Exqlite.Sqlite3.execute(conn, @schema),
+         :ok <- add_column(store, "runs", "job_id", "INTEGER") do
       if user_version(store) < @schema_version,
         do: Exqlite.Sqlite3.execute(conn, "PRAGMA user_version = #{@schema_version}"),
         else: :ok
     end
+  end
+
+  # Schema 2: runs.job_id. ALTER TABLE has no IF NOT EXISTS, so look first.
+  defp add_column(%__MODULE__{conn: conn} = store, table, column, type) do
+    present = store |> rows!("PRAGMA table_info(#{table})", []) |> Enum.any?(fn [_, name | _] -> name == column end)
+    if present, do: :ok, else: Exqlite.Sqlite3.execute(conn, "ALTER TABLE #{table} ADD COLUMN #{column} #{type}")
   end
 
   @doc "The store's `PRAGMA user_version`."
@@ -126,9 +138,14 @@ defmodule MobCi.Store do
   @doc """
   Record a run and return its id. `:host` defaults to this machine's short
   hostname, `:started_at` to now, `:mob_ci_sha` to the checkout's `HEAD`.
+  A queue worker runs every cell with `MOB_CI_TRIGGER` and `MOB_CI_JOB_ID`
+  set: the first replaces `:trigger` (a run then says `nightly`, `poll`, …
+  rather than the task that ran it), the second fills `:job_id`; see
+  `run_context/2`.
   """
   @spec record_run(t(), run_meta()) :: {:ok, pos_integer()}
   def record_run(%__MODULE__{} = store, meta) do
+    meta = run_context(meta, System.get_env())
     started = Map.get(meta, :started_at) || DateTime.utc_now()
 
     params = [
@@ -136,16 +153,39 @@ defmodule MobCi.Store do
       to_string(Map.fetch!(meta, :trigger)),
       to_string(Map.fetch!(meta, :versions_row)),
       Map.get_lazy(meta, :host, &hostname/0),
-      Map.get_lazy(meta, :mob_ci_sha, &mob_ci_sha/0)
+      Map.get_lazy(meta, :mob_ci_sha, &mob_ci_sha/0),
+      Map.get(meta, :job_id)
     ]
 
     exec!(
       store,
-      "INSERT INTO runs (started_at, trigger, versions_row, host, mob_ci_sha) VALUES (?1, ?2, ?3, ?4, ?5)",
+      "INSERT INTO runs (started_at, trigger, versions_row, host, mob_ci_sha, job_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
       params
     )
 
     {:ok, last_id(store)}
+  end
+
+  @doc """
+  `meta` with the queue's environment applied: a non-empty `MOB_CI_TRIGGER`
+  replaces `:trigger`, a positive integer `MOB_CI_JOB_ID` sets `:job_id`
+  unless `meta` has one. Pure; `env` is a `System.get_env/0` map.
+  """
+  @spec run_context(run_meta(), %{optional(String.t()) => String.t()}) :: run_meta()
+  def run_context(meta, env) do
+    meta =
+      case env["MOB_CI_TRIGGER"] do
+        t when is_binary(t) and t != "" -> Map.put(meta, :trigger, t)
+        _ -> meta
+      end
+
+    with nil <- Map.get(meta, :job_id),
+         id when is_binary(id) <- env["MOB_CI_JOB_ID"],
+         {n, ""} when n > 0 <- Integer.parse(id) do
+      Map.put(meta, :job_id, n)
+    else
+      _ -> meta
+    end
   end
 
   @doc "Record one cell row (a summary when `:invariant` is nil) under `run_id`."
@@ -423,7 +463,12 @@ defmodule MobCi.Store do
   defp layer_string(s) when is_binary(s), do: s
   defp layer_string(layer), do: Report.format_layer(layer)
 
-  defp exec!(%__MODULE__{conn: conn}, sql, params) do
+  # The SQL helpers below are public for the modules that own the store's
+  # other tables (MobCi.Queue, MobCi.Poller); everything else reads query/2.
+
+  @doc false
+  @spec exec!(t(), String.t(), list()) :: :ok
+  def exec!(%__MODULE__{conn: conn}, sql, params) do
     {:ok, stmt} = Exqlite.Sqlite3.prepare(conn, sql)
 
     try do
@@ -439,7 +484,9 @@ defmodule MobCi.Store do
     end
   end
 
-  defp rows!(%__MODULE__{conn: conn}, sql, params) do
+  @doc false
+  @spec rows!(t(), String.t(), list()) :: [list()]
+  def rows!(%__MODULE__{conn: conn}, sql, params) do
     {:ok, stmt} = Exqlite.Sqlite3.prepare(conn, sql)
 
     try do
@@ -451,9 +498,37 @@ defmodule MobCi.Store do
     end
   end
 
-  defp last_id(%__MODULE__{conn: conn}) do
+  @doc false
+  @spec last_id(t()) :: pos_integer()
+  def last_id(%__MODULE__{conn: conn}) do
     {:ok, id} = Exqlite.Sqlite3.last_insert_rowid(conn)
     id
+  end
+
+  @doc false
+  # Rows the last statement changed.
+  @spec changes(t()) :: non_neg_integer()
+  def changes(%__MODULE__{conn: conn}) do
+    {:ok, n} = Exqlite.Sqlite3.changes(conn)
+    n
+  end
+
+  @doc false
+  # Run `fun` in a write transaction (BEGIN IMMEDIATE takes the write lock up
+  # front, so two lane workers never interleave a read-then-write).
+  @spec transaction!(t(), (-> result)) :: result when result: term()
+  def transaction!(%__MODULE__{conn: conn}, fun) do
+    :ok = Exqlite.Sqlite3.execute(conn, "BEGIN IMMEDIATE")
+
+    try do
+      result = fun.()
+      :ok = Exqlite.Sqlite3.execute(conn, "COMMIT")
+      result
+    rescue
+      e ->
+        Exqlite.Sqlite3.execute(conn, "ROLLBACK")
+        reraise e, __STACKTRACE__
+    end
   end
 
   defp hostname do
