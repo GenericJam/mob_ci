@@ -91,11 +91,13 @@
   },
   mob_biometric: %{
     nif: :mob_biometric_nif,
-    probe: nil,
+    probe: {:biometric_availability, []},
     screen: :emulator_ok,
     note:
       "no biometric hw, but the DemoScreen renders gracefully (rendered 2026-06-22 " <>
-        "and 2026-10-08); only biometric_authenticate/1 (UI) — no safe probe"
+        "and 2026-10-08); biometric_availability/0 is the read-only query " <>
+        "MobBiometric.SelfTest makes (0.2.0+; older releases have only the UI " <>
+        "biometric_authenticate/1, so P3 skips there)"
   },
   mob_photos: %{
     nif: :mob_photos_nif,
@@ -108,9 +110,12 @@
   },
   mob_scanner: %{
     nif: :mob_scanner_nif,
-    probe: nil,
+    probe: {:scanner_available, []},
     screen: nil,
-    note: "only scanner_scan/1 (camera UI) — no safe probe; loaded 2026-10-08"
+    note:
+      "scanner_available/0 is the read-only query MobScanner.SelfTest makes, no " <>
+        "camera opened (0.1.6+; older releases have only scanner_scan/1, the camera " <>
+        "UI, so P3 skips there)"
   },
   mob_wake: %{
     nif: :mob_wake_nif,
@@ -137,9 +142,12 @@
   },
   mob_sms: %{
     nif: :mob_sms_nif,
-    probe: nil,
+    probe: {:sms_available, []},
     screen: :emulator_ok,
-    note: "sms_compose/2 opens the composer, arm_one_time_code/0 registers a receiver — no safe probe; loaded, DemoScreen rendered 2026-10-08"
+    note:
+      "sms_available/0 is the read-only query MobSms.SelfTest makes (0.2.4+; " <>
+        "sms_compose/2 opens the composer, arm_one_time_code/0 registers a " <>
+        "receiver); DemoScreen rendered 2026-10-08"
   },
   mob_speech: %{
     nif: :mob_speech_nif,

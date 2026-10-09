@@ -46,12 +46,13 @@ defmodule MobCi.DeviceCapsTest do
   end
 
   test "nif_probes yields safe probes keyed by NIF module; UI-only plugins are omitted" do
-    probes = DeviceCaps.nif_probes([:mob_touch, :mob_location, :mob_biometric, :mob_scanner])
+    probes = DeviceCaps.nif_probes([:mob_touch, :mob_location, :mob_biometric, :mob_photos])
     assert probes[:mob_touch_nif] == {:touch_stop, []}
     assert probes[:mob_location_nif] == {:location_stop, []}
-    # biometric/scanner have only UI-triggering exports → no safe probe → omitted
-    refute Map.has_key?(probes, :mob_biometric_nif)
-    refute Map.has_key?(probes, :mob_scanner_nif)
+    # the read-only query MobBiometric.SelfTest makes (0.2.0)
+    assert probes[:mob_biometric_nif] == {:biometric_availability, []}
+    # photos has only picker/permission-bound exports → no safe probe → omitted
+    refute Map.has_key?(probes, :mob_photos_nif)
   end
 
   test "buildable filters out exactly the plugins marked buildable: false; unknown plugins pass" do
@@ -82,6 +83,35 @@ defmodule MobCi.DeviceCapsTest do
     test "a non-rendering :emulator_ok (or unclassified) screen stays a fail" do
       assert %Result{status: :fail} = Invariants.degrade_or_fail(MobTouch.DemoScreen, %{MobTouch.DemoScreen => :emulator_ok}, "x")
       assert %Result{status: :fail} = Invariants.degrade_or_fail(MobTouch.DemoScreen, %{}, "x")
+    end
+  end
+
+  describe "P3 probe outcomes" do
+    # :rpc.call to the local node runs in-process, so these exercise the real
+    # badrpc shapes without a device. :lists stands in for a NIF module.
+    test "a probe export the loaded release lacks is :no_export, not a probe failure" do
+      assert MobCi.Probe.nif_initialized?(node(), :lists, {:reverse, [[1]]}) == :loaded
+      assert MobCi.Probe.nif_initialized?(node(), :lists, {:mob_ci_no_such_probe, []}) == :no_export
+    end
+
+    test "an undef raised deeper than the probe export itself stays an error" do
+      # The probe exists, but it calls something undefined: the plugin is broken.
+      assert {:error, {:badrpc, {:EXIT, {:undef, _}}}} =
+               MobCi.Probe.nif_initialized?(node(), :erlang, {:apply, [:mob_ci_missing_mod, :f, []]})
+    end
+
+    test "P3 items: initialized passes, no export skips, unlinked fails, an error is attributed" do
+      layer = {:plugin, :mob_biometric}
+      probe = {:biometric_availability, []}
+
+      assert %Result{status: :pass} = Invariants.p3_probe_item(:mob_biometric_nif, probe, :loaded, layer)
+
+      assert %Result{status: :skip, detail: detail} =
+               Invariants.p3_probe_item(:mob_biometric_nif, probe, :no_export, layer)
+
+      assert detail =~ "biometric_availability/0"
+      assert %Result{status: :fail, layer: ^layer} = Invariants.p3_probe_item(:mob_biometric_nif, probe, :not_loaded, layer)
+      assert %Result{status: :error, layer: ^layer} = Invariants.p3_probe_item(:mob_biometric_nif, probe, {:error, :x}, layer)
     end
   end
 end

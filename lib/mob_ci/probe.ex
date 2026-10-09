@@ -46,15 +46,19 @@ defmodule MobCi.Probe do
   raise `nif_not_loaded`. So the real check is to invoke the NIF's probe export
   and confirm it does *not* raise that. `probe_mfa` is `{fun, args}` for a
   side-effect-free export the plugin guarantees (the tier-1 scaffold ships
-  `ping/0`). Returns `:loaded`, `:not_loaded`, or `{:error, reason}`. (P3)
+  `ping/0`). Returns `:loaded`, `:not_loaded`, `:no_export` (the module loaded
+  but this version doesn't export the probe: `device_caps.exs` names the
+  newest release's read-only export, which an older locked release may
+  predate), or `{:error, reason}`. (P3)
   """
   @spec nif_initialized?(node(), atom(), {atom(), [term()]}) ::
-          :loaded | :not_loaded | {:error, term()}
+          :loaded | :not_loaded | :no_export | {:error, term()}
   def nif_initialized?(node, nif_module, {fun, args}) do
     case call(node, nif_module, fun, args) do
       {:ok, _value} -> :loaded
       {:error, {:badrpc, {:EXIT, {:nif_not_loaded, _}}}} -> :not_loaded
       {:error, {:badrpc, {:EXIT, {%ErlangError{original: :nif_not_loaded}, _}}}} -> :not_loaded
+      {:error, {:badrpc, {:EXIT, {:undef, [{^nif_module, ^fun, _, _} | _]}}}} -> :no_export
       {:error, reason} -> {:error, reason}
     end
   end

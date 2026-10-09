@@ -129,11 +129,7 @@ defmodule MobCi.Invariants do
           Result.fail(:p3_item, "#{nif}", "#{nif} not loaded on device") |> Result.at(layer)
 
         Map.has_key?(probes, nif) ->
-          case Probe.nif_initialized?(node, nif, probes[nif]) do
-            :loaded -> Result.pass(:p3_item, "#{nif}", "#{nif} initialized")
-            :not_loaded -> Result.fail(:p3_item, "#{nif}", "#{nif} stub loaded but NIF not linked") |> Result.at(layer)
-            {:error, reason} -> Result.error(:p3_item, "#{nif}", "probe failed", reason) |> Result.at(layer)
-          end
+          p3_probe_item(nif, probes[nif], Probe.nif_initialized?(node, nif, probes[nif]), layer)
 
         true ->
           # Loaded, but no probe export registered — can't prove native init.
@@ -142,6 +138,26 @@ defmodule MobCi.Invariants do
     end)
     |> Result.rollup(:p3, title(:p3))
   end
+
+  @doc """
+  One P3 item from a NIF's probe outcome (`Probe.nif_initialized?/3`). A probe
+  export the loaded release doesn't have (`:no_export`, e.g. sloppy_joe locking
+  a release older than the one `device_caps.exs` was refreshed against) is a
+  skip like a plugin with no probe: the NIF loaded, init is unconfirmed, and
+  nothing is wrong with the plugin.
+  """
+  @spec p3_probe_item(atom(), {atom(), [term()]}, :loaded | :not_loaded | :no_export | {:error, term()}, Result.layer()) ::
+          Result.t()
+  def p3_probe_item(nif, _probe, :loaded, _layer), do: Result.pass(:p3_item, "#{nif}", "#{nif} initialized")
+
+  def p3_probe_item(nif, _probe, :not_loaded, layer),
+    do: Result.fail(:p3_item, "#{nif}", "#{nif} stub loaded but NIF not linked") |> Result.at(layer)
+
+  def p3_probe_item(nif, {fun, args}, :no_export, _layer),
+    do: Result.skip(:p3_item, "#{nif}", "#{nif} loaded; this release has no #{fun}/#{length(args)} probe export")
+
+  def p3_probe_item(nif, _probe, {:error, reason}, layer),
+    do: Result.error(:p3_item, "#{nif}", "probe failed", reason) |> Result.at(layer)
 
   # ── P4 — every declared screen pushes and renders ────────────────────────────
   def p4(%Context{node: nil}), do: Result.error(:p4, title(:p4), "no node leased") |> Result.at(:boot)
