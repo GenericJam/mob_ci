@@ -406,11 +406,16 @@ defmodule MobCi.Queue do
       else: ["ci.report"]
   end
 
-  @doc "Run the report for a finished job; returns its exit code (logged, never retried)."
+  @doc """
+  Run the report for a finished job; returns its exit code (logged, never
+  retried). It runs with `MOB_CI_TRIGGER` / `MOB_CI_JOB_ID` unset: the report
+  records no run of its own, and anything it starts (a git hook on the
+  matrix push) must not be filed under this job.
+  """
   @spec publish(map(), Path.t()) :: integer()
   def publish(job, log_dir) do
     log = Path.join(log_dir, "job-#{job.id}-report.log")
-    mix_cmd(publish_argv(report_doc()), run_env(job), log, @publish_timeout_s)
+    mix_cmd(publish_argv(report_doc()), [{"MOB_CI_TRIGGER", nil}, {"MOB_CI_JOB_ID", nil}], log, @publish_timeout_s)
   end
 
   defp report_doc do
