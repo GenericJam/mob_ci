@@ -29,6 +29,8 @@ defmodule MobCi.RowValidator do
   @type source :: %{key: String.t(), dep: Versions.dep(), label: String.t()}
 
   @ready ".mob_ci_ready"
+  # A master sha's validator project unused this long is deleted (prune/2).
+  @stale_days 7
 
   # Runs in the validator project: manifests in (a term file), errors out.
   @script ~S"""
@@ -103,14 +105,18 @@ defmodule MobCi.RowValidator do
   end
 
   # Create, fetch and compile the project once per pin; a ready marker says
-  # it's done (a pin's mob_dev never changes: a Hex version or a sha).
+  # it's done (a pin's mob_dev never changes: a Hex version or a sha) and its
+  # mtime when the pin was last used.
   defp ensure_project(dir, source, cache) do
-    if File.exists?(Path.join(dir, @ready)) do
+    ready = Path.join(dir, @ready)
+
+    if File.exists?(ready) do
+      File.touch(ready)
       :ok
     else
       result =
         Remote.locked(cache, "validator-mob_dev-#{source.key}", fn ->
-          if File.exists?(Path.join(dir, @ready)), do: :ok, else: build_project(dir, source)
+          if File.exists?(ready), do: :ok, else: build_project(dir, source, cache)
         end)
 
       case result do
@@ -121,16 +127,41 @@ defmodule MobCi.RowValidator do
     end
   end
 
-  defp build_project(dir, source) do
+  defp build_project(dir, source, cache) do
     File.mkdir_p!(dir)
     File.write!(Path.join(dir, "mix.exs"), mix_exs(source))
 
     with {:deps, {_, 0}} <- {:deps, mix(dir, ["deps.get"])},
          {:compile, {_, 0}} <- {:compile, mix(dir, ["compile"])} do
       File.write!(Path.join(dir, @ready), source.label <> "\n")
+      prune(cache, @stale_days)
       :ok
     else
       {step, {out, code}} -> {:error, "#{source.label}: mix #{step} exited #{code}: #{tail(out)}"}
+    end
+  end
+
+  @doc """
+  Delete the validator projects of `master` shas not used for `days` (each
+  is ~40 MB, and master moves several times a day). Hex projects stay: there
+  are few, and the `hex` row uses the newest every night. Runs after each
+  new build.
+  """
+  @spec prune(Path.t(), non_neg_integer()) :: [Path.t()]
+  def prune(cache, days) do
+    cutoff = System.os_time(:second) - days * 86_400
+
+    for dir <- Path.wildcard(Path.join([cache, "validators", "mob_dev-git-*"])),
+        last_used(dir) < cutoff do
+      File.rm_rf!(dir)
+      dir
+    end
+  end
+
+  defp last_used(dir) do
+    case File.stat(Path.join(dir, @ready), time: :posix) do
+      {:ok, %{mtime: t}} -> t
+      _ -> dir |> File.stat!(time: :posix) |> Map.fetch!(:mtime)
     end
   end
 
