@@ -12,7 +12,8 @@ defmodule MobCi.Versions.Remote do
   the default-branch sha, one clone per repo under `<cache>/repos/<name>`
   (fetched on every resolution, never re-cloned) with a detached `git worktree`
   per sha under `<cache>/src/<name>/<sha>`, and Hex tarballs unpacked under
-  `<cache>/hex/<name>-<version>`.
+  `<cache>/hex/<name>-<version>`. A mkdir lock per repo / tarball under
+  `<cache>/locks` serialises resolvers that share a cache.
   """
 
   @type t :: %{
@@ -72,13 +73,62 @@ defmodule MobCi.Versions.Remote do
   def checkout(name, url, sha, cache_dir) do
     repo = Path.join([cache_dir, "repos", to_string(name)])
 
-    with :ok <- ensure_clone(repo, url),
-         {:ok, _} <- git(["-C", repo, "fetch", "--quiet", "origin"]),
-         {:ok, out} <- git(["-C", repo, "rev-parse", "--verify", "#{sha}^{commit}"]),
-         full = String.trim(out),
-         dir = Path.join([cache_dir, "src", to_string(name), full]),
-         :ok <- ensure_worktree(repo, dir, full) do
-      {:ok, %{dir: dir, sha: full}}
+    locked(cache_dir, "repos-#{name}", fn ->
+      with :ok <- ensure_clone(repo, url),
+           {:ok, _} <- git(["-C", repo, "fetch", "--quiet", "origin"]),
+           {:ok, out} <- git(["-C", repo, "rev-parse", "--verify", "#{sha}^{commit}"]),
+           full = String.trim(out),
+           dir = Path.join([cache_dir, "src", to_string(name), full]),
+           :ok <- ensure_worktree(repo, dir, full) do
+        {:ok, %{dir: dir, sha: full}}
+      end
+    end)
+  end
+
+  # One resolver at a time per repo / tarball across OS processes (two rows
+  # resolving at once would race `git fetch` / `worktree add` on the shared
+  # clone, or unpack into the same dir): an atomic `mkdir` lock under
+  # `<cache>/locks`, polled for up to five minutes, broken when older than ten
+  # (a resolver that died mid-fetch).
+  @lock_poll_ms 200
+  @lock_wait_ms 300_000
+  @lock_stale_s 600
+
+  defp locked(cache_dir, key, fun) do
+    lock = Path.join([cache_dir, "locks", key])
+    File.mkdir_p!(Path.dirname(lock))
+    acquire(lock, System.monotonic_time(:millisecond) + @lock_wait_ms)
+
+    try do
+      fun.()
+    after
+      File.rmdir(lock)
+    end
+  end
+
+  defp acquire(lock, deadline) do
+    case File.mkdir(lock) do
+      :ok ->
+        :ok
+
+      {:error, :eexist} ->
+        cond do
+          stale?(lock) ->
+            File.rmdir(lock) && acquire(lock, deadline)
+
+          System.monotonic_time(:millisecond) > deadline ->
+            raise "mob_ci: timed out waiting for #{lock}"
+
+          true ->
+            Process.sleep(@lock_poll_ms) && acquire(lock, deadline)
+        end
+    end
+  end
+
+  defp stale?(lock) do
+    case File.stat(lock, time: :posix) do
+      {:ok, %{mtime: mtime}} -> System.os_time(:second) - mtime > @lock_stale_s
+      _ -> false
     end
   end
 
@@ -113,6 +163,14 @@ defmodule MobCi.Versions.Remote do
   def hex_unpack(name, version, cache_dir) do
     dir = Path.join([cache_dir, "hex", "#{name}-#{version}"])
 
+    if File.regular?(Path.join(dir, "mix.exs")) do
+      {:ok, dir}
+    else
+      locked(cache_dir, "hex-#{name}-#{version}", fn -> unpack(name, version, dir) end)
+    end
+  end
+
+  defp unpack(name, version, dir) do
     if File.regular?(Path.join(dir, "mix.exs")) do
       {:ok, dir}
     else
