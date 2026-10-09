@@ -12,11 +12,11 @@
 # even for an iOS-only host). Xcode's tools are in /usr/bin. The worker runs
 # as the user that owns the CI signing keychain.
 #
-# Gradle needs JDK 17 or 21 (AGP 8.2; JDK 26 fails with "Unsupported class
+# Gradle needs JDK 17: the mob_new template's Gradle 8.2.1 wrapper runs on
+# neither 21 (Gradle ≥ 8.5) nor Homebrew's default 26 ("Unsupported class
 # file major version 70"). Kevin's .zshrc exports JAVA_HOME for JDK 17, but
-# ssh doesn't read it, so Gradle got Homebrew's default java (26). `java_home
-# -v 21` returns the newest JDK when 21 isn't installed, so each candidate's
-# `release` file is checked for the major version it claims.
+# ssh doesn't read it. `java_home -v 17` returns the newest JDK when 17
+# isn't installed, so the candidate's `release` file must name major 17.
 set -euo pipefail
 
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
@@ -29,9 +29,11 @@ jdk_home() {
   grep -Eq "^JAVA_VERSION=\"$major(\\.|\")" "$home/release" 2>/dev/null && echo "$home"
 }
 
-if java_home=$(jdk_home 21 || jdk_home 17); then
+if java_home=$(jdk_home 17); then
   export JAVA_HOME="$java_home"
   export PATH="$JAVA_HOME/bin:$PATH"
+else
+  echo "worker: no JDK 17 found (/usr/libexec/java_home -V); Android Gradle builds will fail" >&2
 fi
 
 here="$(cd "$(dirname "$0")" && pwd)"

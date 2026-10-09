@@ -43,10 +43,10 @@ Never the `claude` account.
    a bare PATH; `mob_ci_ios_cell.sh` adds `~/.local/share/mise/shims`
    (elixir, erlang, zig via mise's global config), `~/.local/bin` (mise,
    agent-lease), `~/.mix/escripts` and Homebrew. For the physical-Android
-   path it also points `JAVA_HOME` at a JDK 21 or 17 (`/usr/libexec/java_home`,
-   version checked): Gradle (AGP 8.2) fails on Homebrew's default JDK 26,
-   and ssh doesn't read the `JAVA_HOME` in `~/.zshrc`. Temurin 17 is
-   installed; nothing else to install.
+   path it also points `JAVA_HOME` at JDK 17 (`/usr/libexec/java_home`,
+   version checked): the template's Gradle 8.2.1 fails on Homebrew's
+   default JDK 26 (and would on 21), and ssh doesn't read the `JAVA_HOME`
+   in `~/.zshrc`. Temurin 17 is installed; nothing else to install.
 
 4. **Signing material** for the release path: the "Io App Store"
    provisioning profile for `com.genericjam.io` (team Q89CW299G8). The
