@@ -10,10 +10,15 @@ defmodule MobCi.Result do
     * `:error` — the check itself couldn't run (dead node, RPC failure, missing
                  build output). Distinct from `:fail` so infra flakiness isn't
                  reported as a product bug.
+
+  `set` and `versions` say which cell produced the result: the set name
+  (`MobCi.Sets.name/1`) and the version record (`MobCi.Versions.record/1`).
+  Invariants leave them `nil`; the orchestrator stamps every result of a run
+  with `stamp/3` before it is reported or stored.
   """
 
   @enforce_keys [:id, :title, :status]
-  defstruct [:id, :title, :status, :detail, :evidence]
+  defstruct [:id, :title, :status, :detail, :evidence, :set, :versions]
 
   @type status :: :pass | :fail | :skip | :error
   @type t :: %__MODULE__{
@@ -21,8 +26,14 @@ defmodule MobCi.Result do
           title: String.t(),
           status: status(),
           detail: String.t() | nil,
-          evidence: term()
+          evidence: term(),
+          set: String.t() | nil,
+          versions: map() | nil
         }
+
+  @doc "Stamp every result with the cell that produced it."
+  @spec stamp([t()], String.t() | nil, map() | nil) :: [t()]
+  def stamp(results, set, versions), do: Enum.map(results, &%{&1 | set: set, versions: versions})
 
   def pass(id, title, detail \\ nil), do: %__MODULE__{id: id, title: title, status: :pass, detail: detail}
   def fail(id, title, detail, evidence \\ nil),

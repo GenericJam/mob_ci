@@ -40,8 +40,26 @@ defmodule MobCi.Plugins do
   @spec fixture_dir(atom()) :: Path.t()
   def fixture_dir(name) when is_atom(name) do
     fixture = Path.join(@fixtures_dir, Atom.to_string(name))
-    if File.dir?(fixture), do: fixture, else: Path.join(@ecosystem_dir, Atom.to_string(name))
+
+    cond do
+      File.dir?(fixture) -> fixture
+      dir = Map.get(resolved_dirs(), name) -> dir
+      true -> Path.join(@ecosystem_dir, Atom.to_string(name))
+    end
   end
+
+  @doc """
+  Point manifest lookup for real plugins at the version row's checkouts /
+  unpacked tarballs (`MobCi.Versions.source_dirs/1`) for the rest of this VM,
+  so projections reflect the pinned version rather than whatever sibling
+  checkout `~/code` holds. Fixtures still win.
+  """
+  @spec put_resolved_dirs(%{atom() => Path.t()}) :: :ok
+  def put_resolved_dirs(dirs), do: Application.put_env(:mob_ci, :plugin_dirs, dirs)
+
+  @doc "The resolved plugin dirs set by `put_resolved_dirs/1` (empty by default)."
+  @spec resolved_dirs() :: %{atom() => Path.t()}
+  def resolved_dirs, do: Application.get_env(:mob_ci, :plugin_dirs, %{})
 
   @doc "Path to a fixture plugin's manifest (may not exist for tier-0 plugins)."
   @spec manifest_path(atom()) :: Path.t()

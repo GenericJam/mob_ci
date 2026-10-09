@@ -37,7 +37,7 @@ defmodule MobCi.Context do
   @type build_status :: :unknown | :ok | {:conflict, [String.t()]} | {:error, term()}
   @type t :: %__MODULE__{
           set: [atom()],
-          host: :harness | :sloppy_joe,
+          host: :harness | :sloppy_joe | :generated,
           node: node() | nil,
           repo: module() | nil,
           build: %{

@@ -98,8 +98,12 @@ defmodule MobCi.Report do
 
     failing = Enum.filter(results, &(&1.status in [:fail, :error]))
 
+    stamped = List.first(results) || %{set: nil, versions: nil}
+
     summary = %{
       plugin_set: set,
+      set: stamped.set,
+      versions: stamped.versions,
       ok: ok?(results),
       tally: tally(results),
       findings:
