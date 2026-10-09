@@ -109,7 +109,7 @@ there.
 
 Every set draws from the pool `DeviceCaps.buildable(Versions.plugins())`
 minus `priv/sets/exclusions.exs`. `device_caps.exs` is the one place that
-says a plugin can't be built on the CI host (mob_screencast then; mob_nx_eigen since 2026-10-09);
+says a plugin can't be built on the CI host (mob_screencast then; only mob_nx_eigen since 2026-10-09);
 `exclusions.exs` parks a plugin (`plugin: "F<n>: reason"`) while a known
 cross-plugin finding breaks every host that activates it, so `all`, the
 pairwise array, seeded and file sets stay buildable. The parked plugin keeps
