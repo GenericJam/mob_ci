@@ -439,6 +439,7 @@ defmodule MobCi.Run do
       # (MobCi.Host) has none, so P5 reports that rather than a phantom crash.
       showcase_screen: if(host == :generated, do: nil, else: Build.showcase_module(prep.app)),
       selftest_timeout_ms: Keyword.get(opts, :selftest_timeout_ms, 30_000),
+      static_conflicts: Keyword.get(opts, :static_conflicts),
       singleton_selftest: singleton_lookup(path, opts)
     }
   end

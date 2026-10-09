@@ -96,7 +96,10 @@ defmodule MobCi.Versions.Remote do
   @lock_stale_s 600
   @lock_wait_ms 900_000
 
-  defp locked(cache_dir, key, fun) do
+  # (MobCi.RowValidator takes the same lock to build a row's validator project.)
+  @doc false
+  @spec locked(Path.t(), String.t(), (-> result)) :: result | {:error, {:lock_timeout, Path.t()}} when result: term()
+  def locked(cache_dir, key, fun) do
     lock = Path.join([cache_dir, "locks", key])
     File.mkdir_p!(Path.dirname(lock))
 
