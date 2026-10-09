@@ -50,7 +50,7 @@ Never the `claude` account.
    wildcard development profile covers; no app uses that id, so teardown's
    uninstall only ever removes what a cell installed.
 
-6. **Signing over ssh.** An ssh session cannot use a login keychain that the
+5. **Signing over ssh.** An ssh session cannot use a login keychain that the
    GUI session unlocked: `codesign` fails with `errSecInternalComponent`, so
    the iPhone and release paths fail at `build:<path>` (the simulator path
    needs no signing). To let them sign, put the login password in a
@@ -66,7 +66,7 @@ Never the `claude` account.
    (`MOB_CI_KEYCHAIN_PASSWORD_FILE` points elsewhere.) The alternative is a
    dedicated, password-less CI keychain holding the two signing identities.
 
-5. **Devices**: at least one booted simulator on an iOS 27+ runtime (the lane
+6. **Devices**: at least one booted simulator on an iOS 27+ runtime (the lane
    leases the newest one free; `simctl privacy grant photos` is ignored on
    26.x runtimes, so they are not used by default), and Kevin's iPhone
    (00008110-001E1C3A34F8401E) attached when the iPhone path should run —
