@@ -1,7 +1,7 @@
 defmodule MobCi.AttributionTest do
   @moduledoc """
   Every non-passing outcome names the layer it belongs to
-  (`static | build:<path> | boot | plugin:<p> | conflict:<set> | health`). A
+  (`static | build:<path> | boot | farm | plugin:<p> | conflict:<set> | health`). A
   result that can't say which layer failed is a bug in mob_ci, so these pin the
   attribution of each invariant and of the orchestration error paths, with no
   device: a dead node stands in for every RPC failure.
@@ -167,6 +167,75 @@ defmodule MobCi.AttributionTest do
     test "an unknown reason is unattributed (nil), never a guess" do
       assert Run.error_layer(:something_else) == nil
     end
+
+    test "a build, install or launch that lost its device is the farm, not the code" do
+      # mob_ci run 38 (2026-10-09): adbd restarted under `adb root`, the OTP push
+      # found no device; gradle and zig had succeeded.
+      lost =
+        "warning: parameter 'pid' is never used\nBUILD SUCCESSFUL in 1m 56s\n  Installing APK on 127.0.0.1:5700...\n" <>
+          "  Pushing OTP release to device(s)...\n  ✗ Android native build failed: Selected Android device(s) disconnected: 127.0.0.1:5700"
+
+      assert Run.error_layer({:build_failed, :deploy, {:native_build, lost}}) == :farm
+      assert Run.error_layer({:install_failed, :release, "adb: device offline"}) == :farm
+      assert Run.error_layer({:launch_failed, {:launch_failed, {:launch, 1, "error: device '127.0.0.1:5701' not found"}}}) == :farm
+      assert Run.error_layer({:instance_lost, "container ci-redroid0: false", {:launch_failed, :timeout}}) == :farm
+
+      # a genuine build or launch failure stays where it was
+      assert Run.error_layer({:build_failed, :deploy, {:native_build, "zig: error: undefined symbol"}}) == {:build, "deploy:android"}
+      assert Run.error_layer({:launch_failed, {:node_never_registered, :x}}) == :boot
+    end
+
+    test "a probe that lost its instance re-attributes its failures (not its passes) to the farm" do
+      results = [
+        Result.pass(:p2, "boots"),
+        Result.fail(:p12, "self-tests", "node … is not reachable") |> Result.at({:plugin, :mob_x}),
+        Result.error(:p10, "sweep", "nodedown") |> Result.at(:health),
+        Result.skip(:p5, "showcase", "none")
+      ]
+
+      {:fail, marked} = Run.mark_lost({:fail, results}, "adb 127.0.0.1:5700: offline")
+      assert Enum.map(marked, & &1.layer) == [nil, :farm, :farm, nil]
+      assert Enum.at(marked, 1).detail =~ "instance lost: adb 127.0.0.1:5700: offline"
+      assert Run.mark_lost({:error, {:launch_failed, :timeout}}, "gone") == {:error, {:instance_lost, "gone", {:launch_failed, :timeout}}}
+    end
+
+    test "a lost probe's P12 items become farm too, so the singleton lookup can skip them" do
+      items = [Result.pass(:mob_a, "mob_a"), Result.fail(:mob_x, "mob_x", "node down") |> Result.at({:plugin, :mob_x})]
+      p12 = %{Result.rollup(items, :p12, "self-tests") | evidence: %{items: items}}
+
+      {:fail, [marked]} = Run.mark_lost({:fail, [p12]}, "gone")
+      assert marked.layer == :farm
+      assert Enum.map(marked.evidence.items, &{&1.status, &1.layer}) == [{:pass, nil}, {:fail, :farm}]
+
+      # stored, the farm self-test row is not the singleton's answer: the older pass is
+      dir = Path.join(System.tmp_dir!(), "mob_ci_attr_#{System.unique_integer([:positive])}")
+      store = MobCi.Store.open!(Path.join(dir, "r.sqlite"))
+      meta = %{set: "singleton:mob_x", platform: :android, path: "deploy:android", versions: nil, duration_ms: nil, log_path: nil}
+      ok = %{Result.rollup([Result.pass(:mob_x, "mob_x")], :p12, "self-tests") | evidence: %{items: [Result.pass(:mob_x, "mob_x")]}}
+
+      for results <- [[ok], [marked]] do
+        {:ok, run} = MobCi.Store.record_run(store, %{trigger: "nightly", versions_row: "hex", host: "nuc", mob_ci_sha: "x"})
+        MobCi.Store.record_results(store, run, meta, {:ok, results})
+      end
+
+      assert MobCi.Store.singleton_selftest(store, :mob_x, versions_row: "hex", path: "deploy:android") == :pass
+      MobCi.Store.close(store)
+      File.rm_rf!(dir)
+    end
+
+    test "farm_lost/1 names the paths that lost their instance (what makes ci.device exit 3)" do
+      lost = "Selected Android device(s) disconnected: 127.0.0.1:5700"
+
+      runs = [
+        %{path: "deploy:android", outcome: {:error, {:build_failed, :deploy, {:native_build, lost}}}},
+        %{path: "release:android", outcome: {:ok, [Result.pass(:p2, "boots")]}}
+      ]
+
+      assert Run.farm_lost(runs) == ["deploy:android"]
+      probe_lost = [%{path: "deploy:android", outcome: {:fail, [Result.fail(:p2, "b", "x") |> Result.at(:farm)]}}]
+      assert Run.farm_lost(probe_lost) == ["deploy:android"]
+      assert Run.farm_lost([%{path: "deploy:android", outcome: {:error, {:build_failed, :deploy, {:native_build, "zig"}}}}]) == []
+    end
   end
 
   describe "Report renders the layer" do
@@ -176,6 +245,7 @@ defmodule MobCi.AttributionTest do
       assert Report.format_layer({:plugin, :mob_x}) == "plugin:mob_x"
       assert Report.format_layer({:conflict, [:a, :b]}) == "conflict:a,b"
       assert Report.format_layer(:health) == "health"
+      assert Report.format_layer(:farm) == "farm"
     end
 
     test "console shows @ <layer> on failing lines only" do

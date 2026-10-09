@@ -104,7 +104,11 @@ generator error breaks the user's path just as much) and
 `pass → skip → fail` regress; `fail → fail`, `error → fail`, a first-ever
 failure, and `skip → fail` with no pass before it don't — nothing that
 worked broke, and a skip (device absent) proves nothing either way.
-Regressions on other rows are listed without the mention.
+Regressions on other rows are listed without the mention. A cell at layer
+`farm` (its redroid instance went away mid-path, MOB-416 follow-up, FINDINGS
+F13) is neither a regression nor a baseline: it says nothing about the code,
+so `pass → farm` doesn't regress, `pass → farm → fail` does, and pruning never
+keeps a `farm` cell as the baseline in place of the pass before it.
 
 Exit status of `--publish`: 0 whenever both files were written, including
 nothing to post and a failed push, post or prune (an exception in those

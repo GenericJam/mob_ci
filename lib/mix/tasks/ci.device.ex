@@ -76,9 +76,11 @@ defmodule Mix.Tasks.Ci.Device do
       Self-starts distribution (`mob_ci@127.0.0.1`, cookie `mob_secret`) so it
       works as a plain `mix` invocation — no `elixir --name` wrapper needed.
       Exit 0 when every path passes, 1 on a failing invariant, 2 on an
-      orchestration error (boot/build/launch) in any path. Best scheduled in a
-      low-traffic window (each device build is ~minutes); the systemd timer
-      adapter does exactly that.
+      orchestration error (boot/build/launch) in any path, 3 when a path lost
+      its instance (layer `farm`: the adb device or the container went away
+      mid-path; it takes precedence, and the trigger queue retries the cell
+      once). Best scheduled in a low-traffic window (each device build is
+      ~minutes); the trigger queue's lane worker does exactly that.
   """
   use Mix.Task
 
@@ -289,19 +291,32 @@ defmodule Mix.Tasks.Ci.Device do
     Mix.shell().info("  recorded in #{store.path}")
     Store.close(store)
 
-    case Run.verdict(runs) do
-      :ok ->
-        Mix.shell().info("\nmob_ci device run: PASS (artifacts → #{artifacts})")
+    code =
+      case Run.verdict(runs) do
+        :ok ->
+          Mix.shell().info("\nmob_ci device run: PASS (artifacts → #{artifacts})")
+          0
 
-      :fail ->
-        bad = for %{path: p, outcome: {_, results}} <- runs, r <- results, r.status in [:fail, :error], do: "#{p} #{r.id}"
-        Mix.shell().error("\nmob_ci device run: FAIL — #{Enum.join(bad, ", ")} (artifacts → #{artifacts})")
-        exit({:shutdown, 1})
+        :fail ->
+          bad = for %{path: p, outcome: {_, results}} <- runs, r <- results, r.status in [:fail, :error], do: "#{p} #{r.id}"
+          Mix.shell().error("\nmob_ci device run: FAIL — #{Enum.join(bad, ", ")} (artifacts → #{artifacts})")
+          1
 
-      :error ->
-        bad = for %{path: p, outcome: {:error, reason}} <- runs, do: "#{p}: #{inspect(reason, limit: 8)}"
-        Mix.shell().error("\nmob_ci device run: ERROR — #{Enum.join(bad, "; ")}")
-        exit({:shutdown, 2})
+        :error ->
+          bad = for %{path: p, outcome: {:error, reason}} <- runs, do: "#{p}: #{inspect(reason, limit: 8)}"
+          Mix.shell().error("\nmob_ci device run: ERROR — #{Enum.join(bad, "; ")}")
+          2
+      end
+
+    # A path that lost its instance says nothing about the code: exit 3 so the
+    # trigger queue reruns the cell once on a fresh instance.
+    case Run.farm_lost(runs) do
+      [] ->
+        if code != 0, do: exit({:shutdown, code})
+
+      lost ->
+        Mix.shell().error("mob_ci device run: FARM — instance lost on #{Enum.join(lost, ", ")} (layer farm)")
+        exit({:shutdown, 3})
     end
   end
 

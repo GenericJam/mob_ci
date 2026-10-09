@@ -49,6 +49,7 @@ defmodule Mix.Tasks.Ci.Queue do
       Mix.shell().info(
         "  cell #{c.id} #{c.platform} #{c.set}#{if c.paths, do: " (#{c.paths})", else: ""}: #{c.status}" <>
           if(c.duplicate_of, do: " of #{c.duplicate_of}", else: "") <>
+          if(c.retry_of, do: " (retry of #{c.retry_of})", else: "") <>
           if(c.exit_code, do: " exit #{c.exit_code}", else: "") <> if(c.log_path, do: " #{c.log_path}", else: "")
       )
     end

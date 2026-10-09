@@ -1,4 +1,4 @@
--- mob_ci results store (MobCi.Store, MOB-414; queue tables MOB-416). Schema version 2.
+-- mob_ci results store (MobCi.Store, MOB-414; queue tables MOB-416). Schema version 3.
 --
 -- Every statement is idempotent (IF NOT EXISTS): MobCi.Store.open/1 runs this
 -- file on every open, then sets PRAGMA user_version. A later schema change
@@ -41,6 +41,8 @@ CREATE INDEX IF NOT EXISTS runs_row ON runs(versions_row);
 -- MobCi.Store.migrate/1 also adds runs.job_id (the job that ran the run) and
 -- jobs.publish_lane (the lane whose worker completed the job and owns its
 -- report run).
+-- Schema 3: job_cells.retry_of (the cell a `farm` retry reruns; MOB-416
+-- follow-up), also added by MobCi.Store.migrate/1.
 
 -- One trigger's request: run these sets on this row, on these platforms.
 CREATE TABLE IF NOT EXISTS jobs (
@@ -68,7 +70,7 @@ CREATE TABLE IF NOT EXISTS job_cells (
   paths        TEXT,                   -- --paths, NULL = the lane's default
   status       TEXT NOT NULL CHECK (status IN ('queued', 'running', 'done', 'duplicate', 'expired')),
   duplicate_of INTEGER,                -- the queued cell that already covers this one
-  exit_code    INTEGER,                -- 0 pass, 1 fail, 2 error, 124 timeout
+  exit_code    INTEGER,                -- 0 pass, 1 fail, 2 error, 3 farm (retried once), 124 timeout
   started_at   TEXT,
   finished_at  TEXT,
   log_path     TEXT

@@ -93,6 +93,26 @@ down() {
   echo "removed ci-redroid$i"
 }
 
+# alive <index> — is the instance still usable? The container must be running
+# and adb must see the device; an adbd restart (`adb root`) gets
+# MOB_CI_ALIVE_TRIES × MOB_CI_ALIVE_SLEEP (6 × 2 s) to come back. Prints ALIVE
+# or `LOST <why>` (MobCi.Farm.alive/1 → layer `farm`).
+alive() {
+  local i=$1 ser running state="" n
+  ser=$(serial "$i")
+  # `docker inspect` of a missing container prints an empty line and fails.
+  running=$($DOCKER inspect -f '{{.State.Running}}' "ci-redroid$i" 2>/dev/null | tr -d '[:space:]' || true)
+  [ -n "$running" ] || running=missing
+  if [ "$running" != true ]; then echo "LOST container ci-redroid$i: $running"; return 0; fi
+  for n in $(seq "${MOB_CI_ALIVE_TRIES:-6}"); do
+    # adb exits 1 when the device is offline or gone: that is the answer, not an error.
+    state=$($ADB -s "$ser" get-state 2>&1 | tr -d '\r' | tail -1) || true
+    [ "$state" = device ] && { echo ALIVE; return 0; }
+    [ "$n" -lt "${MOB_CI_ALIVE_TRIES:-6}" ] && sleep "${MOB_CI_ALIVE_SLEEP:-2}"
+  done
+  echo "LOST adb $ser: $state"
+}
+
 nuke() { for c in $($DOCKER ps -a --format '{{.Names}}' | grep -E '^ci-redroid[0-9]+$'); do $DOCKER rm -f "$c" >/dev/null; echo "removed $c"; done; }
 
 status() {
@@ -105,9 +125,10 @@ case "$cmd" in
   boot)    boot "${2:-}" "${3:-}" "${4:-}";;
   launch)  launch "${2:?index}" "${3:?suffix}" "${4:?dist_port}" "${5:?pkg}";;
   down)    down "${2:?ci index}";;
+  alive)   alive "${2:?ci index}";;
   admit)   admit;;
   indices) ci_indices;;
   nuke)    nuke;;
   status)  status;;
-  *) echo "usage: $0 {boot [W H DPI]|launch <i> <suffix> <dist_port> <pkg>|down <i>|admit|indices|nuke|status}"; exit 2;;
+  *) echo "usage: $0 {boot [W H DPI]|launch <i> <suffix> <dist_port> <pkg>|down <i>|alive <i>|admit|indices|nuke|status}"; exit 2;;
 esac

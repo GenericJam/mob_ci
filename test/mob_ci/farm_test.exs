@@ -21,6 +21,87 @@ defmodule MobCi.FarmTest do
     refute Farm.parse_admit("BUSY 5/5\n")
   end
 
+  test "lost_device? recognises adb and mob_dev saying the device went away, and nothing else" do
+    for text <- [
+          "✗ Android native build failed: Selected Android device(s) disconnected: 127.0.0.1:5700",
+          "adb: device offline",
+          "error: device '127.0.0.1:5701' not found",
+          "adb: no devices/emulators found",
+          "error: closed",
+          "adb: device still connecting"
+        ] do
+      assert Farm.lost_device?(text), text
+    end
+
+    # nested in an orchestration reason, as Run.error_layer sees it
+    assert Farm.lost_device?({:native_build, "… Selected Android device(s) disconnected: 127.0.0.1:5700"})
+
+    for text <- ["zig: error: undefined symbol", "BUILD FAILED", "Performing Streamed Install\nFailure [INSTALL_FAILED_NO_MATCHING_ABIS]", "device ok"] do
+      refute Farm.lost_device?(text), text
+    end
+  end
+
+  test "parse_alive reads ALIVE / LOST <why>; a check that couldn't run proves nothing" do
+    assert Farm.parse_alive("ALIVE\n") == :alive
+    assert Farm.parse_alive("LOST container ci-redroid0: missing\n") == {:lost, "container ci-redroid0: missing"}
+    assert Farm.parse_alive("LOST adb 127.0.0.1:5700: offline") == {:lost, "adb 127.0.0.1:5700: offline"}
+    assert Farm.parse_alive("sudo: a password is required\n") == :unknown
+    assert Farm.parse_alive("* daemon started successfully\nLOST adb 127.0.0.1:5700: offline\n") == {:lost, "adb 127.0.0.1:5700: offline"}
+  end
+
+  describe "ci-farm.sh alive (stub sudo/docker and adb)" do
+    setup do
+      bin = Path.join(System.tmp_dir!(), "mob_ci_alive_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(bin)
+
+      # `sudo docker inspect …` answers $STUB_RUNNING (or fails like a missing container)
+      File.write!(Path.join(bin, "sudo"), """
+      #!/usr/bin/env bash
+      [ "$STUB_RUNNING" = missing ] && { echo; exit 1; }
+      echo "$STUB_RUNNING"
+      """)
+
+      File.write!(Path.join(bin, "adb"), """
+      #!/usr/bin/env bash
+      echo "$STUB_ADB_OUT"; exit "$STUB_ADB_CODE"
+      """)
+
+      for f <- ~w(sudo adb), do: File.chmod!(Path.join(bin, f), 0o755)
+      on_exit(fn -> File.rm_rf!(bin) end)
+      %{bin: bin}
+    end
+
+    defp alive(bin, running, adb_out, adb_code) do
+      {out, 0} =
+        System.cmd("bash", [Farm.script(), "alive", "0"],
+          env: [
+            {"PATH", bin <> ":" <> System.get_env("PATH")},
+            {"STUB_RUNNING", running},
+            {"STUB_ADB_OUT", adb_out},
+            {"STUB_ADB_CODE", to_string(adb_code)},
+            {"MOB_CI_ALIVE_TRIES", "2"},
+            {"MOB_CI_ALIVE_SLEEP", "0"}
+          ],
+          stderr_to_stdout: true
+        )
+
+      Farm.parse_alive(out)
+    end
+
+    test "a running container whose adb sees the device is alive", %{bin: bin} do
+      assert alive(bin, "true", "device", 0) == :alive
+    end
+
+    test "adb without the device (exit 1) is a loss, after the grace", %{bin: bin} do
+      assert alive(bin, "true", "error: device offline", 1) == {:lost, "adb 127.0.0.1:5700: error: device offline"}
+    end
+
+    test "a stopped or missing container is a loss", %{bin: bin} do
+      assert alive(bin, "false", "device", 0) == {:lost, "container ci-redroid0: false"}
+      assert alive(bin, "missing", "device", 0) == {:lost, "container ci-redroid0: missing"}
+    end
+  end
+
   test "parse_kv extracts INDEX/SERIAL past progress noise" do
     output = """
     >> waiting for boot_completed...

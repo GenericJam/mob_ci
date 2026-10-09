@@ -26,7 +26,9 @@ defmodule MobCi.Queue do
   cell it deferred to (a `duplicate`) is done too; the worker that finishes
   it runs `mix ci.report --publish` (or `mix ci.report` where the task has no
   `--publish`) once. A cell of a job with `not_after` that has not started by
-  then `expire`s (the nightly yields the farm in the morning). A worker that
+  then `expire`s (the nightly yields the farm in the morning). A cell whose
+  `mix ci.device` exits 3 lost its instance (layer `farm`) and is retried
+  once, ahead of the rest of its priority. A worker that
   starts finds what a crashed worker of its lane left behind: `running`
   cells (requeued) and jobs it completed without publishing (published).
   """
@@ -40,12 +42,15 @@ defmodule MobCi.Queue do
           versions_row: String.t(),
           set: String.t(),
           platform: String.t(),
-          paths: String.t() | nil
+          paths: String.t() | nil,
+          retry_of: pos_integer() | nil
         }
 
   # A cell runs at most this long, then `timeout` kills it (exit 124).
   @cell_timeout_s 90 * 60
   @publish_timeout_s 15 * 60
+  # `mix ci.device`: a path lost its instance (layer farm).
+  @farm_exit 3
 
   # ── enqueue ──────────────────────────────────────────────────────────────────
 
@@ -160,8 +165,9 @@ defmodule MobCi.Queue do
   end
 
   @doc """
-  Claim `lane`'s next cell: highest job priority, then the oldest job, then
-  the job's set order. `nil` when the lane is empty.
+  Claim `lane`'s next cell: highest job priority, then a retry of a cell that
+  lost its instance, then the oldest job, then the job's set order. `nil`
+  when the lane is empty.
   """
   @spec claim(Store.t(), String.t(), DateTime.t()) :: cell() | nil
   def claim(store, lane, now) do
@@ -170,8 +176,9 @@ defmodule MobCi.Queue do
         store,
         "UPDATE job_cells SET status = 'running', started_at = ?2 WHERE id = (" <>
           "SELECT c.id FROM job_cells c JOIN jobs j ON j.id = c.job_id " <>
-          "WHERE c.platform = ?1 AND c.status = 'queued' ORDER BY j.priority DESC, c.job_id, c.id LIMIT 1) " <>
-          ~s{RETURNING id, job_id, versions_row, "set", platform, paths},
+          "WHERE c.platform = ?1 AND c.status = 'queued' " <>
+          "ORDER BY j.priority DESC, (c.retry_of IS NULL), c.job_id, c.id LIMIT 1) " <>
+          ~s{RETURNING id, job_id, versions_row, "set", platform, paths, retry_of},
         [lane, iso(now)]
       )
 
@@ -179,15 +186,37 @@ defmodule MobCi.Queue do
       [] ->
         nil
 
-      [[id, job_id, row, set, platform, paths]] ->
+      [[id, job_id, row, set, platform, paths, retry_of]] ->
         [[trigger]] = Store.rows!(store, "SELECT trigger FROM jobs WHERE id = ?1", [job_id])
-        %{id: id, job_id: job_id, trigger: trigger, versions_row: row, set: set, platform: platform, paths: paths}
+
+        %{
+          id: id,
+          job_id: job_id,
+          trigger: trigger,
+          versions_row: row,
+          set: set,
+          platform: platform,
+          paths: paths,
+          retry_of: retry_of
+        }
     end
   end
 
   @doc """
+  `mix ci.device`'s exit code for a cell that lost its instance (layer
+  `farm`): `finish/5` queues one retry of it.
+  """
+  @spec farm_exit() :: 3
+  def farm_exit, do: @farm_exit
+
+  @doc """
   Record a claimed cell's exit code and log; returns the ids of the jobs this
-  completed (its own, and any whose duplicate was waiting on it).
+  completed (its own, and any whose duplicate was waiting on it). A cell
+  that exited `farm_exit/0` and is not itself a retry gets one retry (same
+  row, set, platform and paths, `retry_of` it), claimed before anything else
+  of its priority; cells that deferred to it defer to the retry instead, so
+  no job completes on the lost attempt alone. Both attempts stay recorded:
+  as cells here and as runs in the store.
   """
   @spec finish(Store.t(), pos_integer(), integer(), Path.t() | nil, DateTime.t()) :: [pos_integer()]
   def finish(store, cell_id, exit_code, log_path, now) do
@@ -198,7 +227,10 @@ defmodule MobCi.Queue do
         [cell_id, exit_code, log_path, iso(now)]
       )
 
-      [[job_id, lane]] = Store.rows!(store, "SELECT job_id, platform FROM job_cells WHERE id = ?1", [cell_id])
+      [[job_id, lane, retry_of]] =
+        Store.rows!(store, "SELECT job_id, platform, retry_of FROM job_cells WHERE id = ?1", [cell_id])
+
+      if exit_code == @farm_exit and is_nil(retry_of), do: queue_retry(store, cell_id)
 
       waiting =
         store
@@ -207,6 +239,19 @@ defmodule MobCi.Queue do
 
       Enum.flat_map(Enum.uniq([job_id | waiting]), &complete(store, &1, lane, now))
     end)
+  end
+
+  defp queue_retry(store, cell_id) do
+    Store.exec!(
+      store,
+      ~s{INSERT INTO job_cells (job_id, versions_row, "set", platform, paths, status, retry_of) } <>
+        ~s{SELECT job_id, versions_row, "set", platform, paths, 'queued', id FROM job_cells WHERE id = ?1},
+      [cell_id]
+    )
+
+    retry = Store.last_id(store)
+    Store.exec!(store, "UPDATE job_cells SET duplicate_of = ?2 WHERE duplicate_of = ?1", [cell_id, retry])
+    say("[queue] cell #{cell_id} lost its instance (layer farm); retrying once as cell #{retry}")
   end
 
   # Expiring cells can release jobs whose duplicates pointed at them.
@@ -434,11 +479,11 @@ defmodule MobCi.Queue do
   def cells(store, job_id) do
     store
     |> Store.rows!(
-      ~s{SELECT id, "set", platform, paths, status, duplicate_of, exit_code, started_at, finished_at, log_path } <>
+      ~s{SELECT id, "set", platform, paths, status, duplicate_of, exit_code, started_at, finished_at, log_path, retry_of } <>
         "FROM job_cells WHERE job_id = ?1 ORDER BY id",
       [job_id]
     )
-    |> Enum.map(fn [id, set, platform, paths, status, dup, code, started, finished, log] ->
+    |> Enum.map(fn [id, set, platform, paths, status, dup, code, started, finished, log, retry_of] ->
       %{
         id: id,
         set: set,
@@ -449,7 +494,8 @@ defmodule MobCi.Queue do
         exit_code: code,
         started_at: started,
         finished_at: finished,
-        log_path: log
+        log_path: log,
+        retry_of: retry_of
       }
     end)
   end

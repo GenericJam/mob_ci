@@ -55,6 +55,56 @@ defmodule MobCi.Farm do
   @spec parse_admit(String.t()) :: boolean()
   def parse_admit(output), do: output |> String.trim() |> String.starts_with?("OK")
 
+  # ── instance loss (layer `farm`) ─────────────────────────────────────────────
+
+  # What adb and mob_dev print when the device under them went away: the
+  # transport dropped, adbd died, the container is gone. Never a plugin's or
+  # the build's doing — infrastructure, attributed to layer `farm`.
+  @lost_patterns [
+    ~r/Selected Android device\(s\) disconnected/,
+    ~r/\bdevice offline\b/,
+    ~r/\bdevice '[^']*' not found/,
+    ~r/no devices\/emulators found/,
+    ~r/\berror: closed\b/,
+    ~r/\bdevice still connecting\b/
+  ]
+
+  @doc """
+  Does `reason` (an orchestration error's reason, or any output) say the
+  device itself went away mid-path? Matches mob_dev's "Selected Android
+  device(s) disconnected" and adb's `device offline`, `device '…' not
+  found`, `no devices/emulators found`, `error: closed`, `device still
+  connecting`.
+  """
+  @spec lost_device?(term()) :: boolean()
+  def lost_device?(reason) do
+    text = if is_binary(reason), do: reason, else: inspect(reason, limit: :infinity, printable_limit: :infinity)
+    Enum.any?(@lost_patterns, &Regex.match?(&1, text))
+  end
+
+  @doc """
+  Is the instance still there? `ci-farm.sh alive <index>`: the container is
+  running and adb sees the device (after up to 10 s for an adbd restart).
+  `:alive`, `{:lost, why}`, or `:unknown` when the check itself couldn't run
+  (then nothing is re-attributed: an unproven loss must not hide a failure).
+  """
+  @spec alive(Instance.t()) :: :alive | {:lost, String.t()} | :unknown
+  def alive(%Instance{index: i}), do: parse_alive(sh(["alive", to_string(i)]))
+
+  @doc "Parse `ci-farm.sh alive` output: its last `ALIVE` / `LOST <why>` line; none is `:unknown`."
+  @spec parse_alive(String.t()) :: :alive | {:lost, String.t()} | :unknown
+  def parse_alive(output) do
+    output
+    |> String.split("\n")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reverse()
+    |> Enum.find_value(:unknown, fn
+      "ALIVE" -> :alive
+      "LOST " <> why -> {:lost, why}
+      _ -> nil
+    end)
+  end
+
   @doc "Parse `KEY=value` result lines (INDEX/SERIAL) out of script stdout."
   @spec parse_kv(String.t(), [String.t()]) :: %{optional(atom()) => term()}
   def parse_kv(output, keys) do

@@ -250,6 +250,72 @@ defmodule MobCi.QueueTest do
       assert %{published: []} = drain(store, "android")
     end
 
+    # A runner whose answers for a set come from a list, one per attempt.
+    defp drain_scripted(store, lane, answers) do
+      me = self()
+      script = Agent.start_link(fn -> answers end) |> elem(1)
+
+      Queue.drain(store, lane,
+        now: fn -> @t0 end,
+        log_dir: "/nonexistent",
+        run_cell: fn cell ->
+          send(me, {:ran, cell})
+          code = Agent.get_and_update(script, fn s -> {hd(Map.get(s, cell.set, [0])), Map.update(s, cell.set, [0], &(tl(&1) ++ [0]))} end)
+          {code, "/logs/cell-#{cell.id}.log"}
+        end,
+        publish: fn job ->
+          send(me, {:published, job.id})
+          0
+        end
+      )
+    end
+
+    test "a cell that lost its instance (exit 3) is retried once, before the rest of its job; both attempts stay", %{store: store} do
+      {:ok, id, [default, all]} = Queue.enqueue(store, job(sets: ["default", "all"]), now: @t0)
+      drain_scripted(store, "android", %{"default" => [Queue.farm_exit(), 0]})
+
+      assert ran() == [{"master", "default", "android"}, {"master", "default", "android"}, {"master", "all", "android"}]
+
+      assert [
+               %{id: d, set: "default", status: "done", exit_code: 3, retry_of: nil},
+               %{id: a, set: "all", status: "done", exit_code: 0},
+               %{set: "default", status: "done", exit_code: 0, retry_of: retried}
+             ] = Queue.cells(store, id)
+
+      assert {d, a, retried} == {default.id, all.id, default.id}
+      assert published() == [id]
+    end
+
+    test "a retry that loses its instance too is not retried again", %{store: store} do
+      {:ok, id, _} = Queue.enqueue(store, job(sets: ["default"]), now: @t0)
+      drain_scripted(store, "android", %{"default" => [3, 3, 3]})
+
+      assert length(ran()) == 2
+      assert Enum.map(Queue.cells(store, id), &{&1.exit_code, &1.status}) == [{3, "done"}, {3, "done"}]
+      assert published() == [id]
+    end
+
+    test "only exit 3 retries: a failing or erroring cell is a result", %{store: store} do
+      {:ok, _, _} = Queue.enqueue(store, job(sets: ["default", "all"]), now: @t0)
+      drain_scripted(store, "android", %{"default" => [1], "all" => [2]})
+      assert length(ran()) == 2
+    end
+
+    test "a job deferring to a cell that lost its instance waits for the retry", %{store: store} do
+      {:ok, first, _} = Queue.enqueue(store, job(sets: ["default"]), now: @t0)
+      {:ok, second, [dup]} = Queue.enqueue(store, job(sets: ["default"]), now: @t0)
+      assert dup.status == "duplicate"
+
+      # the lost attempt: neither job may complete on it
+      cell = Queue.claim(store, "android", @t0)
+      assert Queue.finish(store, cell.id, Queue.farm_exit(), "/x.log", @t0) == []
+      assert [%{duplicate_of: retry}] = Queue.cells(store, second)
+      assert retry != cell.id
+
+      drain_scripted(store, "android", %{})
+      assert Enum.sort(published()) == [first, second]
+    end
+
     test "an empty lane drains to nothing", %{store: store} do
       assert %{ran: [], published: [], recovered: 0} = drain(store, "ios")
     end
