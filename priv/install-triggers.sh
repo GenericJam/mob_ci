@@ -65,6 +65,8 @@ if [ "$ENABLE" = "--enable" ]; then
   fi
   echo "✓ timers enabled:"
   systemctl --user list-timers "${TIMERS[@]}" --no-pager || true
+elif systemctl --user is-enabled --quiet "${TIMERS[@]}" 2>/dev/null; then
+  echo "✓ timers already enabled (left as they are)"
 else
   echo "ℹ timers installed but NOT started. To enable the nightly + poller:"
   echo "    priv/install-triggers.sh --enable"

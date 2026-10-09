@@ -30,7 +30,14 @@ defmodule MobCi.InstallTriggersTest do
       File.chmod!(path, 0o755)
     end
 
-    stub.("systemctl", "exit 0\n")
+    # systemctl remembers `enable --now` so `is-enabled` can answer.
+    stub.("systemctl", """
+    case "$2" in
+      enable) touch #{root}/enabled ;;
+      is-enabled) [ -f #{root}/enabled ] || exit 1 ;;
+    esac
+    exit 0
+    """)
 
     stub.("loginctl", """
     case "$1" in
@@ -93,11 +100,16 @@ defmodule MobCi.InstallTriggersTest do
     assert Enum.count(calls, &(&1 == "loginctl enable-linger ci")) == 1
     assert Enum.count(calls, &(&1 == "systemctl --user enable --now mob-ci-nightly.timer mob-ci-poll.timer")) == 2
     assert "systemctl --user disable --now mob-ci.timer" in calls
+
+    # a later plain install leaves the enabled timers alone and says so
+    assert {out3, 0} = install(ctx, [])
+    assert out3 =~ "timers already enabled"
+    assert Enum.count(calls(ctx), &String.contains?(&1, "enable --now")) == 2
   end
 
   test "without --enable the timers are installed but not started", ctx do
     assert {out, 0} = install(ctx, [])
     assert out =~ "NOT started"
-    refute Enum.any?(calls(ctx), &String.contains?(&1, "enable"))
+    refute Enum.any?(calls(ctx), &String.contains?(&1, "enable --now"))
   end
 end
