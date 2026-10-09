@@ -120,8 +120,10 @@ defmodule MobCi.Lane.IosKeychainTest do
     assert Enum.take(read_lines(ctx.log, "codesign.args"), 3) == ["real", "--keychain", kc]
   end
 
+  # The worker half of the script (what guard.sh runs detached): the keychain
+  # set-up happens there.
   defp run(ctx, env \\ []) do
-    System.cmd("bash", ["worker/mac/mob_ci_ios_cell.sh", "--spec-b64", "e30="],
+    System.cmd("bash", ["worker/mac/mob_ci_ios_cell.sh", "--worker", "--spec-b64", "e30="],
       cd: File.cwd!(),
       stderr_to_stdout: true,
       env:
