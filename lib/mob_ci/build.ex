@@ -636,8 +636,10 @@ defmodule MobCi.Build do
       out =~ "zig version mismatch" ->
         {:error, {:toolchain, lines_matching(out, ~r/zig version mismatch/) |> List.first()}}
 
+      # lost-device lines stay too, so `farm` still takes precedence (Run.error_layer/1)
       toolchain_crash?(out) ->
-        {:error, {:jvm_crash, lines_matching(out, @jvm_crash_lines)}}
+        lines = for l <- String.split(out, "\n"), l =~ @jvm_crash_lines or MobCi.Farm.lost_device?(l), do: String.trim(l)
+        {:error, {:jvm_crash, lines}}
 
       true ->
         {:error, {:native_build, String.slice(out, -800, 800)}}

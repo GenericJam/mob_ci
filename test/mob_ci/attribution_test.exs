@@ -200,8 +200,9 @@ defmodule MobCi.AttributionTest do
         assert Run.error_layer({:build_failed, path, {:native_build, text}}) == :toolchain
       end
 
-      # a crash that also lost the device is the farm (it explains both)
-      assert Run.error_layer({:build_failed, :release, {:native_build, banner <> "\nadb: device offline"}}) == :farm
+      # a crash that also lost the device is the farm (it explains both), as classified from the output
+      {:error, both} = MobCi.Build.classify_failure(banner <> "\n" <> String.duplicate("noise\n", 200) <> "adb: device offline\n")
+      assert Run.error_layer({:build_failed, :deploy, both}) == :farm
 
       # a JVM merely mentioned isn't a crash: a Gradle compile error stays a build failure
       gradle = "> Task :app:compileReleaseKotlin FAILED\nJava Runtime Environment 21\nBUILD FAILED in 40s"
