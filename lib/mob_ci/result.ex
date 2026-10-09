@@ -28,8 +28,12 @@ defmodule MobCi.Result do
     * `:boot`              — farm boot / launch / node registration.
     * `:farm`              — the instance went away mid-path (adb transport
                              dropped, adbd died, container gone): infrastructure,
-                             not the code under test. The queue retries such a
-                             cell once; the report never counts it as a regression.
+                             not the code under test.
+    * `:toolchain`         — the build's toolchain crashed (a JVM fatal error
+                             under Gradle, `MobCi.Build.toolchain_crash?/1`):
+                             infrastructure too. The queue retries a `farm` or
+                             `toolchain` cell once; the report shows it but never
+                             counts it as a regression or a P12 baseline.
     * `{:plugin, p}`       — one plugin's own contribution misbehaved.
     * `{:plugin_unconfirmed, p}` — p's self-test failed in a larger set and
                              there is no singleton result to say whether it
@@ -51,6 +55,7 @@ defmodule MobCi.Result do
           | {:build, String.t(), atom()}
           | :boot
           | :farm
+          | :toolchain
           | {:plugin, atom()}
           | {:plugin_unconfirmed, atom()}
           | {:conflict, [atom()]}

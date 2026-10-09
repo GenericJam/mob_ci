@@ -185,6 +185,29 @@ defmodule MobCi.AttributionTest do
       assert Run.error_layer({:launch_failed, {:node_never_registered, :x}}) == :boot
     end
 
+    test "a build whose JVM crashed is the toolchain, not the build or the plugin" do
+      # mob_ci cell 105 (2026-10-09): the Gradle wrapper and its daemon both
+      # SIGSEGV'd; mob_dev kept only the tail, so the banner is gone but the
+      # hs_err path survives.
+      tail =
+        ~s{u -g%g -F%F -- %E" (or dumping to /home/kevin/hosts/android/core.417075)\n#\n} <>
+          "# An error report file with more information is saved as:\n# /home/kevin/hosts/android/hs_err_pid417075.log\n" <>
+          "[thread 417136 also had an error]\n# The crash happened outside the Java Virtual Machine in native code."
+
+      banner = "#\n# A fatal error has been detected by the Java Runtime Environment:\n#\n#  SIGSEGV (0xb) at pc=0x0000000000002400"
+
+      for path <- [:deploy, :release], text <- [tail, banner] do
+        assert Run.error_layer({:build_failed, path, {:native_build, text}}) == :toolchain
+      end
+
+      # a crash that also lost the device is the farm (it explains both)
+      assert Run.error_layer({:build_failed, :release, {:native_build, banner <> "\nadb: device offline"}}) == :farm
+
+      # a JVM merely mentioned isn't a crash: a Gradle compile error stays a build failure
+      gradle = "> Task :app:compileReleaseKotlin FAILED\nJava Runtime Environment 21\nBUILD FAILED in 40s"
+      assert Run.error_layer({:build_failed, :release, {:native_build, gradle}}) == {:build, "release:android"}
+    end
+
     test "a probe that lost its instance re-attributes its failures (not its passes) to the farm" do
       results = [
         Result.pass(:p2, "boots"),
@@ -223,7 +246,7 @@ defmodule MobCi.AttributionTest do
       File.rm_rf!(dir)
     end
 
-    test "farm_lost/1 names the paths that lost their instance (what makes ci.device exit 3)" do
+    test "infra_failed/1 names the paths infrastructure failed under (what makes ci.device exit 3)" do
       lost = "Selected Android device(s) disconnected: 127.0.0.1:5700"
 
       runs = [
@@ -231,10 +254,13 @@ defmodule MobCi.AttributionTest do
         %{path: "release:android", outcome: {:ok, [Result.pass(:p2, "boots")]}}
       ]
 
-      assert Run.farm_lost(runs) == ["deploy:android"]
+      assert Run.infra_failed(runs) == ["deploy:android"]
       probe_lost = [%{path: "deploy:android", outcome: {:fail, [Result.fail(:p2, "b", "x") |> Result.at(:farm)]}}]
-      assert Run.farm_lost(probe_lost) == ["deploy:android"]
-      assert Run.farm_lost([%{path: "deploy:android", outcome: {:error, {:build_failed, :deploy, {:native_build, "zig"}}}}]) == []
+      assert Run.infra_failed(probe_lost) == ["deploy:android"]
+      assert Run.infra_failed([%{path: "deploy:android", outcome: {:error, {:build_failed, :deploy, {:native_build, "zig"}}}}]) == []
+
+      crashed = {:build_failed, :release, {:native_build, "# /h/android/hs_err_pid299218.log"}}
+      assert Run.infra_failed([%{path: "release:android", outcome: {:error, crashed}}]) == ["release:android"]
     end
   end
 
@@ -246,6 +272,7 @@ defmodule MobCi.AttributionTest do
       assert Report.format_layer({:conflict, [:a, :b]}) == "conflict:a,b"
       assert Report.format_layer(:health) == "health"
       assert Report.format_layer(:farm) == "farm"
+      assert Report.format_layer(:toolchain) == "toolchain"
     end
 
     test "console shows @ <layer> on failing lines only" do

@@ -114,9 +114,12 @@ launches it for real. bundletool is downloaded to
 `build:deploy:android` / `build:release:android`, with `/<plugin>` when
 mob_dev's output names the failing plugin. A path whose redroid went away
 mid-path (adb or mob_dev saying the device disconnected or went offline, or
-the container/adb device gone when the path failed) is layer `farm`:
-infrastructure, retried once by the trigger queue (`mix ci.device` exits 3)
-and never a regression in the report.
+the container/adb device gone when the path failed) is layer `farm`; a build
+whose JVM crashed under Gradle (`A fatal error has been detected by the Java
+Runtime Environment` / `hs_err_pid…` in the output) is layer `toolchain`.
+Both are infrastructure: retried once by the trigger queue (`mix ci.device`
+exits 3), shown in the report, never a regression and never the P12
+singleton baseline.
 
 **P12** runs every activated plugin's self-test on the device
 (`MobDev.Plugin.SelfTest.run_all/3`, mob_dev ≥ 0.7.17), after the

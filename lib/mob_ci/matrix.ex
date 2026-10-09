@@ -95,7 +95,7 @@ defmodule MobCi.Matrix do
         version combinations are in [COMPATIBILITY.md](COMPATIBILITY.md).
 
         `✓ pass` · `✗ fail @ layer` · `! error @ layer` (the run could not
-        finish: build, boot, farm) · `– skip` · `·` never ran. Layers are
+        finish: build, boot, farm, toolchain) · `– skip` · `·` never ran. Layers are
         described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
         """
         | blocks
@@ -426,19 +426,20 @@ defmodule MobCi.Matrix do
   `pass → fail`, `pass → error` and `pass → skip → fail` regress; `fail →
   fail`, `error → fail`, a first-ever failure and `skip → fail` with no pass
   before it don't (nothing that worked broke; a skip proved nothing either
-  way). A cell at layer `farm` (its instance was lost mid-path) is neither a
-  regression nor a previous outcome: `pass → farm → fail` regresses, `pass →
-  farm` doesn't. Sorted by row order, set, path.
+  way). A cell at an infrastructure layer (`farm`: its instance was lost
+  mid-path; `toolchain`: the build's JVM crashed) is neither a regression nor
+  a previous outcome: `pass → farm → fail` regresses, `pass → toolchain`
+  doesn't. Sorted by row order, set, path.
   """
   @spec regressions([map()], [map()]) :: [map()]
   def regressions(window, history) do
     history =
       history
-      |> Enum.reject(&(&1.trigger == "replay" or Store.farm?(&1)))
+      |> Enum.reject(&(&1.trigger == "replay" or Store.infra?(&1)))
       |> Enum.group_by(&grid_key/1)
 
     window
-    |> Enum.filter(&(&1.trigger != "replay" and not Store.farm?(&1) and &1.outcome in [:fail, :error]))
+    |> Enum.filter(&(&1.trigger != "replay" and not Store.infra?(&1) and &1.outcome in [:fail, :error]))
     |> Enum.flat_map(fn cell ->
       previous =
         history

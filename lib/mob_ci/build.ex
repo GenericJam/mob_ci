@@ -690,6 +690,24 @@ defmodule MobCi.Build do
     end
   end
 
+  # What the JVM prints when it crashes under the build (the Gradle wrapper or
+  # its daemon): its fatal-error banner, or the hs_err report path, which
+  # survives when mob_dev keeps only the tail of the output.
+  @jvm_crash_patterns [
+    ~r/A fatal error has been detected by the Java Runtime Environment/,
+    ~r/hs_err_pid\d+\.log/
+  ]
+
+  @doc """
+  Did the build's toolchain itself crash (a JVM fatal error under Gradle)?
+  Such a build says nothing about the code under test: layer `toolchain`.
+  """
+  @spec toolchain_crash?(term()) :: boolean()
+  def toolchain_crash?(reason) do
+    text = if is_binary(reason), do: reason, else: inspect(reason, limit: :infinity, printable_limit: :infinity)
+    Enum.any?(@jvm_crash_patterns, &Regex.match?(&1, text))
+  end
+
   # A throwaway upload key for hosts that have no signing config of their own:
   # the release path signs exactly as a user's does (android/keystore.properties
   # → upload_jks.keystore, alias upload, JKS — the shape `mix mob.google_play`

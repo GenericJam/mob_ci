@@ -27,7 +27,8 @@ defmodule MobCi.Queue do
   it runs `mix ci.report --publish` (or `mix ci.report` where the task has no
   `--publish`) once. A cell of a job with `not_after` that has not started by
   then `expire`s (the nightly yields the farm in the morning). A cell whose
-  `mix ci.device` exits 3 lost its instance (layer `farm`) and is retried
+  `mix ci.device` exits 3 failed on infrastructure (layer `farm`: it lost its
+  instance; layer `toolchain`: the build's JVM crashed) and is retried
   once, ahead of the rest of its priority. A worker that
   starts finds what a crashed worker of its lane left behind: `running`
   cells (requeued) and jobs it completed without publishing (published).
@@ -52,7 +53,7 @@ defmodule MobCi.Queue do
   @cell_timeout_s 90 * 60
   @publish_timeout_s 15 * 60
   # `mix ci.device`: a path lost its instance (layer farm).
-  @farm_exit 3
+  @infra_exit 3
 
   # ── enqueue ──────────────────────────────────────────────────────────────────
 
@@ -205,16 +206,16 @@ defmodule MobCi.Queue do
   end
 
   @doc """
-  `mix ci.device`'s exit code for a cell that lost its instance (layer
-  `farm`): `finish/5` queues one retry of it.
+  `mix ci.device`'s exit code for a cell infrastructure failed under (layer
+  `farm` or `toolchain`): `finish/5` queues one retry of it.
   """
-  @spec farm_exit() :: 3
-  def farm_exit, do: @farm_exit
+  @spec infra_exit() :: 3
+  def infra_exit, do: @infra_exit
 
   @doc """
   Record a claimed cell's exit code and log; returns the ids of the jobs this
   completed (its own, and any whose duplicate was waiting on it). A cell
-  that exited `farm_exit/0` and is not itself a retry gets one retry (same
+  that exited `infra_exit/0` and is not itself a retry gets one retry (same
   row, set, platform and paths, `retry_of` it), claimed before anything else
   of its priority; cells that deferred to it defer to the retry instead, so
   no job completes on the lost attempt alone. Both attempts stay recorded:
@@ -232,7 +233,7 @@ defmodule MobCi.Queue do
       [[job_id, lane, retry_of]] =
         Store.rows!(store, "SELECT job_id, platform, retry_of FROM job_cells WHERE id = ?1", [cell_id])
 
-      if exit_code == @farm_exit and is_nil(retry_of), do: queue_retry(store, cell_id)
+      if exit_code == @infra_exit and is_nil(retry_of), do: queue_retry(store, cell_id)
 
       waiting =
         store
