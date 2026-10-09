@@ -304,7 +304,7 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 - **Impact on the matrix:** iPhone cells on rows before mob 0.9.16 / mob_dev
   0.7.18 stay `fail @ boot` on this Mac while the phone's WiFi is off-LAN.
 
-## F13 — mob_dev's Android deploy races the adbd restart its own `adb root` causes
+## F13 — mob_dev's Android deploy races the adbd restart its own `adb root` causes — resolved
 
 - **Upstream:** [MOB-459](https://linear.app/mobframework/issue/MOB-459).
 - **Found:** 2026-10-09 08:36 MDT, queue job 1, cell 7 (`singleton:mob_camera`
@@ -338,3 +338,13 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   `farm`, not `build:*`/`boot`/the plugin; `mix ci.device` exits 3 and the
   trigger queue reruns the cell once on a fresh instance; the report never
   counts a `farm` cell as a regression (`decisions/2026-10-09-trigger-queue.md`).
+- **Resolved:** mob_dev **0.7.22** (Hex, 2026-10-09; PR GenericJam/mob_dev#133).
+  `MobDev.AdbRoot.root/2` replaces every fixed sleep after `adb root`
+  (NativeBuild's ERTS relabel and OTP push, the Deployer's beams/priv/exqlite/
+  dist pushes, `mob.battery_bench_android`): it waits with `adb -s <serial>
+  wait-for-device` plus a `getprop sys.boot_completed; id -u` round trip until
+  the new adbd answers as uid 0 (the old one still answered for ~50 ms on an
+  emulator), bounded at 30 s (`MOB_ADB_RESTART_TIMEOUT_MS`), and fails naming
+  the serial. On emulator-5554 the restart took 0.6–2.7 s, past the old 800 ms.
+  Farm: two `singleton:mob_camera` × `rc:mob_dev@39005a3` deploy cells back to
+  back on the NUC (load 3.8–5) both 9 passed / 0 errored, no lost device.
