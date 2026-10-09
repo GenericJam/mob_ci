@@ -61,7 +61,7 @@ Latest run 2026-10-09T18:49:58Z. Core versions in this grid: mob 0.9.17 (git 5d8
 
 ## rc:mob_camera@1935c2225a14f5c5867849305e23f6823b03ca8b
 
-Latest run 2026-10-09T18:09:18Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8.
+Latest run 2026-10-09T19:10:51Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.9.
 
 | set | deploy:android | release:android |
 | --- | --- | --- |
