@@ -62,3 +62,22 @@ came back fully green (P1–P11: 8 pass, 3 honest skips).
   derives each plugin's real fingerprint from its shipped pubkey; **F4** —
   mob_screencast's undeclared host `<service>` requirement is a hard build failure
   (marked `buildable: false`).
+
+## Addendum 2026-10-09 — refreshed against the self-test releases (MOB-418)
+
+All 24 published plugins now ship a `Mob.Plugin.SelfTest` (Hex, 2026-10-09),
+which P12 runs, so `device_caps.exs` keeps only what a plugin can't say about
+itself:
+
+- `:probe` is the read-only export the plugin's own self-test calls where one
+  exists (`scanner_available/0`, `biometric_availability/0`, `sms_available/0`
+  are new). Existing probes that also work on older releases stay. A host can
+  lock a release older than the export (sloppy_joe locks mob_biometric 0.1.5
+  and mob_scanner 0.1.5), so `Probe.nif_initialized?/3` reports `:no_export`
+  when the probe function itself is undefined, and P3 records a skip for it,
+  the same as a plugin with no probe. An `undef` raised deeper in the call
+  stays an error.
+- `buildable: false` is gone for mob_screencast (F4, 0.1.3) and
+  mob_background (F10, 0.2.0). Both `singleton:<p>` cells on the `hex` row
+  built and ran on the generated `--blank` host. Only mob_nx_eigen (arm-only
+  NIF) is still marked unbuildable.
