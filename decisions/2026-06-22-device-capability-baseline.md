@@ -65,7 +65,7 @@ came back fully green (P1–P11: 8 pass, 3 honest skips).
 
 ## Addendum 2026-10-09 — refreshed against the self-test releases (MOB-418)
 
-All 24 published plugins now ship a `Mob.Plugin.SelfTest` (Hex, 2026-10-09),
+24 of the 25 published plugins (all but mob_sensors) now ship a `Mob.Plugin.SelfTest` (Hex, 2026-10-09),
 which P12 runs, so `device_caps.exs` keeps only what a plugin can't say about
 itself:
 
