@@ -56,11 +56,13 @@ defmodule MobCi.DeviceCapsTest do
   end
 
   test "buildable filters out exactly the plugins marked buildable: false; unknown plugins pass" do
-    refute DeviceCaps.buildable?(:mob_screencast)
     refute DeviceCaps.buildable?(:mob_nx_eigen)
+    # F4 / F10 resolved by mob_screencast 0.1.3 / mob_background 0.2.0
+    assert DeviceCaps.buildable?(:mob_screencast)
+    assert DeviceCaps.buildable?(:mob_background)
     assert DeviceCaps.buildable?(:mob_camera)
     assert DeviceCaps.buildable?(:mob_not_in_table)
-    assert DeviceCaps.buildable([:mob_camera, :mob_screencast, :mob_nx_eigen, :mob_midi]) == [:mob_camera, :mob_midi]
+    assert DeviceCaps.buildable([:mob_camera, :mob_screencast, :mob_nx_eigen, :mob_midi]) == [:mob_camera, :mob_screencast, :mob_midi]
     excluded = for {p, %{buildable: false}} <- DeviceCaps.table(), do: p
     assert DeviceCaps.buildable(@first_party) == @first_party -- excluded
   end

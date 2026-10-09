@@ -282,7 +282,7 @@ defmodule Mix.Tasks.Ci.Device do
   end
 
   # No --plugins: the host's default set. Harness → the fixture sample; sloppy_joe
-  # → its real buildable plugins (screencast excluded, see device_caps F4).
+  # → its real buildable plugins (minus what device_caps marks unbuildable).
   @doc false
   def resolve_set(nil, :harness), do: Plugins.sample_set()
   def resolve_set(nil, :sloppy_joe), do: DeviceCaps.buildable(Build.sloppy_joe_plugins())

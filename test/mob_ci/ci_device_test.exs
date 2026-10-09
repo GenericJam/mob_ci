@@ -19,11 +19,9 @@ defmodule Mix.Tasks.Ci.DeviceTest do
   describe "resolve_set/2" do
     test "no --plugins → the host's default set" do
       assert Device.resolve_set(nil, :harness) == Plugins.sample_set()
-      # sloppy_joe default is the real buildable set (screencast excluded, F4).
+      # sloppy_joe default is the real buildable set (device_caps drops the unbuildable).
       assert Device.resolve_set(nil, :sloppy_joe) ==
                DeviceCaps.buildable(Build.sloppy_joe_plugins())
-
-      refute :mob_screencast in Device.resolve_set(nil, :sloppy_joe)
     end
 
     test "harness CSV gets the mob_ci_ prefix when unqualified" do

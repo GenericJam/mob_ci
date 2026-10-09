@@ -31,9 +31,9 @@ defmodule MobCi.DeviceCaps do
   def for_plugin(plugin), do: Map.get(table(), plugin)
 
   @doc """
-  Is a plugin buildable on an unmodified host? `false` for plugins with a hard
-  host_requirement the CI host can't satisfy (e.g. mob_screencast's manifest
-  `<service>`). Unclassified/missing → buildable (the optimistic default).
+  Is a plugin buildable on an unmodified host? `false` for plugins the CI farm
+  can't build or load (e.g. mob_nx_eigen's arm-only NIF on the x86_64 redroid).
+  Unclassified/missing → buildable (the optimistic default).
   """
   @spec buildable?(atom()) :: boolean()
   def buildable?(plugin) do

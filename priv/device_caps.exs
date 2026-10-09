@@ -23,12 +23,18 @@
 #                is in :note and, when it is a defect, in FINDINGS.md.
 #   :note      — rationale / what the discovery run observed and when.
 #
-# Refined by discovery runs (`scripts/discovery.exs`), never guessed:
+# Refined by discovery runs (`scripts/discovery.exs`, `mix ci.device`), never guessed:
 #   2026-06-22 — the sloppy_joe set on a headless redroid (mob_dev 0.6.x).
 #   2026-10-08 — realism gate on sloppy_joe master (mob 0.9.14 / mob_dev 0.7.16,
 #                `~/mob_ci_logs/realism7.log`, `realism8.log`) and the harness
 #                discovery over the other 15 plugins (`~/mob_ci_logs/disco1.log`).
-# P12 (plugin self-tests, MOB-411/414) will make the :probe column redundant.
+#   2026-10-09 — the self-test releases (MOB-418; mob 0.9.15 / mob_dev 0.7.17):
+#                `singleton:<p>` cells on the `hex` row for mob_background and
+#                mob_screencast (`~/mob_ci_logs/caps1.log`), then `all` and
+#                `default` on `hex` (`~/mob_ci_logs/caps2.log`).
+# P12 (each plugin's own self-test) now proves native init on the hex row; a
+# :probe is the read-only export the self-test itself calls where one exists,
+# and P3 skips (not errors) when a host's locked release predates that export.
 %{
   # ── mob_ci fixtures (synthetic, emulator-native) ──────────────────────────
   mob_ci_haptic: %{nif: :mob_ci_haptic_nif, probe: {:ping, []}, screen: nil},
@@ -82,12 +88,11 @@
     nif: :mob_screencast_nif,
     probe: {:screencast_stop_stream, []},
     screen: nil,
-    buildable: false,
     note:
-      "host_requirement: <service io.mob.screencast.ScreencastService> in the host " <>
-        "AndroidManifest (F4; now declared in the manifest and warned at build) — " <>
-        "sloppy_joe declares it, the mob.new --blank harness does not, so it is " <>
-        "excluded from harness discovery sets"
+      "F4 resolved: 0.1.3 builds and boots on the generated --blank host without the " <>
+        "host's <service io.mob.screencast.ScreencastService> (a build warning; capture " <>
+        "would throw at first use). MobScreencast.SelfTest skips there naming the " <>
+        "missing <service>; stop_stream initialized (singleton:mob_screencast hex, 2026-10-09)"
   },
   mob_biometric: %{
     nif: :mob_biometric_nif,
@@ -201,11 +206,11 @@
     nif: :mob_background_nif,
     probe: {:background_stop, []},
     screen: nil,
-    buildable: false,
     note:
-      "F10: MobBackgroundBridge.kt references io.mob.background.BeamForegroundService, " <>
-        "which the plugin does not ship — the host must add the class AND the <service>; " <>
-        "on an unmodified mob.new --blank host the Kotlin build fails (discovery 2026-10-08)"
+      "F10 resolved (MOB-423): 0.2.0 ships BeamForegroundService and contributes its " <>
+        "<service>, so the --blank host builds; background_stop initialized and " <>
+        "MobBackground.SelfTest (background_status/0) passed on deploy and release " <>
+        "(singleton:mob_background hex, 2026-10-09)"
   },
   mob_vision: %{
     nif: :mob_vision_nif,
