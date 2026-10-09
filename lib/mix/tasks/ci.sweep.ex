@@ -30,7 +30,7 @@ defmodule Mix.Tasks.Ci.Sweep do
   """
   use Mix.Task
 
-  alias MobCi.{Cell, Dist, Sweep}
+  alias MobCi.{Build, Cell, Dist, Result, Store, Sweep, Versions}
 
   @switches [
     static: :boolean,
@@ -38,7 +38,8 @@ defmodule Mix.Tasks.Ci.Sweep do
     count: :integer,
     set: :string,
     versions: :string,
-    fresh: :boolean
+    fresh: :boolean,
+    store: :string
   ]
 
   @impl Mix.Task
@@ -56,12 +57,12 @@ defmodule Mix.Tasks.Ci.Sweep do
       cell && opts[:static] -> static_cell(cell, opts)
       cell && is_nil(opts[:runs]) -> static_cell(cell, opts)
       opts[:static] == true or is_nil(opts[:runs]) -> static(opts)
-      cell -> device(cell: cell, runs: opts[:runs], fresh: opts[:fresh] == true)
-      true -> device(runs: opts[:runs])
+      cell -> device([cell: cell, runs: opts[:runs], fresh: opts[:fresh] == true], cell, opts)
+      true -> device([runs: opts[:runs]], nil, opts)
     end
   end
 
-  defp device(sweep_opts) do
+  defp device(sweep_opts, cell, opts) do
     Dist.ensure!()
 
     case Sweep.device_sweep(sweep_opts) do
@@ -71,6 +72,7 @@ defmodule Mix.Tasks.Ci.Sweep do
 
       %{ran: ran} = summary ->
         Mix.shell().info("\n" <> Sweep.summarize(summary))
+        record_device(ran, cell, opts)
         failed = Enum.count(ran, fn {_subset, {v, _}} -> v in [:fail, :error] end)
 
         if failed > 0 do
@@ -84,6 +86,15 @@ defmodule Mix.Tasks.Ci.Sweep do
 
   defp static(opts) do
     findings = Sweep.static_findings(count: Keyword.get(opts, :count, 300))
+
+    result =
+      if findings == [],
+        do: Result.pass(:sweep_static, "cross_validate sound over the sampled fixture subsets"),
+        else:
+          Result.fail(:sweep_static, "cross_validate inconsistencies", "#{length(findings)} minimal inconsistency(ies)", findings)
+          |> Result.at(:static)
+
+    record_static(opts, "sweep:fixtures", "harness", nil, result)
 
     if findings == [] do
       Mix.shell().info("✓ static sweep: cross_validate is sound over the sampled subset space.")
@@ -103,6 +114,15 @@ defmodule Mix.Tasks.Ci.Sweep do
   defp static_cell(cell, opts) do
     cores = Sweep.static_conflicts(pool: cell.plugins, count: Keyword.get(opts, :count, 300))
 
+    result =
+      if cores == [],
+        do: Result.pass(:sweep_static, "every sampled subset composes (cross_validate)"),
+        else:
+          Result.fail(:sweep_static, "minimal conflicting cores", Enum.map_join(cores, "; ", &inspect/1), cores)
+          |> Result.at(:static)
+
+    record_static(opts, "sweep:#{cell.set}", row(cell), Versions.record(cell.resolved), result)
+
     if cores == [] do
       Mix.shell().info(
         "✓ static sweep: every sampled subset of #{cell.set} composes (cross_validate)."
@@ -115,5 +135,64 @@ defmodule Mix.Tasks.Ci.Sweep do
       for core <- cores, do: Mix.shell().error("  #{inspect(core)}")
       exit({:shutdown, 1})
     end
+  end
+
+  # ── the results store ───────────────────────────────────────────────────────
+
+  defp row(nil), do: "harness"
+  defp row(cell), do: Versions.row_to_string(cell.row)
+
+  defp open_run(opts, versions_row) do
+    store = Store.open!(opts[:store] || Store.default_path())
+    {:ok, run_id} = Store.record_run(store, %{trigger: "ci.sweep", versions_row: versions_row})
+    {store, run_id}
+  end
+
+  defp record_static(opts, set, versions_row, versions, result) do
+    {store, run_id} = open_run(opts, versions_row)
+    verdict = if result.status == :pass, do: :ok, else: :fail
+    meta = %{set: set, platform: :all, path: "static", versions: versions, duration_ms: nil, log_path: nil}
+    Store.record_results(store, run_id, meta, {verdict, [result]})
+    Store.close(store)
+  end
+
+  # Every sampled subset is a cell `sweep:<plugins>` on the deploy path.
+  defp record_device(ran, cell, opts) do
+    {store, run_id} = open_run(opts, row(cell))
+    versions = if cell, do: Versions.record(cell.resolved)
+
+    for {subset, outcome} <- ran do
+      meta = %{
+        set: "sweep:" <> Enum.join(subset, ","),
+        platform: :android,
+        path: Build.path_label(:deploy),
+        versions: versions,
+        duration_ms: nil,
+        log_path: nil
+      }
+
+      Store.record_results(store, run_id, meta, stored_outcome(outcome))
+    end
+
+    Mix.shell().info("recorded #{length(ran)} sweep cell(s) in #{store.path}")
+    Store.close(store)
+  end
+
+  @doc false
+  # A device-sweep subset outcome as `MobCi.Store.record_results/4` takes it.
+  # A subset that never reached the catalog failed to launch (boot) or to
+  # build (deploy path, with mob_dev's named plugin when there is one).
+  def stored_outcome({:pass, results}), do: {:ok, results}
+  def stored_outcome({verdict, results}) when verdict in [:fail, :error] and is_list(results), do: {:fail, results}
+
+  def stored_outcome({:error, reason}) do
+    layer =
+      case reason do
+        {:node_never_registered, _} -> :boot
+        {:launch_failed, _, _} -> :boot
+        other -> Build.path_failure_layer(:deploy, other)
+      end
+
+    {:error, reason, layer}
   end
 end

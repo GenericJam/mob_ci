@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Ci.Device do
   (systemd timer, git hook, Forgejo/GH adapter) is a thin wrapper that checks out
   and calls this.
 
-      mix ci.device                          # full P1–P11 on the harness sample set
+      mix ci.device                          # full P1–P12 on the harness sample set
       mix ci.device --static                 # static composability only, no device/build
       mix ci.device --plugins haptic,notes   # an explicit harness set (mob_ci_ prefix optional)
       mix ci.device --host sloppy_joe        # realism gate: the real app's buildable set
@@ -15,6 +15,8 @@ defmodule Mix.Tasks.Ci.Device do
       mix ci.device --set singleton:mob_camera --versions rc:mob@<sha>
       mix ci.device --artifacts artifacts/ci # JUnit + summary.json destination
       mix ci.device --fresh                  # regenerate the harness from scratch (no cache reuse)
+      mix ci.device --set default --paths deploy   # only the dev APK (default for a cell: deploy,release)
+      mix ci.device --store /tmp/r.sqlite    # results store (default $MOB_CI_STORE or ~/.local/share/mob_ci/results.sqlite)
 
   ## Cells: `--set` × `--versions`
 
@@ -30,6 +32,20 @@ defmodule Mix.Tasks.Ci.Device do
   in under `--static`, so the finding stays on the report until the entry is
   removed.
 
+  ## Build paths: `--paths deploy,release`
+
+  `deploy` (`deploy:android`) is the dev APK `mix mob.deploy --native`
+  installs, probed P1–P12. `release` (`release:android`) is the
+  `mix mob.release --android` bundle as a universal APK on a fresh redroid,
+  probed P2, P12, P10 and P11. A cell runs both by default; the harness and
+  sloppy_joe hosts only `deploy` (pass `--paths deploy,release` for both).
+
+  ## Results store
+
+  Every run, device or `--static`, records its cells in the SQLite store
+  (`MobCi.Store`): one run row, then per path a summary cell plus one row per
+  invariant and per plugin self-test. `mix ci.report` prints the latest grid.
+
   ## Modes
 
     * `--static` — runs only the manifest-level checks: `cross_validate` (the
@@ -38,17 +54,18 @@ defmodule Mix.Tasks.Ci.Device do
       non-zero when the set has cross-plugin conflicts — the fast pre-build gate a
       git hook can run on every push.
 
-    * default (device) — the full P1–P11 run: build the set, lease a farm slot,
-      boot, deploy, probe, assert, tear down (`MobCi.Run.run/2`). Self-starts
-      distribution (`mob_ci@127.0.0.1`, cookie `mob_secret`) so it works as a plain
-      `mix` invocation — no `elixir --name` wrapper needed. Exit 0 on pass, 1 on a
-      failing invariant, 2 on an orchestration error (boot/build/launch). Best
-      scheduled in a low-traffic window (each device build is ~minutes); the
-      systemd timer adapter does exactly that.
+    * default (device) — the full run: build the set, lease a farm slot,
+      boot, deploy, probe, assert, tear down (`MobCi.Run.run/2`), per path.
+      Self-starts distribution (`mob_ci@127.0.0.1`, cookie `mob_secret`) so it
+      works as a plain `mix` invocation — no `elixir --name` wrapper needed.
+      Exit 0 when every path passes, 1 on a failing invariant, 2 on an
+      orchestration error (boot/build/launch) in any path. Best scheduled in a
+      low-traffic window (each device build is ~minutes); the systemd timer
+      adapter does exactly that.
   """
   use Mix.Task
 
-  alias MobCi.{Build, Cell, DeviceCaps, Dist, Host, Invariants, Plugins, Report, Run}
+  alias MobCi.{Build, Cell, DeviceCaps, Dist, Host, Invariants, Plugins, Report, Result, Run, Store}
   alias MobDev.Plugin.Validator
 
   @switches [
@@ -59,7 +76,9 @@ defmodule Mix.Tasks.Ci.Device do
     artifacts: :string,
     fresh: :boolean,
     set: :string,
-    versions: :string
+    versions: :string,
+    paths: :string,
+    store: :string
   ]
 
   @impl Mix.Task
@@ -92,7 +111,7 @@ defmodule Mix.Tasks.Ci.Device do
     Mix.shell().info(plan(cell.plugins, :generated) <> Cell.describe(cell))
 
     if opts[:static] do
-      finish_static(run_static(cell.plugins), opts)
+      finish_static(run_static(cell.plugins), opts, cell_info(cell))
     else
       finish_cell(cell, opts)
     end
@@ -107,18 +126,68 @@ defmodule Mix.Tasks.Ci.Device do
     :ok
   end
 
+  defp cell_info(cell),
+    do: %{set: cell.set, versions_row: MobCi.Versions.row_to_string(cell.row), versions: MobCi.Versions.record(cell.resolved)}
+
   defp finish_cell(cell, opts) do
     Dist.ensure!()
     artifacts = opts[:artifacts] || "artifacts/ci-device"
+    paths = parse_paths(opts[:paths], [:deploy, :release])
+    info = cell_info(cell)
+    {store, run_id} = open_run(opts, info.versions_row)
 
     case Host.generate(cell.spec, cell.plugins, cell.resolved, fresh: opts[:fresh] == true) do
       {:ok, host} ->
-        report_device(Run.run(cell.plugins, host: :generated, prepared: host, artifacts_dir: artifacts), artifacts)
+        runs =
+          Run.run(cell.plugins,
+            host: :generated,
+            prepared: host,
+            paths: paths,
+            artifacts_dir: artifacts,
+            store: store,
+            run_id: run_id,
+            versions_row: info.versions_row
+          )
+
+        report_device(runs, artifacts, store)
 
       {:error, {layer, reason}} ->
+        # The host never existed: every path of the cell is an error at the
+        # generator / Elixir layer.
+        for path <- paths do
+          Store.record_results(
+            store,
+            run_id,
+            %{set: info.set, platform: :android, path: Build.path_label(path), versions: info.versions, duration_ms: nil, log_path: nil},
+            {:error, reason, to_string(layer)}
+          )
+        end
+
         Mix.shell().error("\nmob_ci device run: ERROR at layer #{layer} — #{inspect(reason)}")
         exit({:shutdown, 2})
     end
+  end
+
+  @doc false
+  # `--paths deploy,release` → [:deploy, :release]; nil → the host's default.
+  def parse_paths(nil, default), do: default
+
+  def parse_paths(csv, _default) do
+    csv
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.map(fn
+      "deploy" -> :deploy
+      "release" -> :release
+      other -> Mix.raise("unknown path #{inspect(other)} in --paths (expected: deploy, release)")
+    end)
+    |> Enum.uniq()
+  end
+
+  defp open_run(opts, versions_row) do
+    store = Store.open!(opts[:store] || Store.default_path())
+    {:ok, run_id} = Store.record_run(store, %{trigger: "ci.device", versions_row: versions_row})
+    {store, run_id}
   end
 
   # ── host + set resolution ─────────────────────────────────────────────────────
@@ -155,23 +224,52 @@ defmodule Mix.Tasks.Ci.Device do
   defp finish_device(set, host, opts) do
     Dist.ensure!()
     artifacts = opts[:artifacts] || "artifacts/ci-device"
-    report_device(Run.run(set, host: host, artifacts_dir: artifacts, fresh: opts[:fresh] == true), artifacts)
+    {store, run_id} = open_run(opts, to_string(host))
+
+    runs =
+      Run.run(set,
+        host: host,
+        paths: parse_paths(opts[:paths], [:deploy]),
+        artifacts_dir: artifacts,
+        fresh: opts[:fresh] == true,
+        store: store,
+        run_id: run_id,
+        versions_row: to_string(host)
+      )
+
+    report_device(runs, artifacts, store)
   end
 
-  defp report_device(outcome, artifacts) do
-    case outcome do
-      {:ok, _results} ->
+  defp report_device(runs, artifacts, store) do
+    for %{path: path, outcome: outcome, duration_ms: ms} <- runs do
+      Mix.shell().info("  #{path}: #{path_summary(outcome)} (#{div(ms, 1000)} s)")
+    end
+
+    Mix.shell().info("  recorded in #{store.path}")
+    Store.close(store)
+
+    case Run.verdict(runs) do
+      :ok ->
         Mix.shell().info("\nmob_ci device run: PASS (artifacts → #{artifacts})")
 
-      {:fail, results} ->
-        bad = for r <- results, r.status in [:fail, :error], do: r.id
-        Mix.shell().error("\nmob_ci device run: FAIL — #{inspect(bad)} (artifacts → #{artifacts})")
+      :fail ->
+        bad = for %{path: p, outcome: {_, results}} <- runs, r <- results, r.status in [:fail, :error], do: "#{p} #{r.id}"
+        Mix.shell().error("\nmob_ci device run: FAIL — #{Enum.join(bad, ", ")} (artifacts → #{artifacts})")
         exit({:shutdown, 1})
 
-      {:error, reason} ->
-        Mix.shell().error("\nmob_ci device run: ERROR — #{inspect(reason)}")
+      :error ->
+        bad = for %{path: p, outcome: {:error, reason}} <- runs, do: "#{p}: #{inspect(reason, limit: 8)}"
+        Mix.shell().error("\nmob_ci device run: ERROR — #{Enum.join(bad, "; ")}")
         exit({:shutdown, 2})
     end
+  end
+
+  defp path_summary({:error, reason}),
+    do: "ERROR @ #{Report.format_layer(Run.error_layer(reason) || :boot)} — #{inspect(reason, limit: 5)}"
+
+  defp path_summary({_verdict, results}) do
+    t = Report.tally(results)
+    "#{t.pass} passed, #{t.fail} failed, #{t.error} errored, #{t.skip} skipped"
   end
 
   # ── static composability ────────────────────────────────────────────────────
@@ -188,10 +286,18 @@ defmodule Mix.Tasks.Ci.Device do
     }
   end
 
+  # The harness / sloppy_joe static gate (no cell): stored under `<host>:<plugins>`.
   defp finish_static(static, opts) do
+    host = parse_host(opts[:host])
+    finish_static(static, opts, %{set: Run.set_name(static.set, host, []), versions_row: to_string(host), versions: nil})
+  end
+
+  defp finish_static(static, opts, info) do
     Mix.shell().info(static_report(static))
 
-    maybe_write_junit(opts[:junit], static)
+    result = static_result(static)
+    maybe_write_junit(opts[:junit], result)
+    record_static(opts, info, result)
 
     if static.conflicts != [] do
       Mix.shell().error("\nStatic gate: #{length(static.conflicts)} cross-plugin conflict(s) — build would be rejected.")
@@ -199,6 +305,21 @@ defmodule Mix.Tasks.Ci.Device do
     else
       Mix.shell().info("\nStatic gate: set composes cleanly.")
     end
+  end
+
+  # In --static mode the only assertable invariant is P1's static half.
+  defp static_result(%{conflicts: []}), do: Result.pass(:p1_static, "set composes cleanly (cross_validate)")
+
+  defp static_result(%{conflicts: conflicts}),
+    do: Result.fail(:p1_static, "cross-plugin conflicts", Enum.join(conflicts, "; "), conflicts) |> Result.at(:static)
+
+  defp record_static(opts, info, result) do
+    {store, run_id} = open_run(opts, info.versions_row)
+    verdict = if result.status == :pass, do: :ok, else: :fail
+    meta = %{set: info.set, platform: :all, path: "static", versions: info.versions, duration_ms: nil, log_path: nil}
+    Store.record_results(store, run_id, meta, {verdict, [result]})
+    Mix.shell().info("recorded in #{store.path}")
+    Store.close(store)
   end
 
   defp static_report(s) do
@@ -218,16 +339,10 @@ defmodule Mix.Tasks.Ci.Device do
   defp fmt([]), do: "(none)"
   defp fmt(list), do: Enum.map_join(list, ", ", &to_string/1)
 
-  defp maybe_write_junit(nil, _static), do: :ok
+  defp maybe_write_junit(nil, _result), do: :ok
 
-  defp maybe_write_junit(path, static) do
-    # In --static mode the only assertable invariant is P1's static half; emit it
-    # so a pipeline gets a JUnit artifact even from the fast path.
-    result =
-      if static.conflicts == [],
-        do: MobCi.Result.pass(:p1_static, "set composes cleanly (cross_validate)"),
-        else: MobCi.Result.fail(:p1_static, "cross-plugin conflicts", Enum.join(static.conflicts, "; "), static.conflicts)
-
+  defp maybe_write_junit(path, result) do
+    # Emit P1's static half so a pipeline gets a JUnit artifact even from the fast path.
     File.mkdir_p!(Path.dirname(path))
     File.write!(path, Report.junit([result], suite: "mob_ci.static"))
     Mix.shell().info("wrote JUnit → #{path}")

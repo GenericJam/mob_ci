@@ -152,9 +152,10 @@ defmodule MobCi.AttributionTest do
   end
 
   describe "Run.error_layer" do
-    test "host preparation and native build failures are the host's build layer" do
+    test "host preparation failures are the host's build layer; build paths are build:<path>" do
       assert Run.error_layer({:prepare_failed, "/sj", {:sloppy_joe_prep, 1, "boom"}}) == {:build, "/sj"}
-      assert Run.error_layer({:build_failed, "/sj", {:native_build, "zig"}}) == {:build, "/sj"}
+      assert Run.error_layer({:build_failed, :deploy, {:native_build, "zig"}}) == {:build, "deploy:android"}
+      assert Run.error_layer({:build_failed, :release, {:release_build, "gradle"}}) == {:build, "release:android"}
     end
 
     test "farm admission, boot and launch failures are the boot layer" do

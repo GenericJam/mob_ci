@@ -54,4 +54,42 @@ defmodule MobCi.ReportTest do
     assert summary =~ "mob_ci_haptic"
     assert summary =~ "p3"
   end
+
+  describe "grid/1 (mix ci.report)" do
+    defp cell(row, set, path, outcome, layer \\ nil, at \\ "2026-10-08T22:00:00Z"),
+      do: %{versions_row: row, set: set, path: path, outcome: outcome, layer: layer, started_at: at}
+
+    test "one block per versions row (hex first), one line per set, one column per path" do
+      grid =
+        Report.grid([
+          cell("master", "default", "deploy:android", :pass),
+          cell("hex", "singleton:mob_location", "deploy:android", :pass),
+          cell("hex", "default", "release:android", :fail, "build:release:android/mob_x", "2026-10-08T23:00:00Z"),
+          cell("hex", "default", "deploy:android", :pass),
+          cell("hex", "default", "deploy:ios_sim", :skip),
+          cell("hex", "default", "static", :error, "static")
+        ])
+
+      [hex, master] = String.split(grid, "\n\n")
+      lines = String.split(hex, "\n")
+
+      assert hd(lines) =~ "versions: hex (latest run 2026-10-08T23:00:00Z)"
+      # android paths first (static, deploy, release), then the other platforms.
+      assert Enum.at(lines, 1) =~ ~r/^  set\s+static\s+deploy:android\s+release:android\s+deploy:ios_sim$/
+      # named sets before singletons; every cell shows glyph, outcome and layer.
+      assert Enum.at(lines, 2) =~
+               ~r/^  default\s+! error @ static\s+✓ pass\s+✗ fail @ build:release:android\/mob_x\s+– skip$/
+
+      # a cell that never ran is a dot, not a pass.
+      assert Enum.at(lines, 3) =~ ~r/^  singleton:mob_location\s+·\s+✓ pass\s+·\s+·$/
+      assert hex =~ "2 passed, 1 failed, 1 errored, 1 skipped"
+
+      assert master =~ "versions: master"
+      assert master =~ ~r/default\s+✓ pass/
+    end
+
+    test "an empty store says so" do
+      assert Report.grid([]) == "no results in the store yet"
+    end
+  end
 end

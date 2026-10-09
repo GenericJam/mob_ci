@@ -628,6 +628,208 @@ defmodule MobCi.Build do
     |> Enum.map(&String.trim/1)
   end
 
+  @doc """
+  The plugin mob_dev named in a classified build failure, when it named one:
+  the first plugin of a signature-gate refusal, else the first
+  `plugin :mob_x` in the output tail (mob_dev's wording for every per-plugin
+  build error), else the first `deps/mob_x/` source path a compiler error
+  points into. nil when the failure names no plugin (toolchain, gradle).
+  """
+  @spec failing_plugin(term()) :: atom() | nil
+  def failing_plugin({:signature_gate, lines}) when is_list(lines), do: first_plugin(Enum.join(lines, "\n"))
+  def failing_plugin({:native_build, tail}) when is_binary(tail), do: first_plugin(tail)
+  def failing_plugin({:release_build, tail}) when is_binary(tail), do: first_plugin(tail)
+  def failing_plugin(_reason), do: nil
+
+  defp first_plugin(text) do
+    named = Regex.run(~r/plugin :(mob_[a-z0-9_]+)/, text, capture: :all_but_first)
+
+    path =
+      ~r{deps/(mob_[a-z0-9_]+)/}
+      |> Regex.scan(text, capture: :all_but_first)
+      |> List.flatten()
+      |> Enum.reject(&(&1 in ["mob_dev", "mob_new"]))
+
+    case named || path do
+      [name | _] -> String.to_atom(name)
+      _ -> nil
+    end
+  end
+
+  # ── the release path (`mix mob.release --android`, MOB-414) ──────────────────
+
+  @doc """
+  A cell's build-path label: `:deploy` is the dev APK `mix mob.deploy
+  --native` installs, `:release` the `mix mob.release --android` bundle.
+  """
+  @spec path_label(:deploy | :release) :: String.t()
+  def path_label(:deploy), do: "deploy:android"
+  def path_label(:release), do: "release:android"
+
+  @doc """
+  The layer of a build path that failed outright: `build:<path>`, or
+  `build:<path>/<plugin>` when mob_dev's output named the failing plugin
+  (`failing_plugin/1`).
+  """
+  @spec path_failure_layer(:deploy | :release, term()) :: MobCi.Result.layer()
+  def path_failure_layer(path, reason) do
+    case failing_plugin(reason) do
+      nil -> {:build, path_label(path)}
+      plugin -> {:build, path_label(path), plugin}
+    end
+  end
+
+  # A throwaway upload key for CI hosts: the release path signs exactly as a
+  # user's does (android/keystore.properties → upload_jks.keystore, alias
+  # upload, JKS — the shape `mix mob.google_play` writes); the key itself never
+  # leaves the generated host dir.
+  @release_keystore "upload_jks.keystore"
+  @release_key_alias "upload"
+  @release_key_pass "mob_ci_release"
+
+  @doc "The `android/keystore.properties` body for the CI upload key."
+  @spec keystore_properties() :: String.t()
+  def keystore_properties do
+    """
+    storeFile=#{@release_keystore}
+    storePassword=#{@release_key_pass}
+    keyAlias=#{@release_key_alias}
+    keyPassword=#{@release_key_pass}
+    """
+  end
+
+  @doc "`keytool` args creating the CI upload key at `path`."
+  @spec keytool_args(Path.t()) :: [String.t()]
+  def keytool_args(path) do
+    ~w(-genkeypair -keystore #{path} -storetype JKS -alias #{@release_key_alias} -keyalg RSA
+       -keysize 2048 -validity 10000 -storepass #{@release_key_pass} -keypass #{@release_key_pass}
+       -dname CN=mob_ci)
+  end
+
+  @doc "Write the CI upload key + keystore.properties into a host, unless it has them."
+  @spec ensure_release_keystore(Path.t()) :: :ok | {:error, term()}
+  def ensure_release_keystore(dir) do
+    ks = Path.join(dir, "android/#{@release_keystore}")
+    props = Path.join(dir, "android/keystore.properties")
+
+    with :ok <- if(File.exists?(ks), do: :ok, else: keytool(ks)) do
+      File.write(props, keystore_properties())
+    end
+  end
+
+  defp keytool(ks) do
+    case run(System.find_executable("keytool") || "keytool", keytool_args(ks)) do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, {:keytool, reason}}
+    end
+  end
+
+  @doc "Where the release AAB lands (`mix mob.release --android` output)."
+  @spec release_aab(Path.t()) :: Path.t()
+  def release_aab(dir), do: Path.join(dir, "android/app/build/outputs/bundle/release/app-release.aab")
+
+  @doc """
+  Build the host's release bundle with `mix mob.release --android` and turn it
+  into one installable universal APK (`bundletool build-apks --mode=universal`,
+  signed with the same upload key). `log: path` keeps the release build's
+  complete output. Returns `{:ok, apk}`, or the failure classified as
+  `classify_failure/1` does (a release that fails with output naming no
+  known cause is `{:error, {:release_build, tail}}`).
+  """
+  @spec build_release(Path.t(), keyword()) :: {:ok, Path.t()} | {:conflict, [String.t()]} | {:error, term()}
+  def build_release(dir, opts \\ []) do
+    with :ok <- ensure_release_keystore(dir),
+         :ok <- mob_release(dir, Keyword.get(opts, :log)) do
+      universal_apk(dir)
+    end
+  end
+
+  defp mob_release(dir, log) do
+    File.rm(release_aab(dir))
+    {out, code} = sh(["mob.release", "--android"], dir)
+
+    if log do
+      File.mkdir_p!(Path.dirname(log))
+      File.write!(log, out)
+    end
+
+    cond do
+      code == 0 and File.exists?(release_aab(dir)) -> :ok
+      code == 0 -> {:error, {:release_build, "mob.release exited 0 but wrote no #{release_aab(dir)}"}}
+      true -> classify_release_failure(out)
+    end
+  end
+
+  @doc """
+  `classify_failure/1` for the release build: the same conflict, signature
+  and toolchain shapes; anything else is `{:release_build, tail}`.
+  """
+  @spec classify_release_failure(String.t()) :: {:conflict, [String.t()]} | {:error, term()}
+  def classify_release_failure(out) do
+    case classify_failure(out) do
+      {:error, {:native_build, tail}} -> {:error, {:release_build, tail}}
+      other -> other
+    end
+  end
+
+  @bundletool_version "1.18.3"
+
+  @doc """
+  The bundletool jar: `$MOB_CI_BUNDLETOOL`, else
+  `~/.local/share/mob_ci/bundletool-all-#{@bundletool_version}.jar`
+  (downloaded from the google/bundletool release on first use).
+  """
+  @spec bundletool_jar() :: Path.t()
+  def bundletool_jar do
+    System.get_env("MOB_CI_BUNDLETOOL") ||
+      Path.expand("~/.local/share/mob_ci/bundletool-all-#{@bundletool_version}.jar")
+  end
+
+  @doc "`java` args turning `aab` into a universal `.apks` set signed with the CI upload key at `ks`."
+  @spec bundletool_args(Path.t(), Path.t(), Path.t(), Path.t()) :: [String.t()]
+  def bundletool_args(jar, aab, apks, ks) do
+    [
+      "-jar", jar, "build-apks", "--mode=universal", "--overwrite",
+      "--bundle=#{aab}", "--output=#{apks}",
+      "--ks=#{ks}", "--ks-key-alias=#{@release_key_alias}",
+      "--ks-pass=pass:#{@release_key_pass}", "--key-pass=pass:#{@release_key_pass}"
+    ]
+  end
+
+  defp universal_apk(dir) do
+    out = Path.join(dir, "_build/mob_ci_release")
+    File.mkdir_p!(out)
+    apks = Path.join(out, "app-release.apks")
+
+    with {:ok, jar} <- ensure_bundletool(),
+         ks = Path.join(dir, "android/#{@release_keystore}"),
+         {:ok, _} <- run(System.find_executable("java") || "java", bundletool_args(jar, release_aab(dir), apks, ks)),
+         {:ok, [apk]} <- :zip.unzip(String.to_charlist(apks), file_list: [~c"universal.apk"], cwd: String.to_charlist(out)) do
+      {:ok, to_string(apk)}
+    else
+      {:ok, []} -> {:error, {:bundletool, "no universal.apk in #{apks}"}}
+      {:error, reason} -> {:error, {:bundletool, reason}}
+    end
+  end
+
+  defp ensure_bundletool do
+    jar = bundletool_jar()
+
+    if File.exists?(jar) do
+      {:ok, jar}
+    else
+      url =
+        "https://github.com/google/bundletool/releases/download/#{@bundletool_version}/bundletool-all-#{@bundletool_version}.jar"
+
+      File.mkdir_p!(Path.dirname(jar))
+
+      case run("curl", ["-fsSL", "-o", jar <> ".part", url]) do
+        {:ok, _} -> with(:ok <- File.rename(jar <> ".part", jar), do: {:ok, jar})
+        err -> err
+      end
+    end
+  end
+
   @doc "Locate the harness's built debug APK (for P6 permission reading)."
   @spec locate_apk(Path.t()) :: {:ok, Path.t()} | {:error, :apk_not_found}
   def locate_apk(dir) do
