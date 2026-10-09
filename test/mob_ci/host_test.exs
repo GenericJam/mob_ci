@@ -48,11 +48,51 @@ defmodule MobCi.HostTest do
     end
   end
 
-  describe "deps_block/2" do
-    test "core first, ecto, then the plugins; each line is the rendered tuple" do
+  @generated """
+  defmodule CiX.MixProject do
+    use Mix.Project
+
+    def project, do: [app: :ci_x, version: "0.1.0", deps: deps()]
+
+    defp deps do
+      [
+        {:mob,     "~> 0.9.8"},
+        {:mob_dev, "~> 0.7.7", only: :dev, runtime: false},
+        {:ecto_sqlite3, "~> 0.18"},
+        # Code quality
+        {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+        {:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false}
+      ]
+    end
+
+    defp aliases, do: []
+  end
+  """
+
+  describe "deps_block/3 and generated_extras/1" do
+    test "extras are the generated deps the row doesn't pin (ecto, credo, …), never mob/mob_dev/plugins" do
+      assert Host.generated_extras(@generated) == [
+               ~s|{:ecto_sqlite3, "~> 0.18"}|,
+               ~s|{:credo, "~> 1.7", only: [:dev, :test], runtime: false}|,
+               ~s|{:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false}|
+             ]
+
+      with_plugin =
+        String.replace(
+          @generated,
+          ~s|{:ecto_sqlite3, "~> 0.18"},|,
+          ~s|{:ecto_sqlite3, "~> 0.18"},\n      {:mob_camera, "~> 0.1"},|
+        )
+
+      refute Enum.any?(Host.generated_extras(with_plugin), &(&1 =~ "mob_camera"))
+      assert Host.generated_extras("defmodule X do\nend\n") == []
+    end
+
+    test "core first, then the extras, then the plugins; each line is the rendered tuple" do
       block =
         Host.deps_block(
           [{:mob, "== 0.9.14"}, {:mob_dev, "== 0.7.16", only: :dev, runtime: false}],
+          [~s|{:ecto_sqlite3, "~> 0.18"}|],
           [{:mob_camera, "== 0.1.12"}]
         )
 
@@ -73,46 +113,32 @@ defmodule MobCi.HostTest do
     end
 
     test "splice_deps replaces only the generated deps block and the result is valid Elixir" do
-      generated = """
-      defmodule CiX.MixProject do
-        use Mix.Project
-
-        def project, do: [app: :ci_x, version: "0.1.0", deps: deps()]
-
-        defp deps do
-          [
-            {:mob,     "~> 0.9.8"},
-            {:mob_dev, "~> 0.7.7", only: :dev, runtime: false},
-            {:ecto_sqlite3, "~> 0.18"}
-          ]
-        end
-
-        defp aliases, do: []
-      end
-      """
-
       resolved = %{row: :master, repos: @git_pins}
 
       block =
         Host.deps_block(
           Versions.core_deps(resolved),
+          Host.generated_extras(@generated),
           Versions.plugin_deps(resolved, [:mob_camera])
         )
 
-      patched = Host.splice_deps(generated, block)
+      patched = Host.splice_deps(@generated, block)
 
       refute patched =~ "~> 0.9.8"
       assert patched =~ ~s|{:mob, path: "/cache/src/mob/#{@sha}", override: true}|
       assert patched =~ ~s|{:mob_camera, path: "/cache/src/mob_camera/#{@sha}", override: true}|
+      assert patched =~ ~s|{:ecto_sqlite3, "~> 0.18"}|
+      assert patched =~ ~s|{:credo, "~> 1.7"|
       assert patched =~ "defp aliases, do: []"
       assert {:ok, _} = Code.string_to_quoted(patched)
     end
   end
 
-  describe "mob_exs/3 and trust/2" do
-    test "activates the set, trusts every plugin on the first-party key, acknowledges the unsigned" do
+  describe "mob_exs/4, mob_dir/2 and trust/2" do
+    test "activates the set, trusts every plugin on the first-party key, acknowledges the checkouts" do
       body =
         Host.mob_exs(
+          "/h/deps/mob",
           [:mob_camera, :mob_midi],
           %{mob_camera: Host.first_party_key(), mob_midi: Host.first_party_key()},
           [:mob_midi]
@@ -124,33 +150,46 @@ defmodule MobCi.HostTest do
                ~s|config :mob, :trusted_plugins, %{mob_camera: "#{Host.first_party_key()}", mob_midi: "#{Host.first_party_key()}"}|
 
       assert body =~ "config :mob, :acknowledge_unsafe_plugins, [:mob_midi]"
-      assert body =~ ~s|mob_dir: Path.join(File.cwd!(), "deps/mob")|
+      assert body =~ ~s|mob_dir: "/h/deps/mob"|
       refute body =~ "mob.local.exs"
       assert {:ok, _} = Code.string_to_quoted(body)
+    end
+
+    test "mob_dir is deps/mob for a Hex mob and the pinned checkout for a git mob (path deps never land under deps/)" do
+      assert Host.mob_dir("/h", %{row: :hex, repos: @hex_pins}) == "/h/deps/mob"
+      assert Host.mob_dir("/h", %{row: :master, repos: @git_pins}) == "/cache/src/mob/#{@sha}"
+      # rc on another repo: mob is still Hex
+      assert Host.mob_dir("/h", %{
+               row: {:rc, :mob_camera, "abc"},
+               repos: %{@hex_pins | mob_camera: @git_pins.mob_camera}
+             }) == "/h/deps/mob"
     end
 
     test "the first-party key is the one mob_new's template pre-trusts" do
       assert Host.first_party_key() == "ed25519:nc56w+1Kx0gIt/4EkHxnMZCKHMzp4+S5kS/HoSzEZkg="
     end
 
-    test "trust reads deps/<p>/priv/mob_plugin.sig: signed → trusted only, unsigned → also acknowledged" do
-      deps =
-        Path.join(System.tmp_dir!(), "mob_ci_host_deps_#{System.unique_integer([:positive])}")
+    test "trust acknowledges exactly the plugins the row supplies as git checkouts; a Hex release never" do
+      mixed =
+        %{@hex_pins | mob_camera: @git_pins.mob_camera}
+        |> Map.put(:mob_midi, @hex_pins.mob_camera)
 
-      on_exit(fn -> File.rm_rf!(deps) end)
-      File.mkdir_p!(Path.join(deps, "mob_signed/priv"))
-      File.write!(Path.join(deps, "mob_signed/priv/mob_plugin.sig"), "sig")
-      File.mkdir_p!(Path.join(deps, "mob_path/priv"))
+      {trusted, acknowledged} =
+        Host.trust([:mob_camera, :mob_midi], %{row: {:rc, :mob_camera, "a"}, repos: mixed})
 
-      {trusted, unsigned} = Host.trust([:mob_signed, :mob_path, :mob_missing], deps)
+      assert trusted == %{mob_camera: Host.first_party_key(), mob_midi: Host.first_party_key()}
+      assert acknowledged == [:mob_camera]
 
-      assert trusted == %{
-               mob_signed: Host.first_party_key(),
-               mob_path: Host.first_party_key(),
-               mob_missing: Host.first_party_key()
-             }
+      assert {_, []} = Host.trust([:mob_camera], %{row: :hex, repos: @hex_pins})
+      assert {_, [:mob_camera]} = Host.trust([:mob_camera], %{row: :master, repos: @git_pins})
+    end
 
-      assert unsigned == [:mob_path, :mob_missing]
+    test "generator_id is the mob_new pin, so a new mob_new release or sha regenerates a reused host" do
+      assert Host.generator_id(%{row: :hex, repos: @hex_pins}) == "0.6.7 hex"
+      assert Host.generator_id(%{row: :master, repos: @git_pins}) == "0.6.8 #{@sha}"
+
+      assert Host.generator_id(%{row: :hex, repos: @hex_pins}) !=
+               Host.generator_id(%{row: :hex, repos: put_in(@hex_pins.mob_new.version, "0.6.8")})
     end
   end
 
@@ -210,6 +249,23 @@ defmodule MobCi.HostTest do
 
     mob_exs = File.read!(Path.join(host.dir, "mob.exs"))
     assert mob_exs =~ "config :mob, :plugins, #{inspect(cell.plugins)}"
+    assert mob_exs =~ ~s|mob_dir: "#{Path.join(host.dir, "deps/mob")}"|
+    assert mob_exs =~ "config :mob, :acknowledge_unsafe_plugins, []"
+
+    # the deploy prep the harness does: local.properties with the real mob_dir, icons, reuse marker
+    props = File.read!(Path.join(host.dir, "android/local.properties"))
+    assert props =~ "mob.mob_dir=#{Path.join(host.dir, "deps/mob")}"
+    refute props =~ "/path/to/"
+
+    assert Path.wildcard(
+             Path.join(host.dir, "android/app/src/main/res/mipmap-*/ic_launcher*.png")
+           ) != []
+
+    assert File.read!(Path.join(host.dir, ".mob_ci_generator")) ==
+             Host.generator_id(cell.resolved)
+
+    # the row's mob_new extras survive the deps rewrite
+    assert mix_exs =~ "{:ecto_sqlite3,"
     assert File.dir?(Path.join(host.dir, "_build/dev/lib/mob"))
 
     for p <- cell.plugins,

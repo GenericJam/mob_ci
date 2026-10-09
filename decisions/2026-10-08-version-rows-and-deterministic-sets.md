@@ -47,7 +47,12 @@ and mob_dev on Hex are only depended on; Mix fetches them.
 
 Network and disk sit behind `MobCi.Versions.Remote`, a map of four functions
 (`hex_latest`, `git_head`, `checkout`, `hex_unpack`), so resolution is
-unit-tested with nothing fetched. `Versions.record/1` is the serialisable
+unit-tested with nothing fetched; the git side is tested against a local
+repository. Resolvers sharing a cache take a mkdir lock per repo / tarball
+(`<cache>/locks`; stale after ten minutes, waiters outlast that), stale
+worktree registrations are pruned before a checkout is added, and a tarball
+is extracted beside its final path and renamed in, so a half-extracted tree
+is never visible. `Versions.record/1` is the serialisable
 form stored with results: `%{row: "rc:mob@abc…", repos: %{mob: %{version,
 sha, source: "hex" | "git:<url>@<sha>", dir}}}`.
 
@@ -60,23 +65,34 @@ A host for (set, row) is `mix mob.new ci_<set>_<row> --blank --android
 `--local` needs both mob and mob_dev as checkouts, so an `rc:` row generates
 non-local and gets its one path dep from the rewrite below). Then:
 
-- `mix.exs`'s `defp deps` is replaced with `Versions.core_deps/1` + ecto +
+- `mix.exs`'s `defp deps` is replaced with `Versions.core_deps/1`, the
+  generated lines the row doesn't pin (ecto_sqlite3, credo, ex_slop — what
+  that mob_new chose; `Host.generated_extras/1`) and
   `Versions.plugin_deps/2`, rendered by `Versions.render_dep/1` (the same
   tuples the fixture harness's `Build.deps_block/3` takes);
 - `mix deps.get`;
-- `mob.exs` is written with `config :mob, :plugins` (the set),
-  `:trusted_plugins` (every activated plugin on the shared release key
+- `mob.exs` is written with `mob_dir` (`deps/mob` for a Hex mob; the pinned
+  checkout on a git row — a `path:` dep never lands under `deps/`, and
+  mob_dev's MobDirCheck compares the two), `config :mob, :plugins` (the
+  set), `:trusted_plugins` (every activated plugin on the shared release key
   fingerprint mob_new's template pre-trusts) and `:acknowledge_unsafe_plugins`
-  (the plugins whose `deps/<p>/priv/mob_plugin.sig` is missing: path
-  checkouts and unsigned releases, as mob_new's `--local` does);
-- `mix compile`.
+  (exactly the plugins the row supplies as git checkouts, as mob_new's
+  `--local` does; a Hex release is never acknowledged, so one shipped
+  without its signature fails the gate here as it does for a user);
+- `mix compile`, then `android/local.properties` (sdk, OTP cache, the same
+  mob_dir) and `mix mob.icon` — the prep `mix mob.deploy` needs, as the
+  fixture harness does.
 
-Generation failures are layer `mob_new`; `deps.get`/`compile` failures are
-layer `elixir`; the APK build stays `MobCi.Build.deploy/2`'s. Hosts live
-under `fixtures/_hosts/<app>` (gitignored) and are reused for cache; `--fresh`
-regenerates. The fixture harness stays as is for the fixture plugins — it is
-the only host that carries a P5 showcase screen; a generated host reports
-P5 as "no showcase screen" rather than pushing a module that isn't there.
+Generation failures are layer `mob_new`; `deps.get`, `compile` and
+`mob.icon` failures are layer `elixir`; the APK build stays
+`MobCi.Build.deploy/2`'s. Hosts live under `fixtures/_hosts/<app>`
+(gitignored) and are reused for cache only while the same mob_new pin
+generated them (`.mob_ci_generator` holds `version sha`; a new mob_new
+release or sha regenerates, as does `--fresh`). The fixture harness stays
+as is for the fixture plugins — it is the only host that carries a P5
+showcase screen; a generated host has none, which P5 must report as a skip
+(open, invariants.ex is MOB-412's) rather than push a module that isn't
+there.
 
 ### `MobCi.Sets` — named, deterministic, committed
 
@@ -149,6 +165,12 @@ with a cell.
 - Open: P5 for generated hosts needs a showcase convention real plugins
   follow (fixtures ship `widget/1`; mob_scene3d doesn't). P12 (MOB-414) will
   call `MobDev.Plugin.SelfTest.run_all/3` on the generated host's node.
-- Open: the trust map pins the shared release key. A Hex release signed with
-  another key fails the gate at build time — a real finding for a user whose
-  mob.exs came from `mix mob.new`, but it blocks the whole set.
+- The trust map pins the shared release key and acknowledges only git
+  checkouts. A Hex release signed with another key, or shipped unsigned,
+  fails the gate at build time — a real finding for a user whose mob.exs
+  came from `mix mob.new`, but it blocks the whole set; the plugin's
+  singleton isolates it.
+- A cell resolves mob_new once: the pin the `default` set was read from is
+  the one the host is generated with and stamped as. The greedy array's
+  first row is the whole pool, which `all` already builds, so
+  `Sets.nightly/0` skips it.

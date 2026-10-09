@@ -32,8 +32,9 @@ defmodule MobCi.Cell do
          {:ok, spec} <- Sets.parse(set_name),
          {:ok, core} <- resolve(row, [:mob, :mob_dev, :mob_new], opts),
          {:ok, plugins} <- set_plugins(spec, core, Keyword.take(opts, [:include_excluded])),
-         {:ok, full} <- resolve(row, plugins, opts) do
-      resolved = %{core | repos: Map.merge(core.repos, full.repos)}
+         {:ok, more} <- resolve(row, plugins, Keyword.put(opts, :mob_new, false)) do
+      # One mob_new pin per cell: the one the `default` set was read from.
+      resolved = %{core | repos: Map.merge(more.repos, core.repos)}
       Plugins.put_resolved_dirs(Versions.source_dirs(resolved))
       {:ok, %{row: row, spec: spec, set: Sets.name(spec), plugins: plugins, resolved: resolved}}
     end
@@ -83,7 +84,9 @@ defmodule MobCi.Cell do
 
       excluded ->
         Enum.map_join(excluded, "", fn {p, reason} ->
-          state = if p in plugins, do: "included for the static gate", else: "excluded from built sets"
+          state =
+            if p in plugins, do: "included for the static gate", else: "excluded from built sets"
+
           "  #{p}: #{state} — #{reason}\n"
         end)
     end

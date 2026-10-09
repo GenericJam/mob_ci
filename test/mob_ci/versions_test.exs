@@ -203,9 +203,22 @@ defmodule MobCi.VersionsTest do
                )
     end
 
-    test "mob_new is always resolved even when not asked for", %{remote: remote, tmp: tmp} do
+    test "mob_new is resolved even when not asked for, unless mob_new: false", %{
+      remote: remote,
+      tmp: tmp
+    } do
       assert {:ok, r} = Versions.resolve(:hex, remote: remote, cache_dir: tmp, names: [:mob])
       assert Map.keys(r.repos) |> Enum.sort() == [:mob, :mob_new]
+
+      assert {:ok, r} =
+               Versions.resolve(:hex,
+                 remote: remote,
+                 cache_dir: tmp,
+                 names: [:mob],
+                 mob_new: false
+               )
+
+      assert Map.keys(r.repos) == [:mob]
     end
   end
 

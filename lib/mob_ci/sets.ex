@@ -147,7 +147,10 @@ defmodule MobCi.Sets do
   @spec nightly() :: [String.t()]
   def nightly do
     singletons = for p <- pool(include_excluded: true), do: "singleton:#{p}"
-    pairwise = for i <- 0..(length(pairwise_rows()) - 1)//1, do: "pairwise:#{i}"
+    # The greedy array's first row is the whole pool (ties go to "on"), which
+    # `all` already builds; don't run it twice.
+    pool = pool()
+    pairwise = for {row, i} <- Enum.with_index(pairwise_rows()), row != pool, do: "pairwise:#{i}"
     ["blank", "default"] ++ singletons ++ ["all"] ++ pairwise ++ ["demo"] ++ file_names()
   end
 
@@ -181,7 +184,8 @@ defmodule MobCi.Sets do
 
   @doc """
   What this mob_new's `mix mob.new` (non-blank) activates — read from its
-  `MobNew.ProjectGenerator.assigns/2` by running `mix run` inside the checkout,
+  `MobNew.ProjectGenerator.assigns/2` by running `mix run` inside the checkout
+  (after `mix deps.get` there, in prod so only its runtime deps are fetched),
   so the list follows the resolved row rather than this repo's memory of it.
   """
   @spec default_plugins(Path.t()) :: {:ok, [atom()]} | {:error, term()}
@@ -189,19 +193,19 @@ defmodule MobCi.Sets do
     expr =
       ~s|IO.write("MOB_CI_DEFAULT " <> Enum.join(MobNew.ProjectGenerator.assigns("mob_ci_probe", []).mob_plugins, " "))|
 
-    case System.cmd("mix", ["run", "--no-start", "-e", expr],
-           cd: mob_new_dir,
-           env: [{"MIX_ENV", "prod"}],
-           stderr_to_stdout: true
-         ) do
-      {out, 0} ->
-        case Regex.run(~r/MOB_CI_DEFAULT ?(.*)$/m, out) do
-          [_, list] -> {:ok, list |> String.split(" ", trim: true) |> Enum.map(&String.to_atom/1)}
-          nil -> {:error, {:default_plugins, :no_marker, String.slice(out, -400, 400)}}
-        end
+    with {:ok, _} <- mob_new_mix(["deps.get"], mob_new_dir),
+         {:ok, out} <- mob_new_mix(["run", "--no-start", "-e", expr], mob_new_dir) do
+      case Regex.run(~r/MOB_CI_DEFAULT ?(.*)$/m, out) do
+        [_, list] -> {:ok, list |> String.split(" ", trim: true) |> Enum.map(&String.to_atom/1)}
+        nil -> {:error, {:default_plugins, :no_marker, String.slice(out, -400, 400)}}
+      end
+    end
+  end
 
-      {out, code} ->
-        {:error, {:default_plugins, code, String.slice(out, -400, 400)}}
+  defp mob_new_mix(args, dir) do
+    case System.cmd("mix", args, cd: dir, env: [{"MIX_ENV", "prod"}], stderr_to_stdout: true) do
+      {out, 0} -> {:ok, out}
+      {out, code} -> {:error, {:default_plugins, hd(args), code, String.slice(out, -400, 400)}}
     end
   end
 

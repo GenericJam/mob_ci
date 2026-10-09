@@ -7,7 +7,13 @@ defmodule MobCi.SetsTest do
     test "is the first-party plugins minus unbuildable (device_caps) minus the committed exclusions, in committed order" do
       pool = Sets.pool()
       excluded = Keyword.keys(Sets.exclusions())
-      assert pool == Enum.filter(Versions.plugins(), &(DeviceCaps.buildable?(&1) and &1 not in excluded))
+
+      assert pool ==
+               Enum.filter(
+                 Versions.plugins(),
+                 &(DeviceCaps.buildable?(&1) and &1 not in excluded)
+               )
+
       assert :mob_camera in pool
       # mob_screencast's manifest <service> can't build on an unmodified host (F4).
       refute :mob_screencast in pool
@@ -16,7 +22,10 @@ defmodule MobCi.SetsTest do
     test "every exclusion names a buildable first-party plugin and a FINDINGS entry" do
       for {plugin, reason} <- Sets.exclusions() do
         assert plugin in Versions.plugins()
-        assert DeviceCaps.buildable?(plugin), "#{plugin} is unbuildable; device_caps already excludes it"
+
+        assert DeviceCaps.buildable?(plugin),
+               "#{plugin} is unbuildable; device_caps already excludes it"
+
         assert reason =~ ~r/^F\d+: /
       end
     end
@@ -174,7 +183,10 @@ defmodule MobCi.SetsTest do
     test "blank is empty, all is the pool, a singleton is itself, a pairwise row is the committed row" do
       assert Sets.resolve(:blank, []) == {:ok, []}
       assert Sets.resolve(:all, []) == {:ok, Sets.pool()}
-      assert Sets.resolve(:all, include_excluded: true) == {:ok, Sets.pool(include_excluded: true)}
+
+      assert Sets.resolve(:all, include_excluded: true) ==
+               {:ok, Sets.pool(include_excluded: true)}
+
       # an excluded plugin still has its singleton: alone it doesn't collide
       [{excluded, _} | _] = Sets.exclusions()
       assert Sets.resolve({:singleton, excluded}, []) == {:ok, [excluded]}
@@ -225,7 +237,8 @@ defmodule MobCi.SetsTest do
     end
 
     test "default reports a generator that cannot be run" do
-      assert {:error, {:default_plugins, _, _}} = Sets.default_plugins(System.tmp_dir!())
+      assert {:error, {:default_plugins, "deps.get", 1, _}} =
+               Sets.default_plugins(System.tmp_dir!())
     end
   end
 
@@ -239,8 +252,13 @@ defmodule MobCi.SetsTest do
     assert Enum.find_index(names, &(&1 == "all")) >
              Enum.find_index(names, &(&1 == List.last(singletons)))
 
+    # every pairwise row except the one identical to `all` (the greedy array's first)
+    pool = Sets.pool()
+
     assert Enum.count(names, &String.starts_with?(&1, "pairwise:")) ==
-             length(Sets.pairwise_rows())
+             Enum.count(Sets.pairwise_rows(), &(&1 != pool))
+
+    assert "pairwise:0" not in names and Enum.at(Sets.pairwise_rows(), 0) == pool
 
     assert "demo" in names
     for name <- names, do: assert({:ok, _} = Sets.parse(name))

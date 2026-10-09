@@ -88,21 +88,28 @@ defmodule MobCi.Versions.Remote do
   # One resolver at a time per repo / tarball across OS processes (two rows
   # resolving at once would race `git fetch` / `worktree add` on the shared
   # clone, or unpack into the same dir): an atomic `mkdir` lock under
-  # `<cache>/locks`, polled for up to five minutes, broken when older than ten
-  # (a resolver that died mid-fetch).
+  # `<cache>/locks`. A lock older than ten minutes belongs to a resolver that
+  # died mid-fetch and is broken; a waiter outlasts that window (fifteen
+  # minutes) so a dead holder never becomes a timeout, and a timeout is
+  # returned as `{:error, {:lock_timeout, path}}`, not raised.
   @lock_poll_ms 200
-  @lock_wait_ms 300_000
   @lock_stale_s 600
+  @lock_wait_ms 900_000
 
   defp locked(cache_dir, key, fun) do
     lock = Path.join([cache_dir, "locks", key])
     File.mkdir_p!(Path.dirname(lock))
-    acquire(lock, System.monotonic_time(:millisecond) + @lock_wait_ms)
 
-    try do
-      fun.()
-    after
-      File.rmdir(lock)
+    case acquire(lock, System.monotonic_time(:millisecond) + @lock_wait_ms) do
+      :ok ->
+        try do
+          fun.()
+        after
+          File.rmdir(lock)
+        end
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -114,13 +121,15 @@ defmodule MobCi.Versions.Remote do
       {:error, :eexist} ->
         cond do
           stale?(lock) ->
-            File.rmdir(lock) && acquire(lock, deadline)
+            File.rmdir(lock)
+            acquire(lock, deadline)
 
           System.monotonic_time(:millisecond) > deadline ->
-            raise "mob_ci: timed out waiting for #{lock}"
+            {:error, {:lock_timeout, lock}}
 
           true ->
-            Process.sleep(@lock_poll_ms) && acquire(lock, deadline)
+            Process.sleep(@lock_poll_ms)
+            acquire(lock, deadline)
         end
     end
   end
@@ -138,10 +147,11 @@ defmodule MobCi.Versions.Remote do
     else
       File.mkdir_p!(Path.dirname(dir))
 
-      case git(["-C", repo, "worktree", "add", "--detach", dir, full]) do
-        {:ok, _} -> :ok
-        err -> err
-      end
+      # A checkout deleted from <cache>/src stays registered in the clone and
+      # blocks re-adding the same path; prune first.
+      with {:ok, _} <- git(["-C", repo, "worktree", "prune"]),
+           {:ok, _} <- git(["-C", repo, "worktree", "add", "--detach", dir, full]),
+           do: :ok
     end
   end
 
@@ -158,12 +168,17 @@ defmodule MobCi.Versions.Remote do
     end
   end
 
-  @doc "Unpack `<name>-<version>` from repo.hex.pm under `<cache>/hex/<name>-<version>` (reused when present)."
+  @doc """
+  Unpack `<name>-<version>` from repo.hex.pm under `<cache>/hex/<name>-<version>`
+  (reused when present). The tarball is extracted into a sibling temp dir and
+  renamed into place, so the final path only ever holds a complete tree and
+  another resolver's fast path can't see a half-extracted one.
+  """
   @spec hex_unpack(atom(), String.t(), Path.t()) :: {:ok, Path.t()} | {:error, term()}
   def hex_unpack(name, version, cache_dir) do
     dir = Path.join([cache_dir, "hex", "#{name}-#{version}"])
 
-    if File.regular?(Path.join(dir, "mix.exs")) do
+    if File.dir?(dir) do
       {:ok, dir}
     else
       locked(cache_dir, "hex-#{name}-#{version}", fn -> unpack(name, version, dir) end)
@@ -171,34 +186,31 @@ defmodule MobCi.Versions.Remote do
   end
 
   defp unpack(name, version, dir) do
-    if File.regular?(Path.join(dir, "mix.exs")) do
+    if File.dir?(dir) do
       {:ok, dir}
     else
+      File.mkdir_p!(Path.dirname(dir))
+
       tmp =
         Path.join(
-          System.tmp_dir!(),
-          "mob_ci-#{name}-#{version}-#{System.unique_integer([:positive])}"
+          Path.dirname(dir),
+          ".tmp-#{name}-#{version}-#{System.unique_integer([:positive])}"
         )
 
-      File.mkdir_p!(tmp)
+      tree = Path.join(tmp, "tree")
+      File.mkdir_p!(tree)
       outer = Path.join(tmp, "package.tar")
+      url = "https://repo.hex.pm/tarballs/#{name}-#{version}.tar"
 
-      with {:ok, _} <-
-             sh("curl", [
-               "-sfL",
-               "-o",
-               outer,
-               "https://repo.hex.pm/tarballs/#{name}-#{version}.tar"
-             ]),
+      with {:ok, _} <- sh("curl", ["-sfL", "-o", outer, url]),
            {:ok, _} <- sh("tar", ["-xf", outer, "-C", tmp, "contents.tar.gz"]),
-           :ok <- File.mkdir_p(dir),
-           {:ok, _} <- sh("tar", ["-xzf", Path.join(tmp, "contents.tar.gz"), "-C", dir]) do
+           {:ok, _} <- sh("tar", ["-xzf", Path.join(tmp, "contents.tar.gz"), "-C", tree]),
+           :ok <- File.rename(tree, dir) do
         File.rm_rf!(tmp)
         {:ok, dir}
       else
         err ->
           File.rm_rf!(tmp)
-          File.rm_rf!(dir)
           err
       end
     end

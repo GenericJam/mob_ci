@@ -28,8 +28,15 @@ defmodule MobCi.Sweep do
 
   # Static pool includes the manifest-only clash pair (cross_validate reads
   # manifests directly — no build needed), so the sweep exercises a real conflict.
-  @static_pool [:mob_ci_palette, :mob_ci_haptic, :mob_ci_gauge, :mob_ci_notes, :mob_ci_pulse,
-                :mob_ci_clash_a, :mob_ci_clash_b]
+  @static_pool [
+    :mob_ci_palette,
+    :mob_ci_haptic,
+    :mob_ci_gauge,
+    :mob_ci_notes,
+    :mob_ci_pulse,
+    :mob_ci_clash_a,
+    :mob_ci_clash_b
+  ]
 
   # Device pool is the buildable fixtures only (clash pair is manifest-only — no
   # mix.exs/lib, can't be a path dep).
@@ -79,7 +86,9 @@ defmodule MobCi.Sweep do
   `count` generated subsets. Returns the list of *inconsistencies* (empty = the
   validator is sound over the sampled space), each minimized to the offending core.
   """
-  @spec static_findings(keyword()) :: [%{subset: [atom()], cross_validate: boolean(), colliding: boolean(), minimal: [atom()]}]
+  @spec static_findings(keyword()) :: [
+          %{subset: [atom()], cross_validate: boolean(), colliding: boolean(), minimal: [atom()]}
+        ]
   def static_findings(opts \\ []) do
     count = Keyword.get(opts, :count, 200)
     pool = Keyword.get(opts, :pool, @static_pool)
@@ -153,13 +162,24 @@ defmodule MobCi.Sweep do
   # showcase screen.
   defp prepare_host(nil, pool, _opts) do
     with {:ok, h} <- Build.prepare_sweep_harness(pool: pool) do
-      {:ok, Map.merge(h, %{activate: fn dir, subset, app -> Build.activate(dir, subset, app) end, showcase: true, set: nil, versions: nil})}
+      {:ok,
+       Map.merge(h, %{
+         activate: fn dir, subset, app -> Build.activate(dir, subset, app) end,
+         showcase: true,
+         set: nil,
+         versions: nil
+       })}
     end
   end
 
   defp prepare_host(cell, pool, opts) do
-    with {:ok, h} <- MobCi.Host.generate(cell.spec, pool, cell.resolved, Keyword.take(opts, [:fresh])) do
-      {:ok, Map.merge(h, %{activate: fn _dir, subset, _app -> MobCi.Host.activate(h, subset) end, showcase: false})}
+    with {:ok, h} <-
+           MobCi.Host.generate(cell.spec, pool, cell.resolved, Keyword.take(opts, [:fresh])) do
+      {:ok,
+       Map.merge(h, %{
+         activate: fn _dir, subset, _app -> MobCi.Host.activate(h, subset, cell.resolved) end,
+         showcase: false
+       })}
     end
   end
 
@@ -206,8 +226,10 @@ defmodule MobCi.Sweep do
 
   defp probe_subset(harness, inst, subset) do
     perms =
-      with {:ok, apk} <- Build.locate_apk(harness.dir), {:ok, p} <- Build.read_permissions(apk),
-           do: p, else: (_ -> nil)
+      with {:ok, apk} <- Build.locate_apk(harness.dir),
+           {:ok, p} <- Build.read_permissions(apk),
+           do: p,
+           else: (_ -> nil)
 
     case Farm.launch(inst, app: harness.app, pkg: harness.pkg) do
       {:ok, live} ->
@@ -217,7 +239,8 @@ defmodule MobCi.Sweep do
           node: live.node,
           repo: Module.concat([Macro.camelize(to_string(harness.app)), Repo]),
           build: %{status: :ok, apk: nil, permissions: perms, conflicts: []},
-          nif_probes: Map.merge(Context.default_nif_probes(), MobCi.DeviceCaps.nif_probes(subset)),
+          nif_probes:
+            Map.merge(Context.default_nif_probes(), MobCi.DeviceCaps.nif_probes(subset)),
           migration_tables: Context.default_migration_tables(),
           worker_names: Context.default_worker_names(),
           screen_caps: MobCi.DeviceCaps.screen_caps(subset),
@@ -266,6 +289,7 @@ defmodule MobCi.Sweep do
   defp elem_verdict(v), do: v
 
   defp verdict_note({:error, reason}), do: "  (error: #{inspect(reason, limit: 5)})"
+
   defp verdict_note({:fail, results}) do
     bad = for r <- List.wrap(results), r.status == :fail, do: r.id
     "  (failed: #{inspect(bad)})"

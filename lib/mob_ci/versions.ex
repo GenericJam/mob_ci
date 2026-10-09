@@ -127,8 +127,8 @@ defmodule MobCi.Versions do
 
     * `:remote` — the fetch functions (default `MobCi.Versions.Remote.default/0`).
     * `:cache_dir` — where clones and unpacked tarballs live.
-    * `:names` — the repos to resolve (default all; mob_new is always included
-      because the host generator must be runnable).
+    * `:names` — the repos to resolve (default all). mob_new is added unless
+      `mob_new: false`, because the host generator must be runnable.
 
   Git pins always carry a checkout (hosts depend on it by path). Hex pins of
   mob and mob_dev carry none (Mix fetches them); mob_new's tarball is unpacked
@@ -140,7 +140,7 @@ defmodule MobCi.Versions do
     remote = Keyword.get(opts, :remote, Remote.default())
     cache = Keyword.get(opts, :cache_dir, @cache_dir)
     names = Keyword.get(opts, :names, Enum.map(repos(), &elem(&1, 0)))
-    names = Enum.uniq([:mob_new | names])
+    names = if Keyword.get(opts, :mob_new, true), do: Enum.uniq([:mob_new | names]), else: names
 
     Enum.reduce_while(names, {:ok, %{row: row, repos: %{}}}, fn name, {:ok, acc} ->
       case resolve_one(row, name, remote, cache) do
