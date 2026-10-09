@@ -319,6 +319,7 @@ which build paths.
 | `mob_scanner` | 0.1.6 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_scanner` | 0.1.6 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_scene3d` | 0.2.0 (git e802262) | 0.9.17 (git 5d85492) | 0.7.21 (git 04feb5b) | `static` |
+| `mob_scene3d` | 0.2.0 | 0.9.17 | 0.7.21 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scene3d` | 0.1.4 (git 7363c4d) | 0.9.17 (git 5d85492) | 0.7.20 (git 8f8a9be) | `static` |
 | `mob_scene3d` | 0.1.4 (git 7363c4d) | 0.9.17 (git 5d85492) | 0.7.19 (git 85cb423) | `static` |
 | `mob_scene3d` | 0.1.4 (git 7363c4d) | 0.9.16 (git f17bb11) | 0.7.19 (git 85cb423) | `static` |
