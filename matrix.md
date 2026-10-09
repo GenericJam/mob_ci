@@ -11,7 +11,7 @@ described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
 
 ## hex
 
-Latest run 2026-10-09T17:56:51Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8; mob 0.9.16 · mob_dev 0.7.19 · mob_new 0.6.7; mob 0.9.16 · mob_dev 0.7.18 · mob_new 0.6.7; mob 0.9.15 · mob_dev 0.7.17 · mob_new 0.6.7.
+Latest run 2026-10-09T17:59:41Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8; mob 0.9.16 · mob_dev 0.7.19 · mob_new 0.6.7; mob 0.9.16 · mob_dev 0.7.18 · mob_new 0.6.7; mob 0.9.15 · mob_dev 0.7.17 · mob_new 0.6.7.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -25,16 +25,16 @@ Latest run 2026-10-09T17:56:51Z. Core versions in this grid: mob 0.9.17 · mob_d
 | `singleton:mob_nfc` | · | · | · | · | ✓ pass | ✓ pass | · |
 | `singleton:mob_photos` | · | · | · | · | ✓ pass | ✓ pass | · |
 | `singleton:mob_scanner` | · | · | · | · | ✓ pass | ✓ pass | · |
-| `singleton:mob_scene3d` | · | · | · | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_screencast` | · | ✓ pass | ✓ pass | · | · | · | · |
 | `singleton:mob_sensors` | · | ✓ pass | ✓ pass | · | · | ✓ pass | · |
 | `singleton:mob_speech` | · | · | · | · | ✓ pass | ✓ pass | · |
 
-36 pass, 0 fail, 1 error, 0 skip.
+38 pass, 0 fail, 1 error, 0 skip.
 
 ## master
 
-Latest run 2026-10-09T17:59:31Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.16 (git 1843423) · mob_dev 0.7.18 (git 65bdac9) · mob_new 0.6.7 (git 213ed49); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-09T18:01:58Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.16 (git 1843423) · mob_dev 0.7.18 (git 65bdac9) · mob_new 0.6.7 (git 213ed49); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -49,7 +49,7 @@ Latest run 2026-10-09T17:59:31Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_location` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_mishka` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_nfc` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
-| `singleton:mob_scene3d` | ✓ pass | ! error @ `mob_new` | ! error @ `mob_new` | · | · | · |
+| `singleton:mob_scene3d` | ✓ pass | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` |
 | `singleton:mob_sensors` | ✓ pass | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` |
 | `singleton:mob_sms` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_speech` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
@@ -57,7 +57,7 @@ Latest run 2026-10-09T17:59:31Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_vision` | ✓ pass | ✓ pass | ! error @ `build:release:android` | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | · | · | · |
 
-47 pass, 0 fail, 36 error, 10 skip.
+47 pass, 0 fail, 39 error, 10 skip.
 
 ## rc:mob_location@9fc8937f03ac497dec4171da5b3282bb58057b71
 
