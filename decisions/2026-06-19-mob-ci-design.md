@@ -113,6 +113,43 @@ low-traffic windows; the per-PR gate takes one slot at smoke depth. CI boots a
 **base** redroid + installs the freshly built test APK (not the sloppy_joe-baked
 image).
 
+### Addendum (MOB-467, 2026-10-09): every CI instance has an owner, and leaks are reaped
+
+Releasing in `after` blocks wasn't enough. On 2026-10-09 three `ci-redroid`
+instances had been up from 15 min to 5 h with no Android cell running: their
+cells had been killed mid-run (farm-retry tests, a stale rc run), and each
+held a farm admission slot (ceiling 5, shared with staging) and about 1 GB.
+An `after` block runs only for exits its own process sees: a SIGKILL, a
+reboot or a SIGTERM (`systemctl stop`, which is what `ci-run.sh pause` and a
+stopped lane worker do, and the queue's cell timeout) end the BEAM without it.
+This is the Android twin of MOB-466 (the Mac lane's guard and reaper).
+
+- **Ownership record.** `ci-farm.sh boot` writes
+  `~/.local/share/mob_ci/farm/ci-redroid<i>.owner` under the farm flock,
+  *before* `docker run`, so no booting instance is ever without one: the
+  owner's pid (`MobCi.Farm.boot/1` passes its BEAM's `System.pid/0`; a hand
+  `boot` records the calling shell) and that process's start time (`ps -o
+  lstart`, so a reused pid never passes for the owner), the store run id, the
+  queue's job and cell ids, the boot time. `down` deletes it.
+- **SIGTERM.** The first `Farm.boot/1` traps SIGTERM in the cell's BEAM: the
+  trap runs `ci-farm.sh down-owned <pid>` and then lets the VM stop.
+- **The reaper**, `ci-farm.sh reap`, holds the flock and downs a
+  `ci-redroid<i>` whose owner is dead, or that has no record and was created
+  more than `MOB_CI_FARM_REAP_AFTER_MIN` (20) minutes ago; it drops records
+  whose container is gone. It never downs an instance whose owner lives
+  (however long the cell takes) and never looks at a name other than
+  `^ci-redroid[0-9]+$`, so staging's `redroid<i>` is out of reach. It runs
+  before every Android cell the queue starts (`MobCi.Queue.drain/3`), after
+  every poll cycle (`ci-run.sh poll`, every 10 min), and by hand.
+- **`ci-farm.sh status`** prints each instance's owner: pid alive/DEAD, run,
+  job, cell, minutes since boot, or `none`.
+
+The 20-minute orphan age only matters for instances booted without a record:
+those leaked before this change, and a hand run from a checkout older than it
+(such a run's instance is downed 20 min after boot, mid-cell). An owned
+instance is never reaped by age: a wedged cell is the queue timeout's to
+kill, and the reaper downs its instance after that.
+
 ### Hardware-dependent plugins
 
 A headless x86_64 redroid has no camera/BT/GPS/biometric. Rather than
