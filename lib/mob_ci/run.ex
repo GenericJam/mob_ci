@@ -269,7 +269,9 @@ defmodule MobCi.Run do
   # the code's. (Probe results are checked in `farm_check/2`, before the
   # catalog's own release_live tears the instance down.)
   defp with_instance(boot_step, release_step, opts, fun) do
-    case step(boot_step, fn -> Farm.boot(Keyword.take(opts, [:profile])) end) do
+    boot_opts = [profile: opts[:profile], run: opts[:run_id]] |> Enum.reject(&is_nil(elem(&1, 1)))
+
+    case step(boot_step, fn -> Farm.boot(boot_opts) end) do
       {:ok, inst} ->
         try do
           outcome = fun.(inst)

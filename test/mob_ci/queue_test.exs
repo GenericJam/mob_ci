@@ -39,7 +39,8 @@ defmodule MobCi.QueueTest do
       publish: fn job ->
         send(me, {:published, job.id})
         0
-      end
+      end,
+      reap: fn -> :ok end
     )
   end
 
@@ -250,6 +251,31 @@ defmodule MobCi.QueueTest do
       assert %{published: []} = drain(store, "android")
     end
 
+    test "the farm is reaped before every Android cell, and never for iOS", %{store: store} do
+      {:ok, _, _} = Queue.enqueue(store, job(sets: ["blank", "default"], platforms: ["android", "ios"]), now: @t0)
+      events = Agent.start_link(fn -> [] end) |> elem(1)
+      log = fn e -> Agent.update(events, &[e | &1]) end
+
+      for lane <- ["android", "ios"] do
+        Queue.drain(store, lane,
+          now: fn -> @t0 end,
+          log_dir: "/nonexistent",
+          run_cell: fn cell -> log.({:ran, cell.platform, cell.set}); {0, "/logs/x.log"} end,
+          publish: fn _ -> 0 end,
+          reap: fn -> log.(:reap) end
+        )
+      end
+
+      assert Agent.get(events, &Enum.reverse/1) == [
+               :reap,
+               {:ran, "android", "blank"},
+               :reap,
+               {:ran, "android", "default"},
+               {:ran, "ios", "blank"},
+               {:ran, "ios", "default"}
+             ]
+    end
+
     # A runner whose answers for a set come from a list, one per attempt.
     defp drain_scripted(store, lane, answers) do
       me = self()
@@ -266,7 +292,8 @@ defmodule MobCi.QueueTest do
         publish: fn job ->
           send(me, {:published, job.id})
           0
-        end
+        end,
+        reap: fn -> :ok end
       )
     end
 

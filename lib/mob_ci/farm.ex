@@ -11,6 +11,10 @@ defmodule MobCi.Farm do
   probe → `release/1`. The pure surface (node naming, port/suffix derivation,
   output parsing, admission parsing) is unit-tested; the shell-driving calls are
   `:integration`.
+
+  Every instance carries an ownership record naming the BEAM that booted it
+  (MOB-467): `reap/0` downs an instance whose owner died without releasing
+  it, and the trigger queue reaps before every Android cell.
   """
 
   @script Path.expand("../../priv/ci-farm.sh", __DIR__)
@@ -125,13 +129,22 @@ defmodule MobCi.Farm do
   Boot a base redroid (admission-gated) and adb-connect it. Returns an
   `%Instance{}` with no node yet — the app isn't deployed/launched until `launch/2`.
   `{:error, :box_busy}` when admission refuses (caller backs off).
+
+  The instance is recorded as this BEAM's (`ci-farm.sh` ownership record:
+  `System.pid/0`, `:run` as its label, the queue's `MOB_CI_JOB_ID` /
+  `MOB_CI_CELL_ID`), so `reap/0` leaves it alone while this BEAM lives and
+  downs it once it is gone. A SIGTERM to this BEAM releases it first
+  (`trap_sigterm/0`).
   """
   @spec boot(keyword()) :: {:ok, Instance.t()} | {:error, term()}
   def boot(opts \\ []) do
     {w, h, dpi} = Keyword.get(opts, :profile, {1080, 2340, 440})
 
     if admit?() do
-      case sh_status(["boot", to_string(w), to_string(h), to_string(dpi)]) do
+      trap_sigterm()
+      env = [{"MOB_CI_FARM_OWNER_PID", System.pid()}, {"MOB_CI_FARM_RUN", to_string(opts[:run] || "")}]
+
+      case sh_status(["boot", to_string(w), to_string(h), to_string(dpi)], env) do
         {out, 0} ->
           %{index: i, serial: ser} = parse_kv(out, ["INDEX", "SERIAL"])
           {:ok, %Instance{index: i, serial: ser, suffix: suffix(i), dist_port: dist_port(i)}}
@@ -145,6 +158,36 @@ defmodule MobCi.Farm do
     else
       {:error, :box_busy}
     end
+  end
+
+  @doc """
+  On SIGTERM (`systemctl stop` of a lane worker, `ci-run.sh pause`, the
+  queue's cell timeout), release every instance this BEAM owns before the VM
+  stops: the stop doesn't run the cell's `after` blocks. Installed once, by
+  the first `boot/1`.
+  """
+  @spec trap_sigterm() :: :ok
+  def trap_sigterm do
+    _ = System.trap_signal(:sigterm, __MODULE__, fn -> release_owned() end)
+    :ok
+  end
+
+  @doc "Release every instance owner `pid` (default this BEAM) has recorded (`ci-farm.sh down-owned`)."
+  @spec release_owned(String.t()) :: :ok
+  def release_owned(pid \\ System.pid()), do: (sh(["down-owned", pid]); :ok)
+
+  @doc """
+  Down every CI instance no live cell owns (`ci-farm.sh reap`): its owner
+  process is gone, or it has no owner and is older than
+  `MOB_CI_FARM_REAP_AFTER_MIN` (20) minutes. Never a live owner's, never a
+  staging `redroid<N>`. Returns the script's `down|keep|forget` lines, or
+  its `reap: …` error (docker couldn't list: nothing was touched).
+  """
+  @spec reap() :: [String.t()]
+  def reap do
+    sh(["reap"])
+    |> String.split("\n", trim: true)
+    |> Enum.filter(&String.match?(&1, ~r/^(down|keep|forget|reap:) /))
   end
 
   @doc """
@@ -202,7 +245,7 @@ defmodule MobCi.Farm do
     end
   end
 
-  @doc "Release an instance (removes the container, frees the slot)."
+  @doc "Release an instance (removes the container and its ownership record, frees the slot)."
   @spec release(Instance.t() | non_neg_integer()) :: :ok
   def release(%Instance{index: i}), do: release(i)
   def release(index) when is_integer(index), do: (sh(["down", to_string(index)]); :ok)
@@ -323,8 +366,8 @@ defmodule MobCi.Farm do
 
   defp sh(args), do: elem(sh_status(args), 0)
 
-  defp sh_status(args) do
-    System.cmd("bash", [@script | args], stderr_to_stdout: true)
+  defp sh_status(args, env \\ []) do
+    System.cmd("bash", [@script | args], env: env, stderr_to_stdout: true)
   rescue
     e -> {Exception.message(e), 127}
   end

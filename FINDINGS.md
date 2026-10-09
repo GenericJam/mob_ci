@@ -348,3 +348,32 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   the serial. On emulator-5554 the restart took 0.6–2.7 s, past the old 800 ms.
   Farm: two `singleton:mob_camera` × `rc:mob_dev@39005a3` deploy cells back to
   back on the NUC (load 3.8–5) both 9 passed / 0 errored, no lost device.
+
+## F14 — a killed Android cell leaked its `ci-redroid` instance (mob_ci's own) — resolved
+
+- **Issue:** [MOB-467](https://linear.app/mobframework/issue/MOB-467) (the
+  Android twin of MOB-466).
+- **Found:** 2026-10-09: with no Android cell running, `ci-redroid0`, `1` and
+  `2` had been up from 15 min to 5 h, left by cells killed mid-run on purpose
+  (farm-retry tests, a stale rc run); released by hand with `ci-farm.sh down`.
+  Each held one of the 5 admission slots the farm shares with sloppy_joe
+  staging, and about 1 GB. Reproduced the same afternoon: `ci-run.sh pause
+  android` (a `systemctl stop`, SIGTERM) during job 25's cell left
+  `ci-redroid0` up after the lane worker was gone.
+- **Where:** `MobCi.Run` releases in `after` blocks, which run only for exits
+  the cell's own process sees. SIGKILL, a reboot, and SIGTERM (the VM's
+  default handler stops it without unwinding the Mix task) skip them, and
+  nothing else knew the instance belonged to a dead cell.
+- **Fix (mob_ci):** an ownership record per instance, written by `ci-farm.sh
+  boot` (owner pid + start time, run, job, cell, boot time); a SIGTERM trap in
+  the cell's BEAM (`ci-farm.sh down-owned`); and `ci-farm.sh reap`, run before
+  every Android cell and after every poll cycle, which downs instances whose
+  owner is dead and record-less ones older than 20 min, and nothing else.
+  `ci-farm.sh status` names each owner. Design: the addendum in
+  `decisions/2026-06-19-mob-ci-design.md` ("Farm sharing").
+- **Verified on the NUC:** `mix ci.device --set blank --versions hex` killed
+  with `kill -9` 51 s into `mix mob.deploy`: `status` showed `ci-redroid1 …
+  owner: pid 511999 DEAD, run 1`, `reap` printed `down ci-redroid1: owner pid
+  511999 DEAD` and admission went from 3/5 to 2/5. The same cell stopped with
+  `systemctl --user stop` (SIGTERM) released its instance within a second
+  (`SIGTERM received - shutting down`, no `ci-redroid1` left).
