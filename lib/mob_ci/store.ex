@@ -469,20 +469,6 @@ defmodule MobCi.Store do
     end)
   end
 
-  defp transaction!(store, fun) do
-    exec!(store, "BEGIN IMMEDIATE", [])
-
-    try do
-      result = fun.()
-      exec!(store, "COMMIT", [])
-      result
-    rescue
-      e ->
-        _ = Exqlite.Sqlite3.execute(store.conn, "ROLLBACK")
-        reraise e, __STACKTRACE__
-    end
-  end
-
   @evidence_sets ["default", "all"]
 
   @doc false
@@ -533,11 +519,6 @@ defmodule MobCi.Store do
   defp cell_key(s), do: {s.run_id, s.set, s.platform, s.path}
 
   defp iso(%DateTime{} = dt), do: dt |> DateTime.truncate(:second) |> DateTime.to_iso8601()
-
-  defp changes(%__MODULE__{conn: conn}) do
-    {:ok, n} = Exqlite.Sqlite3.changes(conn)
-    n
-  end
 
   # ── plumbing ─────────────────────────────────────────────────────────────────
 

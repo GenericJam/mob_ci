@@ -120,14 +120,10 @@ defmodule Mix.Tasks.Ci.Replay do
       if pins, do: Mix.shell().info(pins)
     else
       file = Path.join(System.tmp_dir!(), "mob_ci_replay_#{cell.id}_#{System.unique_integer([:positive])}.json")
+      if pins, do: File.write!(file, pins)
 
-      if pins do
-        File.write!(file, pins)
-        System.put_env("MOB_CI_PINS", file)
-        System.put_env("MOB_CI_TRIGGER", "replay")
-      else
-        System.delete_env("MOB_CI_PINS")
-        System.put_env("MOB_CI_TRIGGER", "replay-current")
+      for {name, value} <- Replay.env(pins && file) do
+        if value, do: System.put_env(name, value), else: System.delete_env(name)
       end
 
       try do

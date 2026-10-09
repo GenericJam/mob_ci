@@ -68,6 +68,17 @@ defmodule MobCi.Replay do
   def pins_json(%{id: id}), do: {:error, "cell #{id} recorded no versions; replay it with --current (the row as it resolves today)"}
 
   @doc """
+  The environment `mix ci.replay` runs `mix ci.device` in (nil = unset): a
+  pinned replay names its pins file and records as trigger `replay`
+  (`MobCi.Store.run_context/2`), which the matrix and the regression check
+  skip; `--current` (no pins file) records as `replay-current`, a real
+  result of the row today.
+  """
+  @spec env(Path.t() | nil) :: [{String.t(), String.t() | nil}]
+  def env(nil), do: [{"MOB_CI_PINS", nil}, {"MOB_CI_TRIGGER", "replay-current"}]
+  def env(pins_file), do: [{"MOB_CI_PINS", pins_file}, {"MOB_CI_TRIGGER", "replay"}]
+
+  @doc """
   A failing sampled cell as a regression set: `{:ok, name, source}` for
   `priv/sets/<name>.exs`. The plugins are the recorded ones (the pins of a
   `random:<seed>` cell, in committed order; the list a `sweep:<plugins>`

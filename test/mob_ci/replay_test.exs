@@ -4,7 +4,7 @@ defmodule MobCi.ReplayTest do
   use ExUnit.Case, async: false
 
   alias Mix.Tasks.Ci.Replay, as: Task
-  alias MobCi.{Cell, Plugins, Replay, Sets, Store, Versions}
+  alias MobCi.{Cell, Matrix, Plugins, Replay, Sets, Store, Versions}
 
   # Every repo has moved on since the cell ran: Hex says 9.9.9, git HEAD is
   # "f"×40. A replay must not ask for either.
@@ -64,6 +64,7 @@ defmodule MobCi.ReplayTest do
     on_exit(fn ->
       Plugins.put_resolved_dirs(before)
       System.delete_env("MOB_CI_PINS")
+      System.delete_env("MOB_CI_TRIGGER")
       File.rm_rf!(tmp)
     end)
 
@@ -149,6 +150,35 @@ defmodule MobCi.ReplayTest do
       file = Path.join(tmp, "p.json")
       File.write!(file, JSON.encode!(versions()))
       file
+    end
+  end
+
+  describe "the run a replay records" do
+    test "a pinned replay records as trigger replay and stays out of the grid and the regression check", %{tmp: tmp} do
+      store = Store.open!(Path.join(tmp, "r.sqlite"))
+      cell = %{set: "default", platform: :android, path: "deploy:android", versions: versions()}
+      {:ok, real} = Store.record_run(store, %{trigger: "nightly", versions_row: "hex", host: "nuc", mob_ci_sha: "x"})
+      Store.record_cell(store, real, Map.put(cell, :outcome, :pass))
+
+      # what mix ci.replay exports before it runs mix ci.device (which records with trigger "ci.device")
+      for {k, v} <- Replay.env(Path.join(tmp, "pins.json")), do: System.put_env(k, v)
+      {:ok, replay} = Store.record_run(store, %{trigger: "ci.device", versions_row: "hex", host: "nuc", mob_ci_sha: "x"})
+      Store.record_cell(store, replay, Map.merge(cell, %{outcome: :fail, layer: "boot"}))
+
+      summaries = Store.query(store, invariant: nil)
+      assert [_, %{trigger: "replay"}] = summaries
+      assert Matrix.matrix_md(summaries) =~ "| `default` | ✓ pass |"
+      assert Matrix.regressions([List.last(summaries)], summaries) == []
+
+      # --current is a real result of the row today
+      for {k, v} <- Replay.env(nil), do: if(v, do: System.put_env(k, v), else: System.delete_env(k))
+      assert System.get_env("MOB_CI_PINS") == nil
+      {:ok, current} = Store.record_run(store, %{trigger: "ci.device", versions_row: "hex", host: "nuc", mob_ci_sha: "x"})
+      Store.record_cell(store, current, Map.merge(cell, %{outcome: :fail, layer: "boot"}))
+      summaries = Store.query(store, invariant: nil)
+      assert %{trigger: "replay-current"} = List.last(summaries)
+      assert [_] = Matrix.regressions([List.last(summaries)], summaries)
+      Store.close(store)
     end
   end
 
