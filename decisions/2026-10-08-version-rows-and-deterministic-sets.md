@@ -161,7 +161,15 @@ with a cell.
 - `master` resolution clones 27 repos on first use (about a minute on the
   Mac, cached after); `hex` resolution is 28 API calls and 25 small tarballs.
 - The static gate is now version-aware: a sibling checkout under `~/code`
-  no longer stands in for a release.
+  no longer stands in for a release. Amended 2026-10-09 (MOB-416 follow-up):
+  the manifests were the row's but the *validator* was not — `cross_validate`
+  ran in mob_ci's VM, i.e. mob_ci's `../mob_dev` (master), so a `hex` row's
+  `static` column said what mob_dev master thought. `MobCi.RowValidator` now
+  runs it in a throwaway Mix project per mob_dev pin
+  (`~/.cache/mob_ci/validators/mob_dev-<hex-x.y.z | git-<sha>>`, built once,
+  reused) for a cell's `--static` gate, its P1 static half and the iOS lane's
+  gate. The fixture harness, sloppy_joe and the StreamData sweep (which tests
+  the validator itself, thousands of calls) keep mob_ci's own mob_dev.
 - Open: P5 for generated hosts needs a showcase convention real plugins
   follow (fixtures ship `widget/1`; mob_scene3d doesn't). P12 (MOB-414) will
   call `MobDev.Plugin.SelfTest.run_all/3` on the generated host's node.

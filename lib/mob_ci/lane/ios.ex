@@ -36,7 +36,6 @@ defmodule MobCi.Lane.Ios do
 
   alias MobCi.{Cell, Invariants, Plugins, Result, Store}
   alias MobCi.Lane.Ios.{Spec, Tee}
-  alias MobDev.Plugin.Validator
 
   @marker "MOB_CI_RESULT "
   @default_host "kevin@10.0.0.71"
@@ -327,15 +326,15 @@ defmodule MobCi.Lane.Ios do
   picks), `:device_udid` (default Kevin's iPhone), `:min_runtime` (lowest
   simulator iOS, default `Spec.default_min_runtime/0`), `:log_dir`,
   `:mob_ci_sha` (default: this checkout's HEAD), `:ssh` (transport), `:stamp`
-  (cell id suffix), `:static` (`[atom()] -> [String.t()]` conflicts, default
-  `MobDev.Plugin.Validator.cross_validate/1`).
+  (cell id suffix), `:static` (`[atom()] -> [String.t()] | {:error, msg}`
+  conflicts, default `MobCi.RowValidator.conflicts/3` with the row's mob_dev).
   """
   @spec run(Cell.t(), [Spec.path()], keyword()) :: [map()]
   def run(cell, paths, opts \\ []) do
     host = Keyword.get(opts, :host, default_host())
     log_dir = Keyword.get(opts, :log_dir, default_log_dir())
     ssh = Keyword.get(opts, :ssh, &ssh/2)
-    static = Keyword.get(opts, :static, &static_conflicts/1)
+    static = Keyword.get(opts, :static, &row_static_conflicts(cell, &1))
     sha = Keyword.get_lazy(opts, :mob_ci_sha, &head_sha/0)
     File.mkdir_p!(log_dir)
 
@@ -362,9 +361,21 @@ defmodule MobCi.Lane.Ios do
           Enum.map(specs, &write_result(error_result(&1, "error:ssh", reason), log_dir))
         end
 
+      {:error, msg} ->
+        reason = "static gate could not run: " <> msg
+        Enum.map(specs, &write_result(error_result(&1, "elixir", reason), log_dir))
+
       conflicts ->
         reason = "static gate: " <> Enum.join(conflicts, "; ")
         Enum.map(specs, &write_result(error_result(&1, "static", reason), log_dir))
+    end
+  end
+
+  # The row's own mob_dev decides (MobCi.RowValidator), as for an Android cell.
+  defp row_static_conflicts(cell, plugins) do
+    case MobCi.RowValidator.conflicts(Plugins.activated(plugins), cell.resolved) do
+      {:ok, conflicts} -> conflicts
+      {:error, _} = err -> err
     end
   end
 
@@ -486,8 +497,6 @@ defmodule MobCi.Lane.Ios do
       _ -> ""
     end
   end
-
-  defp static_conflicts(plugins), do: Validator.cross_validate(Plugins.activated(plugins)).errors
 
   defp head_sha do
     {sha, 0} = System.cmd("git", ["rev-parse", "HEAD"], cd: Path.expand("../../..", __DIR__))

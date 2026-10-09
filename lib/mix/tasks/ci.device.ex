@@ -97,7 +97,7 @@ defmodule Mix.Tasks.Ci.Device do
   """
   use Mix.Task
 
-  alias MobCi.{Build, Cell, DeviceCaps, Dist, Host, Invariants, Plugins, Report, Result, Run, Store}
+  alias MobCi.{Build, Cell, DeviceCaps, Dist, Host, Invariants, Plugins, Report, Result, RowValidator, Run, Store}
   alias MobDev.Plugin.Validator
 
   @switches [
@@ -167,9 +167,31 @@ defmodule Mix.Tasks.Ci.Device do
     Mix.shell().info(plan(cell.plugins, :generated) <> Cell.describe(cell))
 
     if opts[:static] do
-      finish_static(run_static(cell.plugins), opts, cell_info(cell))
+      case row_conflicts(cell) do
+        {:ok, conflicts} ->
+          finish_static(run_static(cell.plugins, conflicts, RowValidator.source(cell.resolved).label), opts, cell_info(cell))
+
+        {:error, {layer, msg}} ->
+          # Recorded, so the matrix doesn't keep showing an older pin's verdict.
+          info = cell_info(cell)
+          {store, run_id} = open_run(opts, info.versions_row)
+          meta = %{set: info.set, platform: :all, path: "static", versions: info.versions, duration_ms: nil, log_path: nil}
+          Store.record_results(store, run_id, meta, {:error, msg, to_string(layer)})
+          Store.close(store)
+          Mix.shell().error("\nStatic gate: ERROR @ #{layer} — #{msg}")
+          exit({:shutdown, 2})
+      end
     else
       finish_cell(cell, opts)
+    end
+  end
+
+  # The cell's static verdict from the row's own mob_dev (MobCi.RowValidator);
+  # a validator project that can't be fetched or compiled is the Elixir layer's.
+  defp row_conflicts(cell) do
+    case RowValidator.conflicts(Plugins.activated(cell.plugins), cell.resolved) do
+      {:ok, conflicts} -> {:ok, conflicts}
+      {:error, msg} -> {:error, {:elixir, msg}}
     end
   end
 
@@ -192,25 +214,26 @@ defmodule Mix.Tasks.Ci.Device do
     info = cell_info(cell)
     {store, run_id} = open_run(opts, info.versions_row)
 
-    case Host.generate(cell.spec, cell.plugins, cell.resolved, fresh: opts[:fresh] == true) do
-      {:ok, host} ->
-        runs =
-          Run.run(cell.plugins,
-            host: :generated,
-            prepared: host,
-            paths: paths,
-            artifacts_dir: artifacts,
-            store: store,
-            run_id: run_id,
-            versions_row: info.versions_row,
-            set_name: info.set
-          )
+    with {:ok, host} <- Host.generate(cell.spec, cell.plugins, cell.resolved, fresh: opts[:fresh] == true),
+         {:ok, conflicts} <- row_conflicts(cell) do
+      runs =
+        Run.run(cell.plugins,
+          host: :generated,
+          prepared: host,
+          paths: paths,
+          artifacts_dir: artifacts,
+          store: store,
+          run_id: run_id,
+          versions_row: info.versions_row,
+          set_name: info.set,
+          static_conflicts: conflicts
+        )
 
-        report_device(runs, artifacts, store)
-
+      report_device(runs, artifacts, store)
+    else
       {:error, {layer, reason}} ->
-        # The host never existed: every path of the cell is an error at the
-        # generator / Elixir layer.
+        # The host (or the row's validator) never existed: every path of the
+        # cell is an error at the generator / Elixir layer.
         for path <- paths do
           Store.record_results(
             store,
@@ -358,10 +381,13 @@ defmodule Mix.Tasks.Ci.Device do
 
   # ── static composability ────────────────────────────────────────────────────
 
-  defp run_static(set) do
+  # A cell passes the row's verdict (MobCi.RowValidator) and its label; the
+  # harness / sloppy_joe gate validates with mob_ci's own mob_dev.
+  defp run_static(set, conflicts \\ nil, validator \\ "mob_dev (mob_ci's own dep)") do
     %{
       set: set,
-      conflicts: Validator.cross_validate(Plugins.activated(set)).errors,
+      validator: validator,
+      conflicts: conflicts || Validator.cross_validate(Plugins.activated(set)).errors,
       permissions: Plugins.expected_permissions(set) |> MapSet.to_list() |> Enum.sort(),
       nifs: Plugins.expected_nif_modules(set),
       screens: Plugins.expected_screens(set),
@@ -411,6 +437,7 @@ defmodule Mix.Tasks.Ci.Device do
 
     ── static composability ──────────────────────────────────────
       activated:   #{Enum.map_join(s.set, ", ", &Atom.to_string/1)}
+      validator:   #{s.validator}
       NIF modules: #{fmt(s.nifs)}
       screens:     #{fmt(s.screens)}
       components:  #{fmt(s.components)}

@@ -180,8 +180,9 @@ defmodule Mix.Tasks.Ci.Sweep do
 
   @doc false
   # A device-sweep subset outcome as `MobCi.Store.record_results/4` takes it.
-  # A subset that never reached the catalog failed to launch (boot) or to
-  # build (deploy path, with mob_dev's named plugin when there is one).
+  # A subset that never reached the catalog failed to launch (boot), to
+  # build (deploy path, with mob_dev's named plugin when there is one), or to
+  # get the row's static verdict (the validator project: Elixir).
   def stored_outcome({:pass, results}), do: {:ok, results}
   def stored_outcome({verdict, results}) when verdict in [:fail, :error] and is_list(results), do: {:fail, results}
 
@@ -190,6 +191,7 @@ defmodule Mix.Tasks.Ci.Sweep do
       case reason do
         {:node_never_registered, _} -> :boot
         {:launch_failed, _, _} -> :boot
+        {:row_validator, _} -> :elixir
         other -> Build.path_failure_layer(:deploy, other)
       end
 

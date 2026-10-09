@@ -43,7 +43,11 @@ defmodule MobCi.Context do
             selftest_ctx: %{platform: :android, device: :emulator},
             selftest_timeout_ms: 30_000,
             selftest_run_all: nil,
-            singleton_selftest: nil
+            singleton_selftest: nil,
+            # P1's static half for a cell: the row's own mob_dev verdict
+            # (MobCi.RowValidator); nil = cross_validate with mob_ci's mob_dev
+            # (the fixture harness and sloppy_joe hosts).
+            static_conflicts: nil
 
   @type build_status :: :unknown | :ok | {:conflict, [String.t()]} | {:error, term()}
   @type t :: %__MODULE__{
@@ -67,7 +71,8 @@ defmodule MobCi.Context do
           selftest_ctx: %{platform: :ios | :android, device: :simulator | :emulator | :physical},
           selftest_timeout_ms: pos_integer(),
           selftest_run_all: (node(), map(), keyword() -> [map()]) | nil,
-          singleton_selftest: (atom() -> MobCi.Result.status() | nil) | nil
+          singleton_selftest: (atom() -> MobCi.Result.status() | nil) | nil,
+          static_conflicts: [String.t()] | nil
         }
 
   @doc "NIF probe MFAs for the milestone-1 sample set (all ship the tier-1 `ping/0`)."

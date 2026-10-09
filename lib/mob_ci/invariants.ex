@@ -51,7 +51,9 @@ defmodule MobCi.Invariants do
   # gap in `cross_validate` (conflict it missed → build succeeded or died at the
   # linker) and a false positive (clean set it wrongly rejected).
   def p1(%Context{set: set, build: build} = ctx) do
-    conflicts = Validator.cross_validate(Plugins.activated(set)).errors
+    # A cell's host was built by the row's mob_dev: judge it by that mob_dev's
+    # verdict (MobCi.RowValidator), not mob_ci's own.
+    conflicts = ctx.static_conflicts || Validator.cross_validate(Plugins.activated(set)).errors
     build_layer = {:build, ctx.host_dir}
 
     case {conflicts, build.status} do
