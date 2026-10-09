@@ -10,7 +10,9 @@ defmodule Mix.Tasks.Ci.Poll do
   workers.
 
       mix ci.poll                        # one cycle
-      mix ci.poll --await-pushes         # wait (≤15 min) for pending pushes to land, cycling when one does
+      mix ci.poll --await-pushes [--max-seconds 900]
+                                         # wait for a pending push to land: exit 0 landed,
+                                         # 3 nothing pending, 4 timed out (no cycle runs)
       mix ci.poll --heads                # print the stored heads
       mix ci.poll --reset mob_camera@<sha>   # rewind one stored head (the next cycle sees a change)
       mix ci.poll --store PATH           # default $MOB_CI_STORE or ~/.local/share/mob_ci/results.sqlite
@@ -21,7 +23,7 @@ defmodule Mix.Tasks.Ci.Poll do
 
   alias MobCi.{Poller, Store, Versions}
 
-  @switches [store: :string, await_pushes: :boolean, heads: :boolean, reset: :string]
+  @switches [store: :string, await_pushes: :boolean, max_seconds: :integer, heads: :boolean, reset: :string]
 
   @impl Mix.Task
   def run(argv) do
@@ -29,15 +31,24 @@ defmodule Mix.Tasks.Ci.Poll do
     if invalid != [], do: Mix.raise("unknown option(s): #{Enum.map_join(invalid, " ", &elem(&1, 0))}")
     store = Store.open!(opts[:store] || Store.default_path())
 
-    try do
-      cond do
-        opts[:heads] -> print_heads(store)
-        opts[:reset] -> reset(store, opts[:reset])
-        opts[:await_pushes] -> store |> Poller.await_pushes() |> Enum.each(&report/1)
-        true -> report(Poller.cycle(store))
+    result =
+      try do
+        cond do
+          opts[:heads] -> print_heads(store)
+          opts[:reset] -> reset(store, opts[:reset])
+          opts[:await_pushes] -> Poller.await_pushes(store, max_ms: (opts[:max_seconds] || 900) * 1000)
+          true -> report(Poller.cycle(store))
+        end
+      after
+        Store.close(store)
       end
-    after
-      Store.close(store)
+
+    # `priv/ci-run.sh confirm` runs the cycle itself, under the poll lock.
+    case result do
+      :landed -> Mix.shell().info("a pending push is on its remote")
+      :settled -> exit({:shutdown, 3})
+      :timeout -> exit({:shutdown, 4})
+      _ -> :ok
     end
   end
 

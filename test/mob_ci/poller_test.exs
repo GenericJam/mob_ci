@@ -181,7 +181,7 @@ defmodule MobCi.PollerTest do
       assert {:error, _} = Poller.record_push(store, "mob", "xyz", nil, @t0)
     end
 
-    test "await_pushes cycles as soon as the push lands and stops when none is pending", %{store: store} do
+    test "await_pushes returns as soon as a pending push is on its remote, without running a cycle", %{store: store} do
       {:ok, _} = Poller.record_push(store, "mob_camera", sha("5"), "refs/heads/master", @t0)
       calls = :counters.new(1, [])
       landed = heads("1", "2", "5", "4")
@@ -194,21 +194,23 @@ defmodule MobCi.PollerTest do
       end
 
       me = self()
+      opts = [repos: @repos, ls_remote: ls, now: DateTime.add(@t0, 60), sleep: fn ms -> send(me, {:slept, ms}) end, interval_ms: 10]
 
-      cycles =
-        Poller.await_pushes(store,
-          repos: @repos,
-          ls_remote: ls,
-          static: fn job -> Enum.map(job.sets, &{&1, 0}) end,
-          now: DateTime.add(@t0, 60),
-          sleep: fn ms -> send(me, {:slept, ms}) end,
-          interval_ms: 10,
-          max_ms: 1_000
-        )
-
-      assert [%{pushes: [{_, :covered}], jobs: [_]}] = cycles
+      assert Poller.await_pushes(store, opts ++ [max_ms: 1_000]) == :landed
       assert_received {:slept, 10}
-      assert Poller.pending_pushes(store) == []
+      assert :counters.get(calls, 1) == 3
+      # nothing settled or queued: the caller's locked cycle does that
+      assert [_] = Poller.pending_pushes(store)
+      assert Queue.jobs(store) == []
+
+      cycle(store, landed)
+      assert Poller.await_pushes(store, opts) == :settled
+    end
+
+    test "await_pushes gives up after max_ms while the push is still missing", %{store: store} do
+      {:ok, _} = Poller.record_push(store, "mob", sha("f"), "refs/heads/master", @t0)
+      opts = [repos: @repos, ls_remote: remote(heads("1", "2", "3", "4")), now: @t0, sleep: fn _ -> :ok end]
+      assert Poller.await_pushes(store, opts ++ [interval_ms: 10, max_ms: 30]) == :timeout
     end
   end
 end

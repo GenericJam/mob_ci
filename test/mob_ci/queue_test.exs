@@ -101,6 +101,43 @@ defmodule MobCi.QueueTest do
       {:ok, _, [hex]} = Queue.enqueue(store, job(sets: ["default"], versions_row: "hex"), now: @t0)
       assert hex.status == "queued"
     end
+
+    test "a cell only folds into one that runs as soon and can't expire sooner", %{store: store} do
+      deadline = ~U[2026-10-09 13:00:00Z]
+      {:ok, _, [nightly]} = Queue.enqueue(store, job(trigger: "nightly", sets: ["default"], priority: 0, not_after: deadline), now: @t0)
+
+      # urgent: the nightly cell runs at lower priority and expires at 07:00
+      {:ok, _, [poll]} = Queue.enqueue(store, job(sets: ["default"]), now: @t0)
+      assert {poll.status, poll.duplicate_of} == {"queued", nil}
+
+      # same priority, same deadline: folds into the first nightly cell
+      {:ok, _, [again]} = Queue.enqueue(store, job(trigger: "nightly", sets: ["default"], priority: 0, not_after: deadline), now: @t0)
+      assert {again.status, again.duplicate_of} == {"duplicate", nightly.id}
+
+      # no deadline: can't defer to the expiring nightly cell, folds into the poll one
+      {:ok, _, [manual]} = Queue.enqueue(store, job(trigger: "manual", sets: ["default"], priority: 0), now: @t0)
+      assert {manual.status, manual.duplicate_of} == {"duplicate", poll.id}
+    end
+
+    test "the urgent cell still runs when the nightly it shares a set with expires", %{store: store} do
+      deadline = ~U[2026-10-09 13:00:00Z]
+      {:ok, nightly, _} = Queue.enqueue(store, job(trigger: "nightly", sets: ["blank", "default"], priority: 0, not_after: deadline), now: @t0)
+      {:ok, poll, _} = Queue.enqueue(store, job(sets: ["default"]), now: @t0)
+
+      # the clock passes the deadline during the first cell
+      clock = :counters.new(1, [])
+
+      now = fn ->
+        :counters.add(clock, 1, 1)
+        if :counters.get(clock, 1) <= 1, do: @t0, else: DateTime.add(deadline, 60)
+      end
+
+      drain(store, "android", now: now)
+      assert ran() == [{"master", "default", "android"}]
+      assert [%{status: "expired"}, %{status: "expired"}] = Queue.cells(store, nightly)
+      assert [%{status: "done", exit_code: 0}] = Queue.cells(store, poll)
+      assert Enum.sort(published()) == [nightly, poll]
+    end
   end
 
   describe "drain/3" do
@@ -196,6 +233,21 @@ defmodule MobCi.QueueTest do
       assert result.recovered == 1
       assert ran() == [{"master", "default", "android"}]
       assert Enum.map(Queue.cells(store, 1), & &1.status) == ["done", "running"]
+    end
+
+    test "a job its lane completed but never published (the worker died) is published by the next worker, once", %{store: store} do
+      {:ok, id, _} = Queue.enqueue(store, job(sets: ["default"]), now: @t0)
+      cell = Queue.claim(store, "android", @t0)
+      # the job completes in the store, then the worker dies before its report
+      assert Queue.finish(store, cell.id, 0, "/logs/x.log", @t0) == [id]
+      assert %{status: "done", publish_exit: nil} = Queue.job(store, id)
+
+      # the other lane doesn't own it
+      assert %{published: []} = drain(store, "ios")
+
+      assert %{published: [^id], ran: []} = drain(store, "android")
+      assert Queue.job(store, id).publish_exit == 0
+      assert %{published: []} = drain(store, "android")
     end
 
     test "an empty lane drains to nothing", %{store: store} do

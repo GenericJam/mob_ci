@@ -49,8 +49,12 @@ TS="$(date +%Y%m%dT%H%M%S)"
 LOG_DIR="$REPO/artifacts/ci-run"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/${MODE}-${TS}.log"
-# Fixed (not $XDG_RUNTIME_DIR): systemd, ssh and cron must all see one lock per lane.
+# Both lane workers start in the same second: give each its own drain log.
+[ "$MODE" = drain ] && LOG="$LOG_DIR/drain-${2:-}-${TS}.log"
+# Fixed (not $XDG_RUNTIME_DIR): systemd, ssh and cron must all see one lock
+# per lane and one for the poll cycle.
 LOCK_DIR="$HOME/.local/share/mob_ci/locks"
+mkdir -p "$LOCK_DIR"
 
 # The poller runs every 10 minutes; keep a week of its logs (and of the other
 # frequent modes), not every one ever.
@@ -91,9 +95,17 @@ case "$MODE" in
     kick_lanes
     ;;
   poll)
-    mix ci.poll 2>&1 | tee "$LOG"
-    # Always kick: it also catches a job queued while a worker was exiting.
+    # One cycle at a time (the timer's and mob-ci-confirm's): two cycles would
+    # see the same change and queue it twice. A cycle already running skips this one.
+    set +e
+    flock -n -E 75 "$LOCK_DIR/poll.lock" mix ci.poll 2>&1 | tee "$LOG"
+    status=${PIPESTATUS[0]}
+    set -e
+    [ "$status" -eq 75 ] && { echo "[ci-run] another poll cycle is running; skipped"; status=0; }
+    # Always kick, even after a failed cycle: it also starts a job queued while
+    # a worker was exiting.
     kick_lanes
+    exit "$status"
     ;;
   rc)
     [ $# -eq 2 ] || { echo "usage: ci-run.sh rc <repo>@<sha>" >&2; exit 64; }
@@ -117,16 +129,35 @@ case "$MODE" in
     fi
     ;;
   confirm)
-    mix ci.poll --await-pushes 2>&1 | tee "$LOG"
-    kick_lanes
+    # Wait (≤15 min) for noticed pushes to land; each time one does, run a
+    # cycle under the poll lock (waiting for the timer's cycle if it is running).
+    deadline=$((SECONDS + 900))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+      set +e
+      mix ci.poll --await-pushes --max-seconds "$((deadline - SECONDS))" 2>&1 | tee -a "$LOG"
+      status=${PIPESTATUS[0]}
+      set -e
+      [ "$status" -eq 0 ] || break   # 3: nothing pending, 4: timed out, else an error
+      flock -w 1800 "$LOCK_DIR/poll.lock" mix ci.poll 2>&1 | tee -a "$LOG" || true
+      kick_lanes
+      sleep 15
+    done
     ;;
   drain)
     LANE="${2:-}"
     case "$LANE" in android|ios) ;; *) echo "usage: ci-run.sh drain android|ios" >&2; exit 64 ;; esac
-    mkdir -p "$LOCK_DIR"
     if [ -e "$LOCK_DIR/pause-$LANE" ]; then
       echo "[ci-run] $LANE lane paused ($LOCK_DIR/pause-$LANE); priv/ci-run.sh resume $LANE"
       exit 0
+    fi
+    # The farm needs Docker, and a user unit can't order itself after the
+    # system's docker.service: after a boot, wait for it here (≤5 min).
+    if [ "$LANE" = android ] && command -v systemctl >/dev/null; then
+      for _ in $(seq 60); do systemctl is-active --quiet docker.service && break; sleep 5; done
+      if ! systemctl is-active --quiet docker.service; then
+        echo "[ci-run] docker.service is not active; android lane not started (the next poll retries)"
+        exit 0
+      fi
     fi
     # One worker per lane: the farm is shared, and the Mac builds one host at a time.
     set +e

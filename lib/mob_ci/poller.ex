@@ -275,43 +275,46 @@ defmodule MobCi.Poller do
   end
 
   @doc """
-  Wait for pending pushes to reach their remotes (`priv/ci-run.sh confirm`,
+  Wait for a pending push to reach its remote (`priv/ci-run.sh confirm`,
   started right after a notice): every `interval_ms`, ls-remote the repos
-  with pending pushes; as soon as one is visible run `cycle/2`, and stop when
-  nothing is pending or `max_ms` passed (the 10-minute poller takes over).
-  Options as `cycle/2`, plus `:sleep` (`fn ms -> :ok end`), `:interval_ms`,
-  `:max_ms`. Returns the cycles it ran.
+  with pending pushes. Returns `:landed` as soon as one is visible (the
+  caller then runs a cycle under the poll lock, so it never races the timer's
+  cycle), `:settled` when nothing is pending, `:timeout` after `max_ms` (the
+  10-minute poller takes over). Options: `:repos`, `:ls_remote`, `:now` as
+  `cycle/2`, plus `:sleep` (`fn ms -> :ok end`), `:interval_ms`, `:max_ms`.
   """
-  @spec await_pushes(Store.t(), keyword()) :: [map()]
+  @spec await_pushes(Store.t(), keyword()) :: :landed | :settled | :timeout
   def await_pushes(store, opts \\ []) do
     sleep = Keyword.get(opts, :sleep, &Process.sleep/1)
     interval = Keyword.get(opts, :interval_ms, 15_000)
-    deadline = Keyword.get(opts, :max_ms, 15 * 60_000)
-    await(store, opts, sleep, interval, deadline, [])
+    await(store, opts, sleep, interval, Keyword.get(opts, :max_ms, 15 * 60_000))
   end
 
-  defp await(store, opts, sleep, interval, left, acc) do
+  defp await(store, opts, sleep, interval, left) do
     ls = Keyword.get(opts, :ls_remote, &ls_remote/2)
     urls = Map.new(Keyword.get_lazy(opts, :repos, &Versions.repos/0))
-    pending = pending_pushes(store)
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
 
-    landed? =
-      Enum.any?(pending, fn push ->
-        case urls[push.repo] && ls.(urls[push.repo], :all) do
-          {:ok, out} -> settle(push, parse_ls_remote(out), now) in [:covered, :branch]
-          _ -> false
+    case pending_pushes(store) do
+      [] ->
+        :settled
+
+      pending ->
+        landed? =
+          Enum.any?(pending, fn push ->
+            case urls[push.repo] && ls.(urls[push.repo], :all) do
+              {:ok, out} -> settle(push, parse_ls_remote(out), now) in [:covered, :branch]
+              _ -> false
+            end
+          end)
+
+        cond do
+          landed? -> :landed
+          left <= 0 -> :timeout
+          true ->
+            sleep.(interval)
+            await(store, opts, sleep, interval, left - interval)
         end
-      end)
-
-    acc = if landed?, do: [cycle(store, opts) | acc], else: acc
-
-    cond do
-      pending_pushes(store) == [] -> Enum.reverse(acc)
-      left <= 0 -> Enum.reverse(acc)
-      true ->
-        sleep.(interval)
-        await(store, opts, sleep, interval, left - interval, acc)
     end
   end
 

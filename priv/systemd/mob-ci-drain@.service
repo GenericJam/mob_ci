@@ -1,9 +1,8 @@
 [Unit]
 Description=mob_ci %i lane worker: run queued cells one at a time until the lane is empty
 Documentation=file:%h/code/mob_ci/decisions/2026-10-09-trigger-queue.md
-# The android lane needs Docker for the redroid farm.
-After=docker.service network-online.target
-Wants=network-online.target
+# A user unit can't order itself after the system's docker.service: the
+# android lane waits for it inside `ci-run.sh drain` instead.
 
 [Service]
 # Started (a no-op when already running) by every queueing mode of

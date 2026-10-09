@@ -8,10 +8,11 @@ defmodule MobCi.Queue do
   its sets, its platforms, a reason, a priority and an optional `not_after`.
   `enqueue/3` expands it into one **cell** per (set, platform), sets in the
   job's order. A cell identical to one still queued (same row, set,
-  platform and paths) is stored as a `duplicate` of it instead of running
-  twice: a `master` cell resolves the default-branch shas when it *starts*,
-  so the queued one already covers the newer commit. A running cell has
-  resolved its shas and is never a dedup target.
+  platform and paths) whose job runs at least as soon and can't expire
+  sooner is stored as a `duplicate` of it instead of running twice: a
+  `master` cell resolves the default-branch shas when it *starts*, so the
+  queued one already covers the newer commit. A running cell has resolved
+  its shas and is never a dedup target.
 
   A **lane** is a platform: `android` (the shared redroid farm) and `ios`
   (the Mac mini over ssh). One worker per lane (`drain/3`, run under `flock`
@@ -26,8 +27,8 @@ defmodule MobCi.Queue do
   it runs `mix ci.report --publish` (or `mix ci.report` where the task has no
   `--publish`) once. A cell of a job with `not_after` that has not started by
   then `expire`s (the nightly yields the farm in the morning). A worker that
-  starts finds its lane's `running` cells orphaned by a crash and requeues
-  them.
+  starts finds what a crashed worker of its lane left behind: `running`
+  cells (requeued) and jobs it completed without publishing (published).
   """
 
   alias MobCi.{Store, Triggers}
@@ -75,20 +76,27 @@ defmodule MobCi.Queue do
       )
 
       job_id = Store.last_id(store)
-      cells = for set <- job.sets, platform <- job.platforms, do: add_cell(store, job_id, job.versions_row, set, platform)
+      cells = for set <- job.sets, platform <- job.platforms, do: add_cell(store, job_id, job, set, platform)
       {:ok, job_id, cells}
     end)
   end
 
-  defp add_cell(store, job_id, row, set, platform) do
+  # Dedup only onto a queued cell whose job runs at least as soon (priority)
+  # and can't expire before this one would: a poll cell folded into a nightly
+  # cell would otherwise wait at nightly priority and vanish with it at 07:00.
+  defp add_cell(store, job_id, job, set, platform) do
+    row = job.versions_row
     paths = Triggers.cell_paths(set, platform)
+    not_after = iso(job[:not_after])
 
     dup =
       case Store.rows!(
              store,
-             ~s{SELECT id FROM job_cells WHERE status = 'queued' AND versions_row = ?1 AND "set" = ?2 } <>
-               "AND platform = ?3 AND IFNULL(paths, '') = IFNULL(?4, '') ORDER BY id LIMIT 1",
-             [row, set, platform, paths]
+             ~s{SELECT c.id FROM job_cells c JOIN jobs j ON j.id = c.job_id WHERE c.status = 'queued' } <>
+               ~s{AND c.versions_row = ?1 AND c."set" = ?2 AND c.platform = ?3 } <>
+               "AND IFNULL(c.paths, '') = IFNULL(?4, '') AND j.priority >= ?5 " <>
+               "AND (j.not_after IS NULL OR (?6 IS NOT NULL AND j.not_after >= ?6)) ORDER BY c.id LIMIT 1",
+             [row, set, platform, paths, Map.get(job, :priority, 0), not_after]
            ) do
         [[id]] -> id
         [] -> nil
@@ -147,7 +155,7 @@ defmodule MobCi.Queue do
         )
       end
 
-      Enum.flat_map(job_ids, &complete_affected(store, &1, now))
+      Enum.flat_map(job_ids, &complete_affected(store, &1, lane, now))
     end)
   end
 
@@ -190,19 +198,19 @@ defmodule MobCi.Queue do
         [cell_id, exit_code, log_path, iso(now)]
       )
 
-      [[job_id]] = Store.rows!(store, "SELECT job_id FROM job_cells WHERE id = ?1", [cell_id])
+      [[job_id, lane]] = Store.rows!(store, "SELECT job_id, platform FROM job_cells WHERE id = ?1", [cell_id])
 
       waiting =
         store
         |> Store.rows!("SELECT DISTINCT job_id FROM job_cells WHERE duplicate_of = ?1", [cell_id])
         |> Enum.map(&hd/1)
 
-      Enum.flat_map(Enum.uniq([job_id | waiting]), &complete(store, &1, now))
+      Enum.flat_map(Enum.uniq([job_id | waiting]), &complete(store, &1, lane, now))
     end)
   end
 
   # Expiring cells can release jobs whose duplicates pointed at them.
-  defp complete_affected(store, job_id, now) do
+  defp complete_affected(store, job_id, lane, now) do
     waiting =
       store
       |> Store.rows!(
@@ -211,21 +219,37 @@ defmodule MobCi.Queue do
       )
       |> Enum.map(&hd/1)
 
-    Enum.flat_map(Enum.uniq([job_id | waiting]), &complete(store, &1, now))
+    Enum.flat_map(Enum.uniq([job_id | waiting]), &complete(store, &1, lane, now))
   end
 
-  # Mark `job_id` done if nothing of it is pending; [job_id] when this call did it.
-  defp complete(store, job_id, now) do
+  # Mark `job_id` done if nothing of it is pending; [job_id] when this call did
+  # it. The completing lane owns the job's publish (`unpublished/2`).
+  defp complete(store, job_id, lane, now) do
     Store.exec!(
       store,
-      "UPDATE jobs SET status = 'done', finished_at = ?2 WHERE id = ?1 AND status = 'queued' AND NOT EXISTS (" <>
+      "UPDATE jobs SET status = 'done', finished_at = ?2, publish_lane = ?3 WHERE id = ?1 AND status = 'queued' " <>
+        "AND NOT EXISTS (" <>
         "SELECT 1 FROM job_cells c WHERE c.job_id = ?1 AND (c.status IN ('queued', 'running') OR " <>
         "(c.status = 'duplicate' AND EXISTS (SELECT 1 FROM job_cells d WHERE d.id = c.duplicate_of " <>
         "AND d.status IN ('queued', 'running')))))",
-      [job_id, iso(now)]
+      [job_id, iso(now), lane]
     )
 
     if Store.changes(store) == 1, do: [job_id], else: []
+  end
+
+  @doc """
+  Jobs `lane` completed but never published (its worker died between the
+  two). Only call it holding the lane's lock: then no live worker owns them.
+  """
+  @spec unpublished(Store.t(), String.t()) :: [pos_integer()]
+  def unpublished(store, lane) do
+    store
+    |> Store.rows!(
+      "SELECT id FROM jobs WHERE status = 'done' AND publish_exit IS NULL AND publish_lane = ?1 ORDER BY id",
+      [lane]
+    )
+    |> Enum.map(&hd/1)
   end
 
   @doc "Record the exit code of the report run after `job_id` finished."
@@ -258,8 +282,11 @@ defmodule MobCi.Queue do
 
     recovered = recover(store, lane)
     if recovered > 0, do: say("[#{lane}] requeued #{recovered} cell(s) a dead worker left running")
+    acc = %{ran: [], published: [], recovered: recovered}
 
-    loop(store, lane, now, run_cell, publish, %{ran: [], published: [], recovered: recovered})
+    # A worker that died after completing a job but before its report ran.
+    acc = publish_all(store, unpublished(store, lane), publish, acc)
+    loop(store, lane, now, run_cell, publish, acc)
   end
 
   defp loop(store, lane, now, run_cell, publish, acc) do

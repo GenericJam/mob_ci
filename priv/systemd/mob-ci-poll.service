@@ -1,8 +1,8 @@
 [Unit]
 Description=mob_ci git-remote poller: new default-branch shas → static gate + queued master cells
 Documentation=file:%h/code/mob_ci/decisions/2026-10-09-trigger-queue.md
-After=network-online.target
-Wants=network-online.target
+# No network ordering (a user manager has no network-online.target): a repo
+# that can't be reached keeps its stored sha and is retried next cycle.
 
 [Service]
 Type=oneshot

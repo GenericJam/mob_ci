@@ -38,7 +38,9 @@ CREATE INDEX IF NOT EXISTS cells_lookup ON cells("set", platform, path, invarian
 CREATE INDEX IF NOT EXISTS runs_row ON runs(versions_row);
 
 -- ── Schema 2: the trigger queue (MobCi.Queue, MobCi.Poller; MOB-416) ─────────
--- MobCi.Store.migrate/1 also adds runs.job_id (the job that ran the run).
+-- MobCi.Store.migrate/1 also adds runs.job_id (the job that ran the run) and
+-- jobs.publish_lane (the lane whose worker completed the job and owns its
+-- report run).
 
 -- One trigger's request: run these sets on this row, on these platforms.
 CREATE TABLE IF NOT EXISTS jobs (

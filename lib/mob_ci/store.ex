@@ -113,14 +113,15 @@ defmodule MobCi.Store do
   @spec migrate(t()) :: :ok | {:error, term()}
   def migrate(%__MODULE__{conn: conn} = store) do
     with :ok <- Exqlite.Sqlite3.execute(conn, @schema),
-         :ok <- add_column(store, "runs", "job_id", "INTEGER") do
+         :ok <- add_column(store, "runs", "job_id", "INTEGER"),
+         :ok <- add_column(store, "jobs", "publish_lane", "TEXT") do
       if user_version(store) < @schema_version,
         do: Exqlite.Sqlite3.execute(conn, "PRAGMA user_version = #{@schema_version}"),
         else: :ok
     end
   end
 
-  # Schema 2: runs.job_id. ALTER TABLE has no IF NOT EXISTS, so look first.
+  # Schema 2: runs.job_id, jobs.publish_lane. ALTER TABLE has no IF NOT EXISTS, so look first.
   defp add_column(%__MODULE__{conn: conn} = store, table, column, type) do
     present = store |> rows!("PRAGMA table_info(#{table})", []) |> Enum.any?(fn [_, name | _] -> name == column end)
     if present, do: :ok, else: Exqlite.Sqlite3.execute(conn, "ALTER TABLE #{table} ADD COLUMN #{column} #{type}")

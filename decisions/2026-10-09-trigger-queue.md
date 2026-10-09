@@ -40,9 +40,12 @@ the run rows (`runs.job_id`). `MobCi.Queue` owns `jobs` and `job_cells`;
   platforms, reason}` plus a priority and an optional `not_after`.
 - `enqueue/3` expands it into one **cell** per (set, platform), in the job's
   set order. A cell identical to one still *queued* (row, set, platform,
-  paths) is stored as a `duplicate` of it: a `master` cell resolves the
-  default-branch shas when it starts, so the queued one already covers the
-  newer commit. A running cell has resolved its shas and is never a target.
+  paths) is stored as a `duplicate` of it, provided that cell's job runs at
+  least as soon (priority) and cannot expire sooner (`not_after`): a
+  `master` cell resolves the default-branch shas when it starts, so the
+  queued one already covers the newer commit, but a poll cell folded into a
+  nightly one would wait at nightly priority and vanish with it at 07:00. A
+  running cell has resolved its shas and is never a target.
 - A **lane** is a platform. `android` runs on the farm, `ios` on the Mac via
   `mix ci.device --platform ios`; the lanes share no machine, so they run
   side by side, each strictly one cell at a time (`flock` on
@@ -64,8 +67,10 @@ the run rows (`runs.job_id`). `MobCi.Queue` owns `jobs` and `job_cells`;
   `matrix.md` / `COMPATIBILITY.md` failed; the Muster post covers every
   summary cell since the previous publish). A nightly is two jobs (hex,
   master), so two publishes a night; a poll batch is one.
-- A worker that starts requeues its lane's `running` cells: only a dead
-  worker leaves one behind, since the lock admits one worker per lane.
+- A worker that starts cleans up after a dead worker of its lane (the lock
+  admits one per lane, so nothing it finds is live): `running` cells are
+  requeued, and jobs the lane completed (`jobs.publish_lane`) but never
+  published get their report run.
 
 ### Triggers
 
@@ -99,7 +104,10 @@ one-line hook addition is proposed in MOB-416, not committed to other repos)
 backgrounds `ssh nuc ci-run.sh push <repo> <sha> <ref>` and always exits 0.
 The NUC records a `pending` push and starts `mob-ci-confirm` (transient,
 `systemd-run`), which ls-remotes the pushed repo every 15 s for up to
-15 minutes and runs a poll cycle as soon as the sha is on the remote. The
+15 minutes and, as soon as the sha is on the remote, runs a poll cycle. Every
+cycle — the timer's and confirm's — holds `~/.local/share/mob_ci/locks/poll.lock`
+(the timer skips a cycle while confirm's runs; confirm waits for the timer's),
+so two cycles never see the same change and queue it twice. The
 cycle settles it: the sha is the default branch's `HEAD` → `covered` by the
 poll job (the poller dedups the push; the job's trigger says `pre-push`); on
 another ref → its own `rc:<repo>@<sha>` job; not there an hour after the
