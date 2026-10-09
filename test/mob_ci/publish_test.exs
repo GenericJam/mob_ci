@@ -370,6 +370,19 @@ defmodule MobCi.PublishTest do
       assert [%{set: "pairwise:3"}] = Matrix.regressions([Enum.max_by(all, & &1.id)], all)
     end
 
+    test "a standalone prune keeps the baseline of a failure not posted yet (horizon = the marker)", %{store: store} do
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :pass}], at: "2026-10-01T00:00:00Z")
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :skip}], at: "2026-10-02T00:00:00Z")
+      File.write!(Publish.marker_path(store), "#{summaries(store) |> Enum.map(& &1.id) |> Enum.max()}\n")
+      # failed last night; the post was held, so the marker hasn't moved
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :fail}], at: "2026-11-14T00:00:00Z")
+
+      Publish.prune(store, now: at("2026-11-15T00:00:00Z"), log_dirs: [])
+
+      all = summaries(store)
+      assert [%{set: "pairwise:3"}] = Matrix.regressions([Enum.max_by(all, & &1.id)], all)
+    end
+
     test "a newer replay doesn't make the row's real latest prunable", %{store: store} do
       real = record!(store, "hex", [{"default", "deploy:android", :fail}], at: "2026-10-01T00:00:00Z")
       record!(store, "hex", [{"default", "deploy:android", :pass}], at: "2026-11-30T00:00:00Z", trigger: "replay")

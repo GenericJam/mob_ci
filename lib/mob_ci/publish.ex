@@ -324,6 +324,9 @@ defmodule MobCi.Publish do
   pointed at, and `*.log` files under `:log_dirs` (default `~/mob_ci_logs`),
   in both cases only when older than the cutoff and not referenced by a
   remaining cell. Empty directories left under `:log_dirs` go too.
+  `:reported` (the regression baseline's horizon) defaults to the store's
+  marker, so a standalone `mix ci.report --prune` never drops the baseline
+  of a failure that hasn't been posted yet.
   """
   @spec prune(Store.t(), keyword()) :: map()
   def prune(store, opts \\ []) do
@@ -331,8 +334,9 @@ defmodule MobCi.Publish do
     days = Keyword.get(opts, :days, 30)
     cutoff = DateTime.to_unix(now) - days * 86_400
     log_dirs = Keyword.get(opts, :log_dirs, [Path.expand("~/mob_ci_logs")])
+    reported = Keyword.get_lazy(opts, :reported, fn -> read_marker(marker_path(store)) end)
 
-    pruned = Store.prune(store, now: now, days: days, reported: Keyword.get(opts, :reported))
+    pruned = Store.prune(store, now: now, days: days, reported: reported)
     referenced = store |> Store.query() |> Enum.map(& &1.log_path) |> Enum.reject(&is_nil/1) |> MapSet.new()
 
     candidates =
