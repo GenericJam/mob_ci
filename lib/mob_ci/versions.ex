@@ -129,6 +129,10 @@ defmodule MobCi.Versions do
     * `:cache_dir` — where clones and unpacked tarballs live.
     * `:names` — the repos to resolve (default all). mob_new is added unless
       `mob_new: false`, because the host generator must be runnable.
+    * `:pins` — repo → a stored pin (`%{version, sha, source}` as
+      `record/1` writes it, see `read_pins/1`): those repos are
+      re-materialised at exactly that pin instead of resolved from the row
+      (what `mix ci.replay` runs a stored cell with).
 
   Git pins always carry a checkout (hosts depend on it by path). Hex pins of
   mob and mob_dev carry none (Mix fetches them); mob_new's tarball is unpacked
@@ -139,11 +143,14 @@ defmodule MobCi.Versions do
   def resolve(row, opts \\ []) do
     remote = Keyword.get(opts, :remote, Remote.default())
     cache = Keyword.get(opts, :cache_dir, @cache_dir)
+    pins = Keyword.get(opts, :pins) || %{}
     names = Keyword.get(opts, :names, Enum.map(repos(), &elem(&1, 0)))
     names = if Keyword.get(opts, :mob_new, true), do: Enum.uniq([:mob_new | names]), else: names
 
     Enum.reduce_while(names, {:ok, %{row: row, repos: %{}}}, fn name, {:ok, acc} ->
-      case resolve_one(row, name, remote, cache) do
+      pinned = Map.get(pins, name)
+
+      case if(pinned, do: pinned_pin(name, pinned, remote, cache), else: resolve_one(row, name, remote, cache)) do
         {:ok, pin} -> {:cont, {:ok, put_in(acc, [:repos, name], pin)}}
         {:error, reason} -> {:halt, {:error, {name, reason}}}
       end
@@ -157,6 +164,27 @@ defmodule MobCi.Versions do
     do: git_sha_pin(name, sha, remote, cache)
 
   defp resolve_one({:rc, _, _}, name, remote, cache), do: hex_pin(name, remote, cache)
+
+  # A stored pin, re-materialised here: a Hex version unpacked (or not, for
+  # mob/mob_dev) as `hex_pin/3` would, a git sha checked out at that sha. The
+  # record's `dir` is the recording machine's and is ignored.
+  defp pinned_pin(name, %{source: "hex", version: v}, remote, cache) when is_binary(v) do
+    with {:ok, dir} <- hex_dir(name, v, remote, cache),
+         do: {:ok, %{version: v, sha: nil, source: :hex, dir: dir}}
+  end
+
+  defp pinned_pin(name, %{source: "git:" <> url_sha}, remote, cache) do
+    case Regex.run(~r/^(.+)@([0-9a-f]{7,40})$/, url_sha) do
+      [_, url, sha] ->
+        with {:ok, %{dir: dir, sha: full}} <- remote.checkout.(name, url, sha, cache),
+             do: {:ok, %{version: version_in(dir), sha: full, source: {:git, url}, dir: dir}}
+
+      nil ->
+        {:error, {:bad_pin, "git:" <> url_sha}}
+    end
+  end
+
+  defp pinned_pin(_name, pin, _remote, _cache), do: {:error, {:bad_pin, pin}}
 
   defp hex_pin(name, remote, cache) do
     with {:ok, version} <- remote.hex_latest.(name),
@@ -284,6 +312,44 @@ defmodule MobCi.Versions do
 
   defp source_string(%{source: :hex}), do: "hex"
   defp source_string(%{source: {:git, url}, sha: sha}), do: "git:#{url}@#{sha}"
+
+  @doc """
+  Read a stored versions record (`record/1`'s JSON, e.g. a store cell's
+  `versions`) back as pins: `%{row: "hex", repos: %{mob: %{version, sha,
+  source}}}`, the shape `resolve/2`'s `:pins` takes. `dir` is dropped: it
+  names the recording machine's checkout.
+  """
+  @spec read_pins(Path.t()) :: {:ok, %{row: String.t(), repos: %{atom() => map()}}} | {:error, String.t()}
+  def read_pins(path) do
+    with {:ok, body} <- File.read(path),
+         {:ok, %{"row" => row, "repos" => repos}} when is_binary(row) and is_map(repos) <- JSON.decode(body) do
+      {:ok,
+       %{
+         row: row,
+         repos:
+           Map.new(repos, fn {name, pin} ->
+             {String.to_atom(name), %{version: pin["version"], sha: pin["sha"], source: pin["source"]}}
+           end)
+       }}
+    else
+      {:error, reason} -> {:error, "pins #{path}: #{inspect(reason)}"}
+      _ -> {:error, "pins #{path}: not a versions record (row + repos)"}
+    end
+  end
+
+  @doc """
+  The pins named by `$MOB_CI_PINS` (a versions record JSON file, written by
+  `mix ci.replay`), or nil when unset. A set variable that can't be read is
+  an error, never silently a fresh resolution.
+  """
+  @spec env_pins() :: {:ok, map() | nil} | {:error, String.t()}
+  def env_pins do
+    case System.get_env("MOB_CI_PINS") do
+      nil -> {:ok, nil}
+      "" -> {:ok, nil}
+      path -> read_pins(path)
+    end
+  end
 
   @doc "One line per repo, for the console: `mob 0.9.14 (hex)` / `mob 0.9.15 (git abc1234)`."
   @spec summary(resolved()) :: String.t()

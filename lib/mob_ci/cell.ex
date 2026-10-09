@@ -25,18 +25,58 @@ defmodule MobCi.Cell do
   parked collision stays visible). The remaining options go to
   `MobCi.Versions.resolve/2` (`:remote`, `:cache_dir`), so tests plan with
   nothing fetched.
+
+  `:pins` (default: `$MOB_CI_PINS`, `MobCi.Versions.env_pins/0`) replays a
+  stored cell: every repo is re-materialised at its recorded pin instead of
+  resolved from the row, and the set is the recorded plugins, so a
+  `random:<seed>` or `all` cell is the same set even after the pool changed.
+  Sets defined in committed order (`all`, `pairwise:<i>`, `random:<seed>`)
+  keep that order; sets with their own activation order (`default`, `demo`,
+  files) keep theirs for the plugins they still list, then the rest in
+  committed order. The pins' row must be the `--versions` row.
   """
   @spec plan(String.t() | nil, String.t() | nil, keyword()) :: {:ok, t()} | {:error, String.t()}
   def plan(set_name, versions_name, opts \\ []) do
     with {:ok, row} <- Versions.parse(versions_name),
          {:ok, spec} <- Sets.parse(set_name),
+         {:ok, pins} <- pins(opts, row),
+         opts = Keyword.put(opts, :pins, pins && pins.repos),
          {:ok, core} <- resolve(row, [:mob, :mob_dev, :mob_new], opts),
          {:ok, plugins} <- set_plugins(spec, core, Keyword.take(opts, [:include_excluded])),
+         plugins = pinned_plugins(spec, plugins, pins),
          {:ok, more} <- resolve(row, plugins, Keyword.put(opts, :mob_new, false)) do
       # One mob_new pin per cell: the one the `default` set was read from.
       resolved = %{core | repos: Map.merge(more.repos, core.repos)}
       Plugins.put_resolved_dirs(Versions.source_dirs(resolved))
       {:ok, %{row: row, spec: spec, set: Sets.name(spec), plugins: plugins, resolved: resolved}}
+    end
+  end
+
+  defp pins(opts, row) do
+    with {:ok, pins} <- if(Keyword.has_key?(opts, :pins), do: {:ok, opts[:pins]}, else: Versions.env_pins()) do
+      cond do
+        is_nil(pins) -> {:ok, nil}
+        pins.row == Versions.row_to_string(row) -> {:ok, pins}
+        true -> {:error, "pinned versions are row #{pins.row}, not #{Versions.row_to_string(row)}"}
+      end
+    end
+  end
+
+  @doc false
+  # The recorded plugins of a pinned cell, in the set's activation order.
+  @spec pinned_plugins(Sets.spec(), [atom()], map() | nil) :: [atom()]
+  def pinned_plugins(_spec, plugins, nil), do: plugins
+
+  def pinned_plugins(spec, plugins, %{repos: repos}) do
+    recorded = repos |> Map.keys() |> Kernel.--([:mob, :mob_dev, :mob_new])
+    order = Versions.plugins()
+    committed = Enum.sort_by(recorded, &{Enum.find_index(order, fn p -> p == &1 end) || length(order), &1})
+
+    if spec in [:default, :demo] or match?({:file, _}, spec) do
+      kept = Enum.filter(plugins, &(&1 in recorded))
+      kept ++ (committed -- kept)
+    else
+      committed
     end
   end
 

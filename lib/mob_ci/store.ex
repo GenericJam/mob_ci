@@ -315,8 +315,8 @@ defmodule MobCi.Store do
   @doc """
   Cells joined with their run, oldest first. Filters (all optional):
 
-    * `:run_id`, `:versions_row`, `:set`, `:platform`, `:path`, `:outcome`,
-      `:trigger` — equality.
+    * `:id`, `:run_id`, `:versions_row`, `:set`, `:platform`, `:path`,
+      `:outcome`, `:trigger` — equality.
     * `:invariant` — equality; `nil` selects summary rows only.
     * `:latest` — `true` keeps only the newest row per (versions_row, set,
       platform, path, invariant): the current grid.
@@ -359,6 +359,7 @@ defmodule MobCi.Store do
   end
 
   @filter_columns [
+    id: "c.id",
     run_id: "c.run_id",
     versions_row: "r.versions_row",
     set: ~s{c."set"},
@@ -411,6 +412,113 @@ defmodule MobCi.Store do
       [] -> nil
     end
   end
+
+  # ── retention ────────────────────────────────────────────────────────────────
+
+  @doc """
+  Delete what the store no longer needs. A cell (its summary row plus its
+  invariant and self-test rows) whose run started more than `:days` (default
+  30) before `:now` is deleted unless something still reads it:
+
+    * kept whole, forever: the newest cell of its (versions_row, set,
+      platform, path), overall and among non-`replay` runs (the grid), and
+      the newest `singleton:<p>` cell per key that has self-test rows (the
+      P12 singleton lookup, `singleton_selftest/3`, reads those rows, and an
+      errored cell has none);
+    * kept as its summary row only: the newest non-skip non-replay cell per
+      key among the cells already reported (`:reported`, the last summary id
+      a Muster post covered; default all), the baseline of the next
+      regression check; and for `default`, `all` and `singleton:<p>`, the
+      newest cell and the newest passing cell per (set, platform, path,
+      exact pins), the evidence `COMPATIBILITY.md` is built from (a later
+      failure of the same pins must keep demoting a tuple).
+
+  Runs left without cells go too. Returns the counts and the `log_path`s of
+  the deleted rows (the caller deletes those files, `MobCi.Publish.prune/2`).
+  """
+  @spec prune(t(), keyword()) :: %{cells: non_neg_integer(), runs: non_neg_integer(), log_paths: [Path.t()]}
+  def prune(%__MODULE__{} = store, opts \\ []) do
+    now = Keyword.get(opts, :now, DateTime.utc_now())
+    cutoff = now |> DateTime.add(-Keyword.get(opts, :days, 30) * 86_400, :second) |> iso()
+
+    transaction!(store, fn ->
+      rows = query(store)
+      summaries = Enum.filter(rows, &is_nil(&1.invariant))
+      selftests = for r <- rows, String.starts_with?(r.invariant || "", "p12:"), into: MapSet.new(), do: cell_key(r)
+      {whole, summary_only} = retained(summaries, selftests: selftests, reported: Keyword.get(opts, :reported))
+      by_cell = Enum.group_by(rows, &cell_key/1)
+
+      {cells, logs} =
+        for s <- summaries, s.started_at < cutoff, key = cell_key(s), not MapSet.member?(whole, key), reduce: {0, []} do
+          {n, logs} ->
+            only_details = MapSet.member?(summary_only, key)
+            gone = if only_details, do: Enum.filter(by_cell[key], & &1.invariant), else: by_cell[key]
+
+            exec!(
+              store,
+              ~s{DELETE FROM cells WHERE run_id = ?1 AND "set" = ?2 AND platform = ?3 AND path = ?4} <>
+                if(only_details, do: " AND invariant IS NOT NULL", else: ""),
+              [s.run_id, s.set, s.platform, s.path]
+            )
+
+            {n + length(gone), logs ++ for(r <- gone, r.log_path, do: r.log_path)}
+        end
+
+      exec!(store, "DELETE FROM runs WHERE started_at < ?1 AND NOT EXISTS (SELECT 1 FROM cells WHERE cells.run_id = runs.id)", [cutoff])
+      %{cells: cells, runs: changes(store), log_paths: logs |> Enum.uniq() |> Enum.sort()}
+    end)
+  end
+
+  @evidence_sets ["default", "all"]
+
+  @doc false
+  # The cells `prune/2` keeps (pure): {kept whole, kept as summary only}, as
+  # {run_id, set, platform, path} keys. `opts`: `:selftests` (keys of cells
+  # with `p12:` rows), `:reported` (last reported summary id, nil = all).
+  @spec retained([map()], keyword()) :: {MapSet.t(), MapSet.t()}
+  def retained(summaries, opts \\ []) do
+    newest = fn rows, by -> rows |> Enum.group_by(by) |> Enum.map(fn {_, rs} -> Enum.max_by(rs, & &1.id) end) end
+    grid_key = &{&1.versions_row, &1.set, &1.platform, &1.path}
+    real = Enum.reject(summaries, &(&1.trigger == "replay"))
+    selftests = Keyword.get(opts, :selftests, MapSet.new())
+    reported = Keyword.get(opts, :reported)
+
+    singleton_selftests =
+      Enum.filter(summaries, &(String.starts_with?(&1.set, "singleton:") and MapSet.member?(selftests, cell_key(&1))))
+
+    whole = newest.(summaries, grid_key) ++ newest.(real, grid_key) ++ newest.(singleton_selftests, grid_key)
+
+    baseline =
+      real
+      |> Enum.filter(&(&1.outcome != :skip and (is_nil(reported) or &1.id <= reported)))
+      |> newest.(grid_key)
+
+    evidence = Enum.filter(summaries, &evidence_set?(&1.set))
+    pins_key = &{&1.set, &1.platform, &1.path, pins(&1.versions)}
+    evidence = newest.(evidence, pins_key) ++ newest.(Enum.filter(evidence, &(&1.outcome == :pass)), pins_key)
+
+    {MapSet.new(whole, &cell_key/1), MapSet.new(baseline ++ evidence, &cell_key/1)}
+  end
+
+  @doc "Is `set` one `COMPATIBILITY.md` reads (`default`, `all`, `singleton:<p>`)?"
+  @spec evidence_set?(String.t()) :: boolean()
+  def evidence_set?("singleton:" <> _), do: true
+  def evidence_set?(set), do: set in @evidence_sets
+
+  @doc """
+  The exact pins of a stored versions record, machine-independent: repo name
+  → `{version, sha, source}` (the record's `dir` is where *that* machine
+  materialised the pin, not part of it). `%{}` for a cell without versions.
+  """
+  @spec pins(map() | nil) :: %{String.t() => {String.t() | nil, String.t() | nil, String.t() | nil}}
+  def pins(%{"repos" => repos}) when is_map(repos),
+    do: Map.new(repos, fn {name, p} -> {to_string(name), {p["version"], p["sha"], p["source"]}} end)
+
+  def pins(_), do: %{}
+
+  defp cell_key(s), do: {s.run_id, s.set, s.platform, s.path}
+
+  defp iso(%DateTime{} = dt), do: dt |> DateTime.truncate(:second) |> DateTime.to_iso8601()
 
   # ── plumbing ─────────────────────────────────────────────────────────────────
 

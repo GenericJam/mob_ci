@@ -20,7 +20,15 @@ mix ci.device --platform ios --set default --versions hex   # the Mac mini, over
 mix ci.report                                # latest grid per versions row, from the store
 priv/ci-run.sh rc mob_camera@<sha>           # queue an rc row (static gate now, cells via the queue)
 priv/ci-run.sh queue                         # the trigger queue: what is queued / ran
+mix ci.report --publish                      # matrix.md + COMPATIBILITY.md → the matrix branch, Muster post
+mix ci.replay 1234                           # rerun stored cell 1234 with its exact pins
 ```
+
+**Published results:** [COMPATIBILITY.md](https://github.com/GenericJam/mob_ci/blob/matrix/COMPATIBILITY.md)
+(verified version combinations of mob, mob_dev, mob_new and the plugins) and
+[matrix.md](https://github.com/GenericJam/mob_ci/blob/matrix/matrix.md) (the
+latest grid per version row), regenerated on the `matrix` branch after every
+run.
 
 ## Version rows and sets (`--set` × `--versions`)
 
@@ -113,10 +121,34 @@ singleton result exists yet.
 and, per path, a summary cell plus a row per invariant and per plugin
 self-test. `mix ci.report` prints the latest grid per versions row
 (`--versions`, `--set`, `--invariants` for the failing rows behind it);
-`MobCi.Store.query/2` is the reader for anything else (matrix.md, MOB-417).
+`MobCi.Store.query/2` is the reader for anything else.
 The `--artifacts` dir still gets `junit.xml`, `summary.json`,
 `timings.json` and the build logs. Rationale:
 `decisions/2026-10-08-p12-release-cell-results-store.md`.
+
+## Reports, Muster, replay
+
+`mix ci.report --publish` (what every trigger runs after a job,
+`MobCi.Publish`) renders `matrix.md` and `COMPATIBILITY.md` from the store
+(`MobCi.Matrix`, pure and deterministic: same store, same bytes), writes them
+into the checkout's root (gitignored), commits them to the `matrix` branch
+with git plumbing (no working tree touched) and pushes, posts one Muster
+`#mob` summary of the cells recorded since the previous post (as
+`@mob_ci-nightly`; `@kevin` only when a `hex` cell whose previous non-skip
+outcome was a pass now fails or errors), and prunes the store (cells older
+than 30 days, except what the grid, the P12 singleton lookup, the next
+regression check and `COMPATIBILITY.md` still read) and old `*.log` files
+under `~/mob_ci_logs`. Exit 0 unless a file couldn't be written or the store
+doesn't exist; `--no-post` folds a job into the next post, `--no-push` keeps
+the files local. Both lanes publishing at once take turns on a lock.
+
+`mix ci.replay <cell id>` reruns one stored cell (any row of it) as the
+`mix ci.device` call of its path, with `$MOB_CI_PINS` pointing
+`MobCi.Cell.plan/3` at the recorded pins and plugin list; `--current` uses
+the row as it resolves today, `--dry-run` only prints. `--promote` freezes a
+failed `random:<seed>` or sweep-subset cell into `priv/sets/<name>.exs`, a
+regression set the nightly runs from then on. Rationale:
+`decisions/2026-10-09-reports-matrix-branch-replay.md`.
 
 ## iOS lane (`--platform ios`)
 

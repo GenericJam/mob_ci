@@ -17,3 +17,8 @@ erl_crash.dump
 
 # Hosts generated per (set, version row) by MobCi.Host.
 /fixtures/_hosts/
+
+# Written by `mix ci.report --publish`; the published copies live on the
+# `matrix` branch (MobCi.Publish), not on main.
+/matrix.md
+/COMPATIBILITY.md
