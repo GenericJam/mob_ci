@@ -190,9 +190,11 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   `Build.classify_failure/1` names the cause (`{:signature_gate, [per-plugin lines]}`)
   so the report says *which* plugins are v1 instead of "native build failed".
 
-## F9 — `mob_bluetooth` + `mob_midi` both declare `NSBluetoothAlwaysUsageDescription` (differing values)
+## F9 — `mob_bluetooth` + `mob_midi` both declare `NSBluetoothAlwaysUsageDescription` (differing values) — resolved
 
-- **Upstream:** [MOB-421](https://linear.app/mobframework/issue/MOB-421).
+- **Upstream:** [MOB-421](https://linear.app/mobframework/issue/MOB-421) → fixed by
+  [GenericJam/mob_dev#130](https://github.com/GenericJam/mob_dev/pull/130), released
+  in **mob_dev 0.7.19** (with mob_bluetooth 0.5.0, mob_midi 0.2.0 unchanged).
 - **Found:** 2026-10-08, static sweep over the `all` set (MOB-413); shrinks to
   `[:mob_bluetooth, :mob_midi]`.
 - **Where:** `mob_bluetooth/priv/mob_plugin.exs` (`"Bluetooth access is required to
@@ -204,13 +206,21 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   rejected at validate with a plugin-vs-plugin conflict it cannot resolve by
   configuration — unless the author knows about the MOB-387 host exemption and sets
   the key in `ios/Info.plist` themselves.
-- **Fix:** a usage-description string is the host's prose, not a plugin's. Validator:
-  when more than one plugin contributes a `*UsageDescription` key, say "set it in
-  ios/Info.plist" instead of "collision"; plugin guide: declare such keys as
-  defaults the host overrides.
-- **Workaround in mob_ci:** `priv/sets/exclusions.exs` excludes `mob_midi` from
-  `all`/pairwise with reason `F9`; the singleton still runs and the static gate
-  still sees the pair, so the entry stays visible until the fix lands.
+- **Fix:** a usage description is the permission prompt, and an app using both
+  plugins needs Bluetooth for both reasons. mob_dev 0.7.19 combines a
+  `*UsageDescription` every declaring plugin gives as a string (distinct sentences in
+  activation order: "…to nearby devices. …(BLE) MIDI devices.") instead of
+  colliding, prints which plugins it combined, and the host's `ios/Info.plist` value
+  still wins. Other Info.plist keys two plugins declare still collide (mob_dev ADR
+  `decisions/2026-10-09-plugin-usage-descriptions-combine.md`; plugin guide
+  GenericJam/mob#199).
+- **Verified:** 2026-10-09 on the NUC, `mix ci.device --static --set all --versions
+  master` (mob_dev 0.7.19 @ 85cb423, mob_bluetooth 0.5.0, mob_midi 0.2.0; 22 plugins,
+  run 97): `conflicts: none`, "Static gate: set composes cleanly." Same on the hex
+  row (`--versions hex`: mob_dev 0.7.19, mob_bluetooth 0.5.0, mob_midi 0.2.0 from
+  Hex; run 101).
+- **Workaround in mob_ci:** removed — `priv/sets/exclusions.exs` no longer parks
+  `mob_midi`; `all` and the pairwise rows include it again.
 
 ## F10 — `mob_background` does not build on an unmodified host (bridge references a class the plugin doesn't ship)
 
