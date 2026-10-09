@@ -307,13 +307,25 @@ defmodule MobCi.Lane.Ios.Reaper do
     # since may belong to a run that started since.
     seen = MapSet.new(ps, & &1.pid)
     orphan? = &(&1.pid in seen and &1.run not in live_ids and &1.run != own)
+
+    # A leftover some other process still names (a cell's children carry
+    # TMPDIR=<scratch>/tmp; its build commands, the host dir) is in use: a
+    # cell from a worker that keeps no run (an older mob_ci), or a hand
+    # build. Neither the processes being stopped nor a lease daemon (it
+    # outlives the cell it served) count.
+    doomed = MapSet.new(run_processes(ps, orphan?, true), & &1.pid)
+    users = for p <- ps, p.pid not in doomed, not lease_daemon?(p.command), do: p.command
+    in_use? = fn key -> Enum.any?(users, &String.contains?(&1, key)) end
+    cell_in_use? = &in_use?.(Path.join(deps.scratch_root, &1))
+
     stopped = stop(deps, orphan?, [])
 
     old? = fn path -> now - mtime(path) >= after_s end
     session_cell = fn "mob_ci_ios_" <> cell -> cell end
+    orphan_cell? = &(&1 not in live_cells and not cell_in_use?.(&1))
 
-    stale_dirs = for d <- lease_dirs, session_cell.(Path.basename(d)) not in live_cells, old?.(d), do: d
-    claimed = for s <- claims, String.starts_with?(s, "mob_ci_ios_"), session_cell.(s) not in live_cells, do: s
+    stale_dirs = for d <- lease_dirs, orphan_cell?.(session_cell.(Path.basename(d))), old?.(d), do: d
+    claimed = for s <- claims, String.starts_with?(s, "mob_ci_ios_"), orphan_cell?.(session_cell.(s)), do: s
     held = for d <- stale_dirs, File.exists?(Path.join(d, "lease")), do: Path.basename(d)
 
     leases =
@@ -325,8 +337,8 @@ defmodule MobCi.Lane.Ios.Reaper do
     # Dead runs' teardown already removed their cells' scratch.
     dirs =
       (stale_dirs ++
-         for(d <- scratch, Path.basename(d) not in live_cells, old?.(d), do: d) ++
-         for({app, d} <- app_dirs, app not in live_apps, old?.(d), do: d))
+         for(d <- scratch, orphan_cell?.(Path.basename(d)), old?.(d), do: d) ++
+         for({app, d} <- app_dirs, app not in live_apps, not in_use?.("/#{app}"), old?.(d), do: d))
       |> Enum.uniq()
       |> Enum.filter(&File.exists?/1)
 

@@ -402,6 +402,34 @@ defmodule MobCi.Lane.Ios.ReaperTest do
           do: assert(File.dir?(d), d)
     end
 
+    test "a leftover a running process still names is in use (a cell of a worker that keeps no run); a lease daemon doesn't count",
+         %{tmp_dir: dir} do
+      agents = Path.join(dir, "agents")
+      scratch = Path.join(dir, "scratch")
+      busy = touch(Path.join(scratch, "all-master-deploy_ios_sim-busy"), 3_600)
+      idle = touch(Path.join(scratch, "all-hex-deploy_ios_device-idle"), 3_600)
+      busy_lease = stamp(Path.join(agents, "mob_ci_ios_all-master-deploy_ios_sim-busy/lease"), 3_600) |> Path.dirname()
+      touch(busy_lease, 3_600)
+      idle_lease = stamp(Path.join(agents, "mob_ci_ios_all-hex-deploy_ios_device-idle/lease"), 3_600) |> Path.dirname()
+      touch(idle_lease, 3_600)
+
+      table =
+        procs([
+          # An untagged build, its TMPDIR inside the busy cell's scratch.
+          %{pid: 10, cmd: "zig build binary TMPDIR=#{busy}/tmp"},
+          # The idle cell's lease daemon outlived it: no reason to keep the cell.
+          %{pid: 11, cmd: "#{@daemon} AGENT_DEVICE_STATE_DIR=#{idle_lease} TMPDIR=#{idle}/tmp"}
+        ])
+
+      claims = fn -> ["mob_ci_ios_all-master-deploy_ios_sim-busy", "mob_ci_ios_all-hex-deploy_ios_device-idle"] end
+      result = Reaper.reap("r-own", deps(dir, table, %{claims: claims}))
+
+      assert result.leases == [{"mob_ci_ios_all-hex-deploy_ios_device-idle", {"", 0}}]
+      assert Enum.sort(result.dirs) == Enum.sort([idle, idle_lease])
+      assert File.dir?(busy) and File.dir?(busy_lease)
+      assert result.processes == []
+    end
+
     test "a process whose run is not live is stopped; untagged and shared ones never are", %{tmp_dir: dir} do
       table =
         procs([
