@@ -123,32 +123,35 @@
   mob_midi: %{
     nif: :mob_midi_nif,
     probe: {:midi_list_devices, []},
-    screen: :emulator_ok,
-    note: "no MIDI devices on redroid; list_devices/0 is read-only. KeyboardScreen + InputScreen"
+    screen: :hardware_degraded,
+    note:
+      "no MIDI devices on redroid; list_devices/0 is read-only (initialized 2026-10-08). " <>
+        "InputScreen renders; KeyboardScreen degrades gracefully (push leaves the host's " <>
+        "HomeScreen showing, BEAM alive) — hardware_degraded, a crash would be a finding"
   },
   mob_nfc: %{
     nif: :mob_nfc_nif,
     probe: {:nfc_available, []},
     screen: nil,
-    note: "no NFC on redroid; nfc_available/0 is read-only (expect false)"
+    note: "no NFC on redroid; nfc_available/0 is read-only (initialized 2026-10-08)"
   },
   mob_sms: %{
     nif: :mob_sms_nif,
     probe: nil,
     screen: :emulator_ok,
-    note: "sms_compose/2 opens the composer, arm_one_time_code/0 registers a receiver — no safe probe"
+    note: "sms_compose/2 opens the composer, arm_one_time_code/0 registers a receiver — no safe probe; loaded, DemoScreen rendered 2026-10-08"
   },
   mob_speech: %{
     nif: :mob_speech_nif,
     probe: {:speech_available, []},
     screen: :emulator_ok,
-    note: "no recognizer service on redroid; speech_available/0 is read-only (expect false)"
+    note: "no recognizer service on redroid; speech_available/0 is read-only (initialized, DemoScreen rendered 2026-10-08)"
   },
   mob_whisper: %{
     nif: :mob_whisper_nif,
     probe: {:nif_loaded, []},
     screen: nil,
-    note: "nif_loaded/0 is the plugin's own init probe; the model download is not exercised"
+    note: "nif_loaded/0 is the plugin's own init probe (initialized 2026-10-08); the model download is not exercised"
   },
   mob_nx_eigen: %{
     nif: :nx_eigen,
@@ -166,25 +169,25 @@
     screen: nil,
     note:
       "scene3d_caps/0 is read-only; ui component :scene3d has no showcase convention " <>
-        "(P5 skip). host_requirement: jvmTarget 17 (mob.new pins 1.8) — see note after discovery"
+        "(P5 skip). Built and initialized on the mob.new 0.6.7 --blank host 2026-10-08 (its jvmTarget-17 host requirement did not bite)"
   },
   mob_doom: %{
     nif: :mob_doom_nif,
     probe: nil,
     screen: nil,
-    note: "doom_nif_update/0 before doom_nif_init/1 is undefined behaviour — no safe probe; ui :mob_doom (P5 skip)"
+    note: "doom_nif_update/0 before doom_nif_init/1 is undefined behaviour — no safe probe; ui :mob_doom (P5 skip). Built into the discovery host 2026-10-08; its Hex manifest declares no nif/screen so P3 has no subject"
   },
   mob_in_app_purchase: %{
     nif: :mob_iap_nif,
     probe: nil,
     screen: :emulator_ok,
-    note: "every export talks to Play Billing (absent on redroid) — no safe probe; Catalog/Cart/Confirmation screens"
+    note: "every export talks to Play Billing (absent on redroid) — no safe probe; built 2026-10-08 (the Hex release's manifest declares fewer screens than master)"
   },
   mob_audio_capture: %{
     nif: :mob_audio_capture_nif,
     probe: {:audio_capture_stop, []},
     screen: :emulator_ok,
-    note: "audio_capture_stop/0 is an idempotent no-op; host_requirement <service io.mob.audiocapture.AudioCaptureService> (warning)"
+    note: "audio_capture_stop/0 is an idempotent no-op (initialized, DemoScreen rendered 2026-10-08); host_requirement <service io.mob.audiocapture.AudioCaptureService> is a warning, the build passes without it"
   },
   mob_background: %{
     nif: :mob_background_nif,
@@ -200,7 +203,7 @@
     nif: :mob_vision_nif,
     probe: nil,
     screen: nil,
-    note: "recognize_text/1 needs an image — no safe probe"
+    note: "recognize_text/1 needs an image — no safe probe; loaded 2026-10-08"
   },
   mob_deliver: %{nif: nil, probe: nil, screen: nil, note: "pure Elixir (deliver agent); nothing native to probe"},
   mob_ash: %{nif: nil, probe: nil, screen: nil, note: "pure Elixir (screens generator); nothing native to probe"},
