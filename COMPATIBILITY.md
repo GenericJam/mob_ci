@@ -352,7 +352,7 @@ which build paths.
 | `mob_scanner` | 0.1.6 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_scanner` | 0.1.6 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_scanner` | 0.1.6 | 0.9.16 | 0.7.17 | `release:android` |
-| `mob_scene3d` | 0.2.0 (git e802262) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
+| `mob_scene3d` | 0.2.0 (git e802262) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scene3d` | 0.2.0 (git e802262) | 0.9.17 (git 5d85492) | 0.7.22 (git 04e5424) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
 | `mob_scene3d` | 0.2.0 (git e802262) | 0.9.17 (git 5d85492) | 0.7.21 (git 04feb5b) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
 | `mob_scene3d` | 0.2.0 | 0.9.17 | 0.7.21 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -373,7 +373,7 @@ which build paths.
 | `mob_screencast` | 0.1.3 | 0.9.16 | 0.7.19 | `deploy:android`, `release:android` |
 | `mob_screencast` | 0.1.3 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_screencast` | 0.1.3 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android` |
-| `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
+| `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.17 (git 5d85492) | 0.7.22 (git 04e5424) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.17 (git 5d85492) | 0.7.21 (git 04feb5b) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
 | `mob_sensors` | 0.2.0 | 0.9.17 | 0.7.21 | `deploy:android`, `release:android`, `deploy:android_physical` |
