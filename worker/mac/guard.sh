@@ -75,12 +75,15 @@ start() {
   local hb=$hb_timeout
   [ -t 0 ] && hb=0
 
-  perl -MPOSIX=setsid -e 'setsid() >= 0 or die "guard: setsid: $!\n"; exec @ARGV or die "guard: exec: $!\n"' \
+  # An async command of a non-interactive shell starts with SIGINT ignored,
+  # and bash can't trap a signal ignored on entry: reset it before the exec.
+  perl -MPOSIX=setsid -e '$SIG{INT} = "DEFAULT"; setsid() >= 0 or die "guard: setsid: $!\n"; exec @ARGV or die "guard: exec: $!\n"' \
     "$BASH" "$self" supervise --run-dir "$run_dir" --log "$log" --teardown "$teardown" --heartbeat-timeout "$hb" \
     -- "$@" </dev/null >>"$log" 2>&1 &
   guard=$!
 
-  stop_cell() { kill -HUP "$guard" 2>/dev/null; }
+  # Only while the guard runs (its pid is free again once it exits).
+  stop_cell() { jobs -pr | grep -qx "$guard" && kill -HUP "$guard" 2>/dev/null; }
   trap stop_cell HUP INT TERM
   trap 'stop_cell; exit 141' PIPE
 
@@ -92,8 +95,9 @@ start() {
       while IFS= read -r _ <&3; do
         now >"$run_dir/heartbeat.tmp" && mv -f "$run_dir/heartbeat.tmp" "$run_dir/heartbeat"
       done
-      # EOF: the NUC side closed the session.
-      kill -HUP "$guard" 2>/dev/null
+      # EOF: the NUC side closed the session. The guard is done once it has
+      # written its exit code.
+      [ -e "$run_dir/exit" ] || kill -HUP "$guard" 2>/dev/null
     ) &
     reader=$!
     exec 3<&-
@@ -114,12 +118,12 @@ start() {
   }
   while [ ! -e "$run_dir/exit" ]; do
     pump
-    kill -0 "$guard" 2>/dev/null || break
+    jobs -pr | grep -qx "$guard" || break
     sleep 1
   done
   pump
   [ -n "$buf" ] && emit "$buf"
-  [ -n "$reader" ] && kill "$reader" 2>/dev/null
+  [ -n "$reader" ] && jobs -pr | grep -qx "$reader" && kill "$reader" 2>/dev/null
 
   local code
   code=$(cat "$run_dir/exit" 2>/dev/null)
@@ -131,7 +135,7 @@ start() {
 supervise() {
   local run_id worker reason="" code last age
   run_id=$(basename "$run_dir")
-  echo $$ >"$run_dir/guard.pid"
+  echo $$ >"$run_dir/guard.pid.tmp" && mv -f "$run_dir/guard.pid.tmp" "$run_dir/guard.pid"
   trap 'reason=${reason:-"SIGHUP: the session that started the cell went away"}' HUP
   trap 'reason=${reason:-SIGTERM}' TERM
   trap 'reason=${reason:-SIGINT}' INT
@@ -141,7 +145,7 @@ supervise() {
   worker=$!
   echo "$worker" >"$run_dir/worker.pid"
 
-  while kill -0 "$worker" 2>/dev/null; do
+  while jobs -pr | grep -qx "$worker"; do
     touch "$run_dir/alive"
     if [ -z "$reason" ] && [ "$hb_timeout" -gt 0 ]; then
       last=$(cat "$run_dir/heartbeat" 2>/dev/null)
@@ -168,7 +172,7 @@ supervise() {
   # reaper starting meanwhile leaves it alone.
   eval "$teardown \"\$run_dir\"" &
   local td=$! td_code
-  while kill -0 "$td" 2>/dev/null; do
+  while jobs -pr | grep -qx "$td"; do
     touch "$run_dir/alive"
     sleep 2 &
     wait $!
@@ -176,8 +180,9 @@ supervise() {
   wait "$td"
   td_code=$?
   [ "$td_code" -eq 0 ] || say "teardown exited $td_code"
-  # Teardown stops every tagged process; the worker is the guard's own child.
-  kill -KILL "$worker" 2>/dev/null && say "killed worker $worker, still alive after teardown"
+  # Teardown stops the run's processes; the worker is the guard's own child,
+  # killed here only if it still runs (once reaped its pid may be reused).
+  jobs -pr | grep -qx "$worker" && kill -KILL "$worker" 2>/dev/null && say "killed worker $worker, still alive after teardown"
 
   printf '%s\n' "$code" >"$run_dir/exit.tmp" && mv -f "$run_dir/exit.tmp" "$run_dir/exit"
   # `start` removes the run dir once it has read the exit code (within a

@@ -130,12 +130,16 @@ defmodule MobCi.Lane.Ios.Reaper do
 
   @doc """
   A daemon every agent on the Mac shares, which a cell may have started but
-  never owns: the adb server, epmd.
+  never owns: the adb server, epmd, and the Kotlin compile daemon (any
+  Gradle build of this user may connect to it; it exits on its own when
+  idle).
   """
   @spec shared?(String.t()) :: boolean()
   def shared?(command) do
     exe = command |> String.split(" ", parts: 2) |> hd() |> Path.basename()
-    exe == "epmd" or (exe == "adb" and command =~ ~r/\sfork-server(\s|$)/)
+
+    exe == "epmd" or (exe == "adb" and command =~ ~r/\sfork-server(\s|$)/) or
+      command =~ ~r/\sorg\.jetbrains\.kotlin\.daemon\.KotlinCompileDaemon(\s|$)/
   end
 
   @doc "An agent-device daemon (agent-lease starts one per lease session)."
@@ -255,7 +259,8 @@ defmodule MobCi.Lane.Ios.Reaper do
 
         case Integer.parse(String.trim(pid)) do
           {pid, ""} -> now - stamp <= @alive_stale_s and deps.alive?.(pid)
-          _ -> false
+          # Being written: as young as the file.
+          _ -> now - stamp <= @alive_stale_s
         end
 
       {:error, _} ->
@@ -293,7 +298,7 @@ defmodule MobCi.Lane.Ios.Reaper do
     live_ids = MapSet.new(live, &Path.basename/1)
     live_specs = Enum.flat_map(live, &specs/1)
     live_cells = MapSet.new(live_specs, & &1.cell_id)
-    live_apps = MapSet.new(live_specs, &app_name/1)
+    live_apps = MapSet.new(Enum.flat_map(live_specs, &app_names/1))
 
     runs =
       for dir <- dead do
@@ -311,10 +316,12 @@ defmodule MobCi.Lane.Ios.Reaper do
     # A leftover some other process still names (a cell's children carry
     # TMPDIR=<scratch>/tmp; its build commands, the host dir) is in use: a
     # cell from a worker that keeps no run (an older mob_ci), or a hand
-    # build. Neither the processes being stopped nor a lease daemon (it
-    # outlives the cell it served) count.
+    # build. Neither the processes being stopped nor a lease daemon or shared
+    # daemon (they outlive the cell that started them) count.
     doomed = MapSet.new(run_processes(ps, orphan?, true), & &1.pid)
-    users = for p <- ps, p.pid not in doomed, not lease_daemon?(p.command), do: p.command
+
+    users =
+      for p <- ps, p.pid not in doomed, not lease_daemon?(p.command), not shared?(p.command), do: p.command
     in_use? = fn key -> Enum.any?(users, &String.contains?(&1, key)) end
     cell_in_use? = &in_use?.(Path.join(deps.scratch_root, &1))
 
@@ -338,7 +345,7 @@ defmodule MobCi.Lane.Ios.Reaper do
     dirs =
       (stale_dirs ++
          for(d <- scratch, orphan_cell?.(Path.basename(d)), old?.(d), do: d) ++
-         for({app, d} <- app_dirs, app not in live_apps, not in_use?.("/#{app}"), old?.(d), do: d))
+         for({owner, d, key} <- app_dirs, owner not in live_apps, not in_use?.(key), old?.(d), do: d))
       |> Enum.uniq()
       |> Enum.filter(&File.exists?/1)
 
@@ -360,23 +367,32 @@ defmodule MobCi.Lane.Ios.Reaper do
         do: spec
   end
 
-  defp app_name(%Spec{set: set, versions: %{row: row}}),
-    do: Host.app_name(set, MobCi.Versions.parse!(row)) |> to_string()
+  # The names a live cell's app state goes by: the app (`ci_*`, staged BEAMs)
+  # and its bundle (`Ci*.app`, mob_dev's leaked release dir).
+  defp app_names(%Spec{set: set, versions: %{row: row}}) do
+    app = Host.app_name(set, MobCi.Versions.parse!(row)) |> to_string()
+    [app, Macro.camelize(app) <> ".app"]
+  end
 
-  # `{app, dir}` for the `ci_*` apps' staged BEAMs and mob_dev's leaked
-  # release dirs (`Worker.app_state_dirs/3`), whichever cell they came from.
+  # `{owner, dir, in-use key}` for the `ci_*` apps' staged BEAMs and mob_dev's
+  # leaked release dirs (`Worker.app_state_dirs/3`), whichever cell they came
+  # from. A leaked dir is mob_ci's only if it holds a bundle named the way
+  # `Macro.camelize("ci_…")` names it (`CiDefaultHex.app`, never `City.app`),
+  # and it is owned by that exact bundle name: underscoring it back would not
+  # give the app name for every row.
   defp app_state_dirs(deps) do
     staged =
       for pattern <- [["cache", "otp-*", "ci_*"], ["runtime", "*", "ci_*"]],
           d <- Path.wildcard(Path.join([deps.mob_home | pattern])),
           File.dir?(d),
-          do: {Path.basename(d), d}
+          do: {Path.basename(d), d, "/" <> Path.basename(d)}
 
     leaked =
       if deps.darwin_tmp do
         for d <- Path.wildcard(Path.join(deps.darwin_tmp, "tmp.*")),
-            app <- Path.wildcard(Path.join(d, "Ci*.app")),
-            do: {Macro.underscore(Path.basename(app, ".app")), d}
+            bundle <- Path.wildcard(Path.join(d, "Ci*.app")),
+            Path.basename(bundle) =~ ~r/^Ci[A-Z0-9][A-Za-z0-9]*\.app$/,
+            do: {Path.basename(bundle), d, d}
       else
         []
       end

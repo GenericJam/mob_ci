@@ -130,6 +130,19 @@ defmodule MobCi.Lane.Ios.GuardTest do
     assert gone?(wpid)
   end
 
+  test "SIGINT to the guard runs teardown (it is not left ignored by the background launch)", %{tmp_dir: dir} do
+    g = start(dir, worker(dir, 300, 0), 30)
+    heartbeat(g)
+    await_file(Path.join(dir, "worker.pid.seen"))
+    guard = g.run_dir |> Path.join("guard.pid") |> File.read!() |> String.trim()
+
+    System.cmd("kill", ["-INT", guard])
+
+    assert {2, _} = await_exit(g)
+    assert File.read!(Path.join(dir, "teardown.log")) =~ "SIGINT"
+    assert gone?(worker_pid(dir))
+  end
+
   test "SIGTERM to the guard runs teardown", %{tmp_dir: dir} do
     g = start(dir, worker(dir, 300, 0), 30)
     heartbeat(g)

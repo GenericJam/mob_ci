@@ -192,6 +192,7 @@ defmodule MobCi.Lane.Ios.ReaperTest do
       assert Reaper.shared?("/Users/kevin/.local/share/mise/installs/erlang/29.0/erts-17.0/bin/epmd -daemon HOME=/x")
       refute Reaper.shared?("adb -s R5CT install app.apk HOME=/x")
       refute Reaper.shared?("/usr/bin/xcodebuild -scheme App")
+      assert Reaper.shared?("/usr/bin/java -cp kotlin-daemon.jar org.jetbrains.kotlin.daemon.KotlinCompileDaemon --daemon-runFilesPath x")
       assert Reaper.lease_daemon?(@daemon)
       refute Reaper.lease_daemon?("/opt/homebrew/bin/node agent-device open --session x")
     end
@@ -320,6 +321,10 @@ defmodule MobCi.Lane.Ios.ReaperTest do
       silent = run_dir(dir, "r-silent", 222)
       stamp(Path.join(silent, "alive"), 300)
       stamp(Path.join(silent, "guard.pid"), 300)
+      # Its guard is writing guard.pid this instant: young, so live.
+      starting = run_dir(dir, "r-starting", 333)
+      File.write!(Path.join(starting, "guard.pid"), "")
+      stamp(Path.join(starting, "guard.pid"), 0)
 
       table =
         procs([
@@ -392,13 +397,21 @@ defmodule MobCi.Lane.Ios.ReaperTest do
       foreign_tmp = touch(Path.join(t, "tmp.Other"), 3_600)
       touch(Path.join(foreign_tmp, "Io.app"), 3_600)
       touch(foreign_tmp, 3_600)
+      # Starts with "Ci", but not the way mob_ci names a bundle (CiXxx.app).
+      city = touch(Path.join(t, "tmp.City"), 3_600)
+      touch(Path.join(city, "City.app"), 3_600)
+      touch(city, 3_600)
+      # The live cell's own release dir.
+      live_release = touch(Path.join(t, "tmp.Live"), 3_600)
+      touch(Path.join(live_release, "CiDefaultHex.app"), 3_600)
+      touch(live_release, 3_600)
 
       result = Reaper.reap("r-own", deps(dir, procs([])))
 
       assert Enum.sort(result.dirs) == Enum.sort([stale_scratch, stale_app, stale_runtime, leaked])
       for d <- result.dirs, do: refute(File.exists?(d))
 
-      for d <- [young_scratch, not_a_cell, live_app, shared_otp, other_app, foreign_tmp, Path.join([dir, "scratch", live_cell.cell_id])],
+      for d <- [young_scratch, not_a_cell, live_app, shared_otp, other_app, foreign_tmp, city, live_release, Path.join([dir, "scratch", live_cell.cell_id])],
           do: assert(File.dir?(d), d)
     end
 
