@@ -72,6 +72,14 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 
 ## F4 — `mob_screencast` has an undeclared hard host_requirement (manifest `<service>`)
 
+- **Resolved:** mob_screencast **0.1.3** (Hex, 2026-10-09). On the `hex` row
+  `singleton:mob_screencast` builds, installs and boots on the generated
+  `mix mob.new --blank` host with no `<service>` declared, on both the
+  `deploy:android` and `release:android` paths; the missing `<service>` is a
+  `host_requirements` build warning (capture would throw at first use), and
+  `MobScreencast.SelfTest` skips naming it (P12 skip, `~/mob_ci_logs/caps1.log`
+  on the NUC). `device_caps.exs` no longer marks it `buildable: false`, so it is
+  back in `all`, the pairwise array and `demo`.
 - **Found:** 2026-06-22, device_caps discovery run.
 - **Where:** `mob_screencast` requires `<service android:name="io.mob.screencast.ScreencastService">`
   in the **host** app's `AndroidManifest.xml`. Without it the **Android build fails**
@@ -82,9 +90,9 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 - **Fix:** have the plugin's manifest-merge contribute the `<service>` entry (so it
   composes like other plugins' manifest fragments), or have the validator flag the
   missing host `<service>` with an actionable message.
-- **Workaround in mob_ci:** `priv/device_caps.exs` marks `mob_screencast`
-  `buildable: false`, so `DeviceCaps.buildable/1` excludes it from auto-discovery
-  sets. (sloppy_joe itself ships a `FileProvider`, so camera/photos/video are fine.)
+- **Workaround in mob_ci (removed 2026-10-09):** `priv/device_caps.exs` marked
+  `mob_screencast` `buildable: false`, so `DeviceCaps.buildable/1` excluded it from
+  auto-discovery sets. (sloppy_joe itself ships a `FileProvider`, so camera/photos/video are fine.)
 
 ## F5 — `mix mob.deploy` (mob_dev 0.6.12) crashes on a host without `arp`
 
@@ -224,6 +232,12 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 
 ## F10 — `mob_background` does not build on an unmodified host (bridge references a class the plugin doesn't ship)
 
+- **Resolved:** mob_background **0.2.0** (Hex, 2026-10-09) ships
+  `BeamForegroundService.kt` via `bridge_kt` and contributes its `<service>` via
+  `manifest_application_snippets`. On the `hex` row `singleton:mob_background`
+  builds on the `--blank` host and `MobBackground.SelfTest` passes on both
+  `deploy:android` and `release:android` (`~/mob_ci_logs/caps1.log` on the
+  NUC); `device_caps.exs` no longer marks it `buildable: false`.
 - **Upstream:** [MOB-423](https://linear.app/mobframework/issue/MOB-423).
 - **Found:** 2026-10-08, harness discovery over the 15 plugins sloppy_joe doesn't
   carry (`~/mob_ci_logs/disco2.log`, attributed `build:<harness>`).
@@ -238,9 +252,9 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 - **Fix:** ship `BeamForegroundService` in the plugin's Kotlin (and contribute the
   `<service>` via manifest merge), or document the class the host must provide
   and have the validator check for it.
-- **Workaround in mob_ci:** `priv/device_caps.exs` marks it `buildable: false`;
-  `nx_eigen` likewise (arm-only, F-less: a documented platform limit, see
-  `docs/budgets.md`).
+- **Workaround in mob_ci (removed 2026-10-09):** `priv/device_caps.exs` marked it
+  `buildable: false`; `nx_eigen` still is (arm-only, F-less: a documented platform
+  limit, see `docs/budgets.md`).
 
 ## F11 — `mix mob.release --ios` leaves its ~90 MB build dir in the user temp dir
 

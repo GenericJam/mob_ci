@@ -15,8 +15,11 @@ defmodule MobCi.SetsTest do
                )
 
       assert :mob_camera in pool
-      # mob_screencast's manifest <service> can't build on an unmodified host (F4).
-      refute :mob_screencast in pool
+      # mob_nx_eigen's NIF is arm-only; the x86_64 farm can't load it.
+      refute :mob_nx_eigen in pool
+      # F4 / F10 resolved (mob_screencast 0.1.3, mob_background 0.2.0).
+      assert :mob_screencast in pool
+      assert :mob_background in pool
     end
 
     test "every exclusion names a buildable first-party plugin and a FINDINGS entry" do
@@ -190,7 +193,6 @@ defmodule MobCi.SetsTest do
       {:ok, set} = Sets.resolve(:demo, [])
       assert set == Enum.filter(demo, &(&1 in Sets.pool()))
       refute :mob_demo_kit in set
-      refute :mob_screencast in set
       assert :mob_camera in set
     end
 

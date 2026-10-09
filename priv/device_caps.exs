@@ -23,12 +23,20 @@
 #                is in :note and, when it is a defect, in FINDINGS.md.
 #   :note      — rationale / what the discovery run observed and when.
 #
-# Refined by discovery runs (`scripts/discovery.exs`), never guessed:
+# Refined by discovery runs (`scripts/discovery.exs`, `mix ci.device`), never guessed:
 #   2026-06-22 — the sloppy_joe set on a headless redroid (mob_dev 0.6.x).
 #   2026-10-08 — realism gate on sloppy_joe master (mob 0.9.14 / mob_dev 0.7.16,
 #                `~/mob_ci_logs/realism7.log`, `realism8.log`) and the harness
 #                discovery over the other 15 plugins (`~/mob_ci_logs/disco1.log`).
-# P12 (plugin self-tests, MOB-411/414) will make the :probe column redundant.
+#   2026-10-09 — the self-test releases (MOB-418) on the `hex` row (mob 0.9.15→0.9.16,
+#                mob_dev 0.7.17→0.7.19 as Hex moved that day): `singleton:<p>` for mob_background and
+#                mob_screencast (`~/mob_ci_logs/caps1.log`, `caps3.log`),
+#                `default` (`caps2.log`, store run 94) and `all`, 24 plugins
+#                (`caps4.log`, store run 116: P3 initialized every probed NIF,
+#                incl. the new scanner/biometric/sms/background probes).
+# P12 (each plugin's own self-test) now proves native init on the hex row; a
+# :probe is the read-only export the self-test itself calls where one exists,
+# and P3 skips (not errors) when a host's locked release predates that export.
 %{
   # ── mob_ci fixtures (synthetic, emulator-native) ──────────────────────────
   mob_ci_haptic: %{nif: :mob_ci_haptic_nif, probe: {:ping, []}, screen: nil},
@@ -82,20 +90,21 @@
     nif: :mob_screencast_nif,
     probe: {:screencast_stop_stream, []},
     screen: nil,
-    buildable: false,
     note:
-      "host_requirement: <service io.mob.screencast.ScreencastService> in the host " <>
-        "AndroidManifest (F4; now declared in the manifest and warned at build) — " <>
-        "sloppy_joe declares it, the mob.new --blank harness does not, so it is " <>
-        "excluded from harness discovery sets"
+      "F4 resolved: 0.1.3 builds and boots on the generated --blank host without the " <>
+        "host's <service io.mob.screencast.ScreencastService> (a build warning; capture " <>
+        "would throw at first use). MobScreencast.SelfTest skips there naming the " <>
+        "missing <service>; stop_stream initialized (singleton:mob_screencast hex, 2026-10-09)"
   },
   mob_biometric: %{
     nif: :mob_biometric_nif,
-    probe: nil,
+    probe: {:biometric_availability, []},
     screen: :emulator_ok,
     note:
       "no biometric hw, but the DemoScreen renders gracefully (rendered 2026-06-22 " <>
-        "and 2026-10-08); only biometric_authenticate/1 (UI) — no safe probe"
+        "and 2026-10-08); biometric_availability/0 is the read-only query " <>
+        "MobBiometric.SelfTest makes (0.2.0+; older releases have only the UI " <>
+        "biometric_authenticate/1, so P3 skips there)"
   },
   mob_photos: %{
     nif: :mob_photos_nif,
@@ -108,9 +117,12 @@
   },
   mob_scanner: %{
     nif: :mob_scanner_nif,
-    probe: nil,
+    probe: {:scanner_available, []},
     screen: nil,
-    note: "only scanner_scan/1 (camera UI) — no safe probe; loaded 2026-10-08"
+    note:
+      "scanner_available/0 is the read-only query MobScanner.SelfTest makes, no " <>
+        "camera opened (0.1.6+; older releases have only scanner_scan/1, the camera " <>
+        "UI, so P3 skips there)"
   },
   mob_wake: %{
     nif: :mob_wake_nif,
@@ -137,9 +149,12 @@
   },
   mob_sms: %{
     nif: :mob_sms_nif,
-    probe: nil,
+    probe: {:sms_available, []},
     screen: :emulator_ok,
-    note: "sms_compose/2 opens the composer, arm_one_time_code/0 registers a receiver — no safe probe; loaded, DemoScreen rendered 2026-10-08"
+    note:
+      "sms_available/0 is the read-only query MobSms.SelfTest makes (0.2.4+; " <>
+        "sms_compose/2 opens the composer, arm_one_time_code/0 registers a " <>
+        "receiver); DemoScreen rendered 2026-10-08"
   },
   mob_speech: %{
     nif: :mob_speech_nif,
@@ -191,13 +206,14 @@
   },
   mob_background: %{
     nif: :mob_background_nif,
-    probe: {:background_stop, []},
+    probe: {:background_status, []},
     screen: nil,
-    buildable: false,
     note:
-      "F10: MobBackgroundBridge.kt references io.mob.background.BeamForegroundService, " <>
-        "which the plugin does not ship — the host must add the class AND the <service>; " <>
-        "on an unmodified mob.new --blank host the Kotlin build fails (discovery 2026-10-08)"
+      "F10 resolved (MOB-423): 0.2.0 ships BeamForegroundService and contributes its " <>
+        "<service>, so the --blank host builds. background_status/0 is the read-only " <>
+        "query MobBackground.SelfTest makes (0.2.0+; background_stop/0 starts the " <>
+        "service to stop it); the self-test passed on deploy and release " <>
+        "(singleton:mob_background hex, 2026-10-09)"
   },
   mob_vision: %{
     nif: :mob_vision_nif,
