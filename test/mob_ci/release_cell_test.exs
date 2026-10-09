@@ -172,6 +172,18 @@ defmodule MobCi.ReleaseCellTest do
       assert Run.verdict([]) == :ok
     end
 
+    test "an errored path still shows in the artifacts, as an error at its layer, so junit can't read green" do
+      ok = %{path: "deploy:android", outcome: {:ok, [Result.pass(:p2, "boots")]}, duration_ms: 0, log_path: nil}
+      err = %{path: "release:android", outcome: {:error, {:build_failed, :release, {:release_build, "gradle"}}}, duration_ms: 0, log_path: nil}
+
+      results = Run.artifact_results([ok, err], set_name: "default", versions: nil)
+
+      assert [%{id: :p2, status: :pass}, %{id: :path, status: :error, path: "release:android", set: "default"} = e] = results
+      assert e.layer == {:build, "release:android"}
+      refute Report.ok?(results)
+      assert Report.junit(results) =~ ~s(errors="1")
+    end
+
     test "a harness/sloppy_joe set is stored under <host>:<plugins>; a cell under its set name" do
       assert Run.set_name([:mob_ci_haptic, :mob_ci_notes], :harness, []) == "harness:mob_ci_haptic,mob_ci_notes"
       assert Run.set_name([:mob_location], :generated, set_name: "singleton:mob_location") == "singleton:mob_location"

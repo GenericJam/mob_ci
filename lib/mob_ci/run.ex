@@ -75,8 +75,7 @@ defmodule MobCi.Run do
         write_timings(artifacts)
       end
 
-    results = for %{outcome: {v, rs}} <- runs, v in [:ok, :fail], r <- rs, do: r
-    Report.write_artifacts(artifacts, set, results)
+    Report.write_artifacts(artifacts, set, artifact_results(runs, opts))
     # The stamped opts: a generated host's set name and version record.
     record(runs, set, host, opts)
     runs
@@ -105,6 +104,26 @@ defmodule MobCi.Run do
       Enum.any?(outcomes, &match?({:fail, _}, &1)) -> :fail
       true -> :ok
     end
+  end
+
+  @doc """
+  The results the `--artifacts` dir reports for a run: every path's catalog
+  results, and for a path that never reached the catalog one `:path` error
+  carrying the orchestration reason and its `error_layer/1`, so junit.xml and
+  summary.json can't read green when a path errored.
+  """
+  @spec artifact_results([path_run()], keyword()) :: [Result.t()]
+  def artifact_results(runs, opts) do
+    Enum.flat_map(runs, fn
+      %{outcome: {:error, reason}, path: path} ->
+        Result.error(:path, "build path reached the catalog", inspect(reason, limit: 20))
+        |> Result.at(error_layer(reason))
+        |> List.wrap()
+        |> Result.stamp(opts[:set_name], opts[:versions], path)
+
+      %{outcome: {_verdict, results}} ->
+        results
+    end)
   end
 
   defp step(name, fun) do
