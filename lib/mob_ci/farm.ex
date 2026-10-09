@@ -91,14 +91,18 @@ defmodule MobCi.Farm do
   @spec alive(Instance.t()) :: :alive | {:lost, String.t()} | :unknown
   def alive(%Instance{index: i}), do: parse_alive(sh(["alive", to_string(i)]))
 
-  @doc "Parse `ci-farm.sh alive` output (`ALIVE` | `LOST <why>`); anything else is `:unknown`."
+  @doc "Parse `ci-farm.sh alive` output: its last `ALIVE` / `LOST <why>` line; none is `:unknown`."
   @spec parse_alive(String.t()) :: :alive | {:lost, String.t()} | :unknown
   def parse_alive(output) do
-    case output |> String.trim() |> String.split("\n") |> List.last() |> to_string() |> String.trim() do
+    output
+    |> String.split("\n")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reverse()
+    |> Enum.find_value(:unknown, fn
       "ALIVE" -> :alive
       "LOST " <> why -> {:lost, why}
-      _ -> :unknown
-    end
+      _ -> nil
+    end)
   end
 
   @doc "Parse `KEY=value` result lines (INDEX/SERIAL) out of script stdout."

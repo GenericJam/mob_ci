@@ -98,7 +98,9 @@ down() {
 # back. Prints ALIVE or `LOST <why>` (MobCi.Farm.alive/1 → layer `farm`).
 alive() {
   local i=$1 ser running state=""; ser=$(serial "$i")
-  running=$($DOCKER inspect -f '{{.State.Running}}' "ci-redroid$i" 2>/dev/null || echo missing)
+  # `docker inspect` of a missing container prints an empty line and fails.
+  running=$($DOCKER inspect -f '{{.State.Running}}' "ci-redroid$i" 2>/dev/null | tr -d '[:space:]' || true)
+  [ -n "$running" ] || running=missing
   if [ "$running" != true ]; then echo "LOST container ci-redroid$i: $running"; return 0; fi
   for _ in 1 2 3 4 5 6; do
     state=$($ADB -s "$ser" get-state 2>&1 | tr -d '\r' | tail -1)

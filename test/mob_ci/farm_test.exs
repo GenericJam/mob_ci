@@ -46,6 +46,7 @@ defmodule MobCi.FarmTest do
     assert Farm.parse_alive("LOST container ci-redroid0: missing\n") == {:lost, "container ci-redroid0: missing"}
     assert Farm.parse_alive("LOST adb 127.0.0.1:5700: offline") == {:lost, "adb 127.0.0.1:5700: offline"}
     assert Farm.parse_alive("sudo: a password is required\n") == :unknown
+    assert Farm.parse_alive("* daemon started successfully\nLOST adb 127.0.0.1:5700: offline\n") == {:lost, "adb 127.0.0.1:5700: offline"}
   end
 
   test "parse_kv extracts INDEX/SERIAL past progress noise" do
