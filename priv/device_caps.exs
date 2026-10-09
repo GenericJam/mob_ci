@@ -67,7 +67,7 @@
     nif: :mob_bluetooth_nif,
     probe: {:bt_cancel_discovery, []},
     screen: nil,
-    note: "no BT adapter; cancel_discovery safe probe (initialized 2026-10-08). F9: collides with mob_midi on NSBluetoothAlwaysUsageDescription"
+    note: "no BT adapter; cancel_discovery safe probe (initialized 2026-10-08). Composes with mob_midi since mob_dev 0.7.19 (F9)"
   },
   mob_notify: %{
     nif: :mob_notify_nif,

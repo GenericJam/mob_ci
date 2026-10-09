@@ -7,8 +7,9 @@ defmodule MobCi.CellTest do
   # A fully stubbed remote: every plugin and core repo is on "Hex" at 1.0.0 and
   # at sha "c"×40 on git; mob_new's "tarball"/checkout is a fake project whose
   # ProjectGenerator says the default set is [:mob_location, :mob_camera].
-  # mob_bluetooth and mob_midi get a manifest declaring the same iOS plist key
-  # (the F9 collision), so the static gate has something to reject.
+  # mob_bluetooth and mob_midi get a manifest declaring the same non-description
+  # iOS plist key with different values (a genuine collision; usage descriptions
+  # combine since mob_dev 0.7.19), so the static gate has something to reject.
   @colliding [:mob_bluetooth, :mob_midi]
 
   defp write_colliding_manifest(dir, name) do
@@ -19,7 +20,7 @@ defmodule MobCi.CellTest do
       name: #{inspect(name)},
       mob_version: "~> 0.9",
       plugin_spec_version: 1,
-      ios: %{plist_keys: %{NSBluetoothAlwaysUsageDescription: "#{name} needs Bluetooth."}}
+      ios: %{plist_keys: %{UIStatusBarStyle: "#{name}"}}
     }
     """)
   end
@@ -151,10 +152,10 @@ defmodule MobCi.CellTest do
       assert msg =~ "could not resolve mob_dev for row hex"
     end
 
-    test "all leaves the committed exclusions out, so the host composes; --static plans them back in and the gate still reports the pair",
+    test "all leaves a parked plugin out, so the host composes; --static plans it back in and the gate still reports the pair",
          %{opts: opts} do
-      excluded = Keyword.keys(Sets.exclusions())
-      assert :mob_midi in excluded
+      Application.put_env(:mob_ci, :exclusions, mob_midi: "F99: parked for this test")
+      on_exit(fn -> Application.delete_env(:mob_ci, :exclusions) end)
 
       {:ok, built} = Cell.plan("all", "hex", opts)
       refute :mob_midi in built.plugins
@@ -166,13 +167,13 @@ defmodule MobCi.CellTest do
       assert :mob_midi in static.plugins
       assert static.plugins == Sets.pool(include_excluded: true)
       assert [error] = MobDev.Plugin.Validator.cross_validate(Plugins.activated(static.plugins)).errors
-      assert error =~ "NSBluetoothAlwaysUsageDescription"
+      assert error =~ "UIStatusBarStyle"
       assert error =~ ":mob_bluetooth"
       assert error =~ ":mob_midi"
 
       text = Cell.describe(static)
-      assert text =~ "mob_midi: included for the static gate — F9"
-      assert Cell.describe(built) =~ "mob_midi: excluded from built sets — F9"
+      assert text =~ "mob_midi: included for the static gate — F99"
+      assert Cell.describe(built) =~ "mob_midi: excluded from built sets — F99"
     end
 
     test "describe/1 prints the set name, its plugins and the versions", %{opts: opts} do
