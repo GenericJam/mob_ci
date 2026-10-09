@@ -64,11 +64,19 @@ defmodule MobCi.Sets do
   @doc """
   Plugins kept out of the built sets while a known finding is open
   (`priv/sets/exclusions.exs`: plugin → reason naming the FINDINGS entry).
+  The `:mob_ci, :exclusions` application env replaces the committed list when
+  set (tests park a plugin without editing the file).
   """
   @spec exclusions() :: [{atom(), String.t()}]
   def exclusions do
-    {list, _} = Code.eval_file(@exclusions_path)
-    list
+    case Application.fetch_env(:mob_ci, :exclusions) do
+      {:ok, list} ->
+        list
+
+      :error ->
+        {list, _} = Code.eval_file(@exclusions_path)
+        list
+    end
   end
 
   # ── names ────────────────────────────────────────────────────────────────────

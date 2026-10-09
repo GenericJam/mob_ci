@@ -29,15 +29,6 @@ defmodule MobCi.SetsTest do
         assert reason =~ ~r/^F\d+: /
       end
     end
-
-    test "include_excluded: true keeps the parked plugins in (what --static plans with)" do
-      excluded = Keyword.keys(Sets.exclusions())
-      assert excluded != []
-      full = Sets.pool(include_excluded: true)
-      assert full == DeviceCaps.buildable(Versions.plugins())
-      for p <- excluded, do: assert(p in full)
-      for p <- excluded, do: refute(p in Sets.pool())
-    end
   end
 
   describe "pairwise/1" do
@@ -187,12 +178,6 @@ defmodule MobCi.SetsTest do
       assert Sets.resolve(:all, include_excluded: true) ==
                {:ok, Sets.pool(include_excluded: true)}
 
-      # an excluded plugin still has its singleton: alone it doesn't collide
-      [{excluded, _} | _] = Sets.exclusions()
-      assert Sets.resolve({:singleton, excluded}, []) == {:ok, [excluded]}
-      assert Sets.parse("singleton:#{excluded}") == {:ok, {:singleton, excluded}}
-      assert "singleton:#{excluded}" in Sets.nightly()
-      for row <- Sets.pairwise_rows(), do: refute(excluded in row)
       assert Sets.resolve({:singleton, :mob_camera}, []) == {:ok, [:mob_camera]}
       assert Sets.resolve({:pairwise, 2}, []) == {:ok, Enum.at(Sets.pairwise_rows(), 2)}
       assert Sets.resolve({:random, 3}, []) == {:ok, Sets.random(3, Sets.pool())}

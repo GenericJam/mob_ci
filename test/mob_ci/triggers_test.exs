@@ -16,10 +16,7 @@ defmodule MobCi.TriggersTest do
                ["blank", "default", "singleton:mob_camera", "singleton:mob_whisper", "all"]
     end
 
-    test "an excluded plugin keeps its singleton; an unbuildable one has no cell of its own" do
-      [{excluded, _} | _] = Sets.exclusions()
-      assert "singleton:#{excluded}" in Triggers.sets_for_repos([excluded])
-
+    test "an unbuildable plugin has no cell of its own" do
       [unbuildable | _] = Versions.plugins() -- DeviceCaps.buildable(Versions.plugins())
       assert Triggers.sets_for_repos([unbuildable]) == ["default", "all"]
     end

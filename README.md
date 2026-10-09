@@ -73,7 +73,7 @@ reason"`) while a known finding breaks every host that activates it, so
 `all`, the pairwise rows and the other built sets stay buildable. Its
 `singleton:<p>` still runs, and `--static` plans every set with the parked
 plugins included, so the collision stays on the report until the entry is
-removed. Today: `mob_midi` (F9, plist key collision with `mob_bluetooth`).
+removed. Today: none (F9, the last one, closed with mob_dev 0.7.19).
 
 ### Hosts
 
