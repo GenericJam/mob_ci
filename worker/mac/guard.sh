@@ -180,6 +180,16 @@ supervise() {
   kill -KILL "$worker" 2>/dev/null && say "killed worker $worker, still alive after teardown"
 
   printf '%s\n' "$code" >"$run_dir/exit.tmp" && mv -f "$run_dir/exit.tmp" "$run_dir/exit"
+  # `start` removes the run dir once it has read the exit code (within a
+  # second). If it died instead (the session went away), the guard does,
+  # unless a cell is left for the reaper.
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    kill -0 "$PPID" 2>/dev/null || break
+    sleep 0.5
+  done
+  if ! kill -0 "$PPID" 2>/dev/null && ! ls "$run_dir"/cells/*.json >/dev/null 2>&1; then
+    rm -rf "$run_dir"
+  fi
   exit "$code"
 }
 

@@ -95,6 +95,14 @@ defmodule MobCi.Lane.Ios.GuardTest do
 
   defp worker_pid(dir), do: dir |> Path.join("worker.pid.seen") |> File.read!() |> String.trim()
 
+  defp await_gone(path, ms \\ 15_000) do
+    cond do
+      not File.exists?(path) -> :ok
+      ms <= 0 -> flunk("#{path} is still there")
+      true -> Process.sleep(100) && await_gone(path, ms - 100)
+    end
+  end
+
   test "a worker that finishes: its output streams back, its exit code is the session's, and teardown still runs",
        %{tmp_dir: dir} do
     g = start(dir, worker(dir, 0, 3), 30)
@@ -141,9 +149,10 @@ defmodule MobCi.Lane.Ios.GuardTest do
     await_file(Path.join(dir, "worker.pid.seen"))
     log = Path.join(dir, "worker.log")
 
-    # Closing the port closes the session's stdin; the guard lives on alone.
+    # Closing the port closes the session's stdin; the guard lives on alone,
+    # and removes the run dir itself once teardown is done.
     Port.close(g.port)
-    await_file(Path.join(g.run_dir, "exit"))
+    await_gone(g.run_dir)
 
     assert File.read!(Path.join(dir, "teardown.log")) =~ "SIGHUP"
     assert File.read!(log) =~ "stopping the cell"

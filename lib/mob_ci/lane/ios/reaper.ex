@@ -422,7 +422,7 @@ defmodule MobCi.Lane.Ios.Reaper do
       rm_rf: worker.rm_rf,
       runs_root: runs_root(),
       scratch_root: Worker.default_root(),
-      lease_root: System.get_env("AGENT_LEASE_ROOT") || Path.expand("~/.agent-device/agents"),
+      lease_root: Worker.lease_root(),
       mob_home: worker.mob_home,
       darwin_tmp: worker.darwin_tmp,
       worker: worker

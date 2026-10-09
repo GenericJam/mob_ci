@@ -119,6 +119,9 @@ defmodule MobCi.Lane.Ios.Worker do
   @doc "The agent-lease session name of a cell."
   def session(%Spec{cell_id: id}), do: "mob_ci_ios_#{id}"
 
+  @doc "Where agent-lease keeps its per-session state dirs (`AGENT_LEASE_ROOT`, as agent-lease reads it)."
+  def lease_root, do: System.get_env("AGENT_LEASE_ROOT") || Path.expand("~/.agent-device/agents")
+
   # ── device selection (pure) ──────────────────────────────────────────────────
 
   @doc """
@@ -809,7 +812,13 @@ defmodule MobCi.Lane.Ios.Worker do
           {tail, code} -> {:error, "agent-lease exited #{code}: #{String.trim(tail)}"}
         end
       end,
-      release: fn session -> cmd("agent-lease", ["release", session]) end,
+      # agent-lease keeps a state dir per session and never removes it.
+      release: fn session ->
+        with {_, 0} = ok <- cmd("agent-lease", ["release", session]) do
+          File.rm_rf(Path.join(lease_root(), session))
+          ok
+        end
+      end,
       uninstall: fn path, id, app ->
         {exe, args} = uninstall_command(path, id, app)
         if path == "deploy:ios_sim", do: System.cmd("xcrun", ["simctl", "terminate", id, app], stderr_to_stdout: true)
