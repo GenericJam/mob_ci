@@ -47,6 +47,22 @@ defmodule Mix.Tasks.Ci.Device do
   (`MobCi.Store`): one run row, then per path a summary cell plus one row per
   invariant and per plugin self-test. `mix ci.report` prints the latest grid.
 
+  ## iOS: `--platform ios`
+
+  `--platform ios` runs the cell on the Mac mini over ssh instead
+  (`MobCi.Lane.Ios`): the NUC plans the cell and runs the static gate, the
+  Mac worker generates an iOS host, builds and runs it, and deletes it; each
+  path is recorded in the results store like an Android one.
+  `--paths deploy:ios_sim,deploy:ios_device,release:ios` (default: all
+  three; the iPhone path is a `skip: device_absent` when it isn't attached
+  or leasable), `--min-runtime` (lowest simulator iOS, default 27.0:
+  `simctl privacy grant photos` is ignored on 26.x runtimes; the worker
+  leases the booted simulator with the newest runtime at or above it),
+  `--sim-udid` (pin a simulator), `--device-udid` (default Kevin's iPhone),
+  `--host user@mac` (default `kevin@10.0.0.71`), `--log-dir` (default
+  `~/mob_ci_logs/ios`), `--store PATH`. See `worker/mac/README.md` for the
+  Mac's one-time setup.
+
   ## Modes
 
     * `--static` — runs only the manifest-level checks: `cross_validate` (the
@@ -79,13 +95,22 @@ defmodule Mix.Tasks.Ci.Device do
     set: :string,
     versions: :string,
     paths: :string,
-    store: :string
+    store: :string,
+    platform: :string
   ]
 
   @impl Mix.Task
   def run(argv) do
     {opts, _rest, _invalid} = OptionParser.parse(argv, switches: @switches)
 
+    case opts[:platform] do
+      "ios" -> MobCi.Lane.Ios.cli(argv)
+      p when p in [nil, "android"] -> run_android(opts)
+      other -> Mix.raise("unknown --platform #{inspect(other)} (expected: android | ios)")
+    end
+  end
+
+  defp run_android(opts) do
     if opts[:set] || opts[:versions] do
       run_cell(opts)
     else

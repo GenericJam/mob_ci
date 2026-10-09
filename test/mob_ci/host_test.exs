@@ -163,6 +163,27 @@ defmodule MobCi.HostTest do
       assert {:ok, _} = Code.string_to_quoted(body)
     end
 
+    test "extra :mob_dev entries (the iOS lane's bundle id and team) land in the config block" do
+      body =
+        Host.mob_exs("/h/deps/mob", [], %{}, [],
+          ios_bundle_id: "com.genericjam.mobci",
+          ios_team_id: "Q89CW299G8"
+        )
+
+      # Evaluated as a config file, the entries are :mob_dev config, not stray text.
+      path = Path.join(System.tmp_dir!(), "mob_exs_#{System.unique_integer([:positive])}.exs")
+      File.write!(path, body)
+
+      try do
+        cfg = Config.Reader.read!(path)
+        assert cfg[:mob_dev][:ios_bundle_id] == "com.genericjam.mobci"
+        assert cfg[:mob_dev][:ios_team_id] == "Q89CW299G8"
+        assert cfg[:mob_dev][:mob_dir] == "/h/deps/mob"
+      after
+        File.rm(path)
+      end
+    end
+
     test "mob_dir is deps/mob for a Hex mob and the pinned checkout for a git mob (path deps never land under deps/)" do
       assert Host.mob_dir("/h", %{row: :hex, repos: @hex_pins}) == "/h/deps/mob"
       assert Host.mob_dir("/h", %{row: :master, repos: @git_pins}) == "/cache/src/mob/#{@sha}"
@@ -202,7 +223,7 @@ defmodule MobCi.HostTest do
   end
 
   describe "the generator invocation" do
-    test "is blank, Android-only, without deps.get, and --local only on master" do
+    test "is blank, one platform (Android by default), without deps.get, and --local only on master" do
       assert Host.mob_new_args(:ci_all_hex, :hex) == [
                "mob.new",
                "ci_all_hex",
@@ -215,6 +236,13 @@ defmodule MobCi.HostTest do
 
       assert List.last(Host.mob_new_args(:ci_all_master, :master)) == "--local"
       refute "--local" in Host.mob_new_args(:ci_all_rc_mob_abc, {:rc, :mob, "abc1234"})
+    end
+
+    test "the iOS lane generates iOS-only under its own scratch root" do
+      args = Host.mob_new_args(:ci_default_hex, :hex, :ios, "/tmp/cell")
+      assert "--ios" in args
+      refute "--android" in args
+      assert ["--dest", "/tmp/cell"] == Enum.drop(args, 5)
     end
 
     test "env runs mob_new in prod and, on master, points --local at the checkouts" do

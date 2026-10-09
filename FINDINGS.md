@@ -231,3 +231,22 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
 - **Workaround in mob_ci:** `priv/device_caps.exs` marks it `buildable: false`;
   `nx_eigen` likewise (arm-only, F-less: a documented platform limit, see
   `docs/budgets.md`).
+
+## F11 — `mix mob.release --ios` leaves its ~90 MB build dir in the user temp dir
+
+- **Upstream:** [MOB-425](https://linear.app/mobframework/issue/MOB-425).
+- **Found:** 2026-10-09, first `release:ios` cell of the iOS lane (MOB-415) on the
+  Mac mini: after teardown, a 92 MB `$TMPDIR/tmp.Wm8qifonVw/` holding
+  `CiDefaultHex.app`, the linked binary and the `.o` files remained.
+- **Where:** mob_dev 0.7.17 `ios/release_device.sh` (`MobDev.Release`):
+  `BUILD_DIR=$(mktemp -d)` is never removed (`BUILD_DIR_TMP` and `IPA_STAGE`
+  are). macOS `mktemp -d` without a template ignores `TMPDIR` and uses
+  `DARWIN_USER_TEMP_DIR`, so a caller cannot redirect it.
+- **Impact:** every iOS release leaks ~90 MB on a Mac that has single-digit GB
+  free and is shared by several agents.
+- **Fix:** `trap 'rm -rf "$BUILD_DIR"' EXIT`, and `mktemp -d
+  "${TMPDIR:-/tmp}/mob_release.XXXXXX"` for the script's scratch dirs.
+- **Workaround in mob_ci:** the iOS worker's teardown deletes
+  `$(getconf DARWIN_USER_TEMP_DIR)/tmp.*` dirs that hold the cell's own
+  `Ci<App>.app` (`MobCi.Lane.Ios.Worker.app_state_dirs/3`); nothing else there
+  is touched.

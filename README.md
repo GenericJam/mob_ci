@@ -16,6 +16,7 @@ mix ci.device --set default --versions hex   # dev APK + release APK, P1–P12, 
 mix ci.device --set pairwise:3 --versions master --paths deploy
 mix ci.sweep --static --set all --versions hex
 mix ci.sets                                  # every named set
+mix ci.device --platform ios --set default --versions hex   # the Mac mini, over ssh
 mix ci.report                                # latest grid per versions row, from the store
 ```
 
@@ -115,10 +116,37 @@ The `--artifacts` dir still gets `junit.xml`, `summary.json`,
 `timings.json` and the build logs. Rationale:
 `decisions/2026-10-08-p12-release-cell-results-store.md`.
 
+## iOS lane (`--platform ios`)
+
+iOS builds cannot leave the Mac mini, so the Mac is a thin ssh worker
+(`MobCi.Lane.Ios`, `worker/mac/`). The NUC plans the cell and runs the
+static gate, then per path ships a spec (set, plugins, exact pins) to
+`kevin@10.0.0.71`; the Mac generates an iOS host with the row's mob_new,
+builds it, runs it, deletes it and prints a result line the NUC collects and
+records in the store (platform `ios`).
+
+| path | what the worker does | layers |
+|---|---|---|
+| `deploy:ios_sim` | `mix mob.deploy --native --ios` on a leased simulator (newest iOS ≥ `--min-runtime`, default 27.0), grant, relaunch, P2, P12 self-tests, `Mob.Diag.health/0` delta | `build:deploy:ios_sim`, `boot`, `plugin:<p>`, `health` |
+| `deploy:ios_device` | the same on Kevin's iPhone; `skip: device_absent` when it isn't attached or leasable | `build:deploy:ios_device`, … |
+| `release:ios` | `mix mob.regen_driver_tab --format c`, `mix mob.release --ios`, checks the signed `.ipa` | `build:release:ios` |
+
+Every path can also stop at `mob_new`, `elixir` or `doctor`; the worker's
+own problems are `error:disk` (under 5 GB free on `/`, the cell refuses to
+start), `error:worker` and `error:ssh`. One host at a time; teardown always
+uninstalls, releases the lease and deletes the host, its `_build`, the cell's
+`TMPDIR` and the app's leftovers under `~/.mob` and the user temp dir. Logs
+and result JSON: `~/mob_ci_logs/ios/<cell_id>.{log,json}` on the NUC. On the
+Mac by hand: `mix ci.ios_cell --set default --versions hex --path deploy:ios_sim`.
+
+Setup on the Mac: `worker/mac/README.md`. Rationale:
+`decisions/2026-10-08-ios-lane-mac-worker.md`.
+
 ## Tests
 
-`mix test` (no device, no network; `:integration` excluded). The
-version-row and set tests stub the network. To really generate and compile
+`mix test` (no device, no network, no ssh; `:integration` excluded). The
+version-row and set tests stub the network; the iOS lane's tests stub the
+transport and the worker's I/O. To really generate and compile
 a host for `default` on `hex`:
 
 ```sh
