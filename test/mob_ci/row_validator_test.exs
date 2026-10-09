@@ -68,7 +68,7 @@ defmodule MobCi.RowValidatorTest do
     assert RowValidator.source(hex_row).deps == [{:mob, "== 0.9.16"}, {:mob_dev, "== 0.7.19"}]
     assert RowValidator.source(hex_row).key == "hex-0.7.19-mob-hex-0.9.16"
     assert RowValidator.source(master).key =~ "-mob-git-#{String.duplicate("b", 40)}"
-    assert RowValidator.mix_exs(hex_row) =~ ~s({:mob, "== 0.9.16"}, {:mob_dev, "== 0.7.19"})
+    assert RowValidator.mix_exs(RowValidator.source(hex_row)) =~ ~s({:mob, "== 0.9.16"}, {:mob_dev, "== 0.7.19"})
   end
 
   test "conflicts/3 runs cross_validate in the row's mob_dev, per pin, and reuses the built project", %{root: root} do
