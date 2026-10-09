@@ -32,13 +32,13 @@ Latest run 2026-10-09T17:42:52Z. Core versions in this grid: mob 0.9.17 · mob_d
 
 ## master
 
-Latest run 2026-10-09T17:44:51Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.17 (git 5d85492) · mob_dev 0.7.20 (git 191eb9c) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.17 (git 5d85492) · mob_dev 0.7.19 (git 3ca3d32) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.17 (git 5d85492) · mob_dev 0.7.19 (git 85cb423) · mob_new 0.6.7 (git 213ed49); mob 0.9.16 (git f17bb11) · mob_dev 0.7.19 (git 85cb423) · mob_new 0.6.7 (git 213ed49); mob 0.9.16 (git 1843423) · mob_dev 0.7.18 (git 65bdac9) · mob_new 0.6.7 (git 213ed49); mob 0.9.16 (git 1843423) · mob_dev 0.7.18 (git 2491846) · mob_new 0.6.7 (git 213ed49); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-09T17:49:18Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.17 (git 5d85492) · mob_dev 0.7.19 (git 3ca3d32) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.17 (git 5d85492) · mob_dev 0.7.19 (git 85cb423) · mob_new 0.6.7 (git 213ed49); mob 0.9.16 (git f17bb11) · mob_dev 0.7.19 (git 85cb423) · mob_new 0.6.7 (git 213ed49); mob 0.9.16 (git 1843423) · mob_dev 0.7.18 (git 65bdac9) · mob_new 0.6.7 (git 213ed49); mob 0.9.16 (git 1843423) · mob_dev 0.7.18 (git 2491846) · mob_new 0.6.7 (git 213ed49); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | ✓ pass | · | · | ✓ pass | ✓ pass | ✓ pass |
-| `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` |
-| `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_sim` | ! error @ `build:deploy:ios_device` | ! error @ `build:release:ios` |
+| `blank` | ✓ pass | ! error @ `mob_new` | ! error @ `mob_new` | ✓ pass | ✓ pass | ✓ pass |
+| `default` | ✓ pass | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `mob_new` |
+| `all` | ✓ pass | ! error @ `mob_new` | ! error @ `mob_new` | ! error @ `build:deploy:ios_sim` | ! error @ `build:deploy:ios_device` | ! error @ `build:release:ios` |
 | `selftest_pilots` | · | ✓ pass | ✓ pass | · | · | · |
 | `singleton:mob_audio_capture` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_biometric` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
@@ -47,6 +47,7 @@ Latest run 2026-10-09T17:44:51Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_location` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_mishka` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_nfc` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
+| `singleton:mob_scene3d` | ✓ pass | · | · | · | · | · |
 | `singleton:mob_sensors` | ✓ pass | · | · | · | · | · |
 | `singleton:mob_sms` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_speech` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
@@ -54,7 +55,7 @@ Latest run 2026-10-09T17:44:51Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_vision` | ✓ pass | ✓ pass | ! error @ `build:release:android` | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | · | · | · |
 
-54 pass, 0 fail, 19 error, 10 skip.
+51 pass, 0 fail, 25 error, 10 skip.
 
 ## rc:mob_location@9fc8937f03ac497dec4171da5b3282bb58057b71
 
