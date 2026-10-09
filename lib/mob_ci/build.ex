@@ -20,7 +20,18 @@ defmodule MobCi.Build do
   alias MobCi.Plugins
 
   @harness_root Path.expand("../../fixtures/_harness", __DIR__)
-  @sdk_dir "/home/kevin/Android/Sdk"
+
+  # The Android SDK of the machine building: the NUC's, or the Mac lane's for
+  # `deploy:android_physical` (where the NUC path made mob.doctor find no NDK).
+  @doc false
+  @spec sdk_dir() :: Path.t()
+  def sdk_dir do
+    System.get_env("ANDROID_HOME") || System.get_env("ANDROID_SDK_ROOT") ||
+      if(match?({:unix, :darwin}, :os.type()),
+        do: Path.expand("~/Library/Android/sdk"),
+        else: "/home/kevin/Android/Sdk"
+      )
+  end
 
   # The ecosystem checkout root: the NUC keeps mob, mob_dev, mob_new, every
   # plugin and sloppy_joe as siblings under ~/code (and the core three track
@@ -163,7 +174,7 @@ defmodule MobCi.Build do
     %{base: base, arm32: arm32, x86_64: x86} = otp_paths()
 
     """
-    sdk.dir=#{@sdk_dir}
+    sdk.dir=#{sdk_dir()}
     mob.otp_release=#{base}
     mob.otp_release_arm32=#{arm32}
     mob.otp_release_x86_64=#{x86}
@@ -898,7 +909,7 @@ defmodule MobCi.Build do
   defp aapt(args) do
     bin =
       System.find_executable("aapt") ||
-        (Path.wildcard(Path.join(@sdk_dir, "build-tools/*/aapt")) |> Enum.sort() |> List.last())
+        (Path.wildcard(Path.join(sdk_dir(), "build-tools/*/aapt")) |> Enum.sort() |> List.last())
 
     if is_nil(bin), do: {:error, :aapt_not_found}, else: run(bin, args)
   end

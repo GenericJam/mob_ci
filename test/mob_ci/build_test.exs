@@ -48,9 +48,16 @@ defmodule MobCi.BuildTest do
     assert Build.mob_dir("/h", [{:mob, "~> 0.9", override: true}]) == "/h/deps/mob"
   end
 
-  test "local_properties references the discovered OTP cache + sdk + mob_dir" do
+  test "local_properties references the discovered OTP cache + this machine's sdk + mob_dir" do
+    previous = System.get_env("ANDROID_HOME")
+    System.put_env("ANDROID_HOME", "/mac/Library/Android/sdk")
+
+    on_exit(fn ->
+      if previous, do: System.put_env("ANDROID_HOME", previous), else: System.delete_env("ANDROID_HOME")
+    end)
+
     props = Build.local_properties("/eco/mob")
-    assert props =~ "sdk.dir=/home/kevin/Android/Sdk"
+    assert props =~ "sdk.dir=/mac/Library/Android/sdk"
     assert props =~ "mob.otp_release_x86_64=" <> Path.expand("~/.mob/cache/otp-android-x86_64-")
     assert props =~ "mob.mob_dir=/eco/mob"
   end
