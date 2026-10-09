@@ -146,7 +146,8 @@ defmodule Mix.Tasks.Ci.Device do
             artifacts_dir: artifacts,
             store: store,
             run_id: run_id,
-            versions_row: info.versions_row
+            versions_row: info.versions_row,
+            set_name: info.set
           )
 
         report_device(runs, artifacts, store)

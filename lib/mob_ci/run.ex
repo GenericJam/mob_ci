@@ -52,7 +52,7 @@ defmodule MobCi.Run do
     paths = Keyword.get(opts, :paths, [:deploy])
     Process.put(@timings_key, [])
 
-    runs =
+    {runs, opts} =
       case step(:prepare, fn -> prepare(host, set, opts) end) do
         {:ok, prep} ->
           # Restore any transient host mutation (e.g. sloppy_joe's swapped mob.exs)
@@ -61,19 +61,20 @@ defmodule MobCi.Run do
           opts = stamp_opts(prep, opts)
 
           try do
-            for path <- paths, do: run_path(path, set, host, prep, artifacts, opts)
+            {for(path <- paths, do: run_path(path, set, host, prep, artifacts, opts)), opts}
           after
             cleanup.()
           end
 
         {:error, reason} ->
-          for path <- paths, do: errored(path, error({:prepare_failed, host_dir(host), reason}), 0, nil)
+          {for(path <- paths, do: errored(path, error({:prepare_failed, host_dir(host), reason}), 0, nil)), opts}
       end
 
     write_timings(artifacts)
 
     results = for %{outcome: {v, rs}} <- runs, v in [:ok, :fail], r <- rs, do: r
     Report.write_artifacts(artifacts, set, results)
+    # The stamped opts: a generated host's set name and version record.
     record(runs, set, host, opts)
     runs
   end
