@@ -4,32 +4,41 @@
 # "must not crash the BEAM / must degrade gracefully", NOT "feature works". This
 # table records, per plugin:
 #
-#   :nif    — the Erlang NIF module (for P3 module-load + init checks).
-#   :probe  — a SAFE, side-effect-free NIF export {fun, args} that still runs
-#             native code, so P3 can confirm the NIF actually INITIALIZED (not
-#             just that the stub loaded). The `*_stop`/`*_cancel` exports are
-#             idempotent no-ops that prove init without touching hardware/UI.
-#             `nil` when no safe probe exists (only UI-triggering exports) — P3
-#             then confirms load but skips the init check (honest, not a failure).
-#   :screen — expectation for the plugin's DemoScreen on headless redroid:
-#               :emulator_ok       — should render normally,
-#               :hardware_degraded — may render an error/empty state; a *crash*
-#                                    is then a finding, but a graceful error is a
-#                                    skip, not a P4 failure,
-#               nil                — ships no DemoScreen.
-#   :note   — rationale / what was observed.
+#   :nif       — the Erlang NIF module (for P3 module-load + init checks); nil
+#                for a pure-Elixir plugin.
+#   :probe     — a SAFE, side-effect-free NIF export {fun, args} that still runs
+#                native code, so P3 can confirm the NIF actually INITIALIZED (not
+#                just that the stub loaded). `*_stop`/`*_cancel`/`*_available`/
+#                `*_caps` exports are idempotent no-ops or read-only queries that
+#                prove init without touching hardware/UI. `nil` when no safe probe
+#                exists (only UI-triggering or stateful exports) — P3 then confirms
+#                load but skips the init check (honest, not a failure).
+#   :screen    — expectation for the plugin's declared screens on headless redroid:
+#                  :emulator_ok       — must render normally,
+#                  :hardware_degraded — may render an error/empty state; a *crash*
+#                                       is then a finding, a graceful error a skip,
+#                  nil                — ships no screen.
+#   :buildable — false when the plugin cannot be built into the CI hosts on this
+#                farm (x86_64 redroid, unmodified mob.new --blank host); the reason
+#                is in :note and, when it is a defect, in FINDINGS.md.
+#   :note      — rationale / what the discovery run observed and when.
 #
-# Refined by the discovery run (the full sloppy_joe set on a headless redroid).
+# Refined by discovery runs (`scripts/discovery.exs`), never guessed:
+#   2026-06-22 — the sloppy_joe set on a headless redroid (mob_dev 0.6.x).
+#   2026-10-08 — realism gate on sloppy_joe master (mob 0.9.14 / mob_dev 0.7.16,
+#                `~/mob_ci_logs/realism7.log`, `realism8.log`) and the harness
+#                discovery over the other 15 plugins (`~/mob_ci_logs/disco1.log`).
+# P12 (plugin self-tests, MOB-411/414) will make the :probe column redundant.
 %{
   # ── mob_ci fixtures (synthetic, emulator-native) ──────────────────────────
   mob_ci_haptic: %{nif: :mob_ci_haptic_nif, probe: {:ping, []}, screen: nil},
 
-  # ── real first-party plugins ──────────────────────────────────────────────
+  # ── sloppy_joe's set (realism gate, 2026-10-08: all NIFs load, 5 screens render) ──
   mob_touch: %{
     nif: :mob_touch_nif,
     probe: {:touch_stop, []},
     screen: :emulator_ok,
-    note: "touch event monitoring; stop/0 is a safe init probe"
+    note: "touch event monitoring; stop/0 is a safe init probe (initialized 2026-10-08)"
   },
   mob_location: %{
     nif: :mob_location_nif,
@@ -37,37 +46,37 @@
     screen: :emulator_ok,
     note:
       "no GPS on headless redroid, but the DemoScreen renders an idle state " <>
-        "gracefully (discovery: rendered) so P4 holds it to :emulator_ok; " <>
-        "location_stop/0 safe probe"
+        "gracefully (rendered 2026-06-22 and 2026-10-08); location_stop/0 safe probe"
   },
   mob_video: %{
     nif: :mob_video_nif,
     probe: {:video_probe, ["/nonexistent_ci_probe.mp4"]},
     screen: :emulator_ok,
-    note: "file-based; probe of a missing file proves init"
+    note: "file-based; probe of a missing file proves init (initialized 2026-10-08)"
   },
   mob_camera: %{
     nif: :mob_camera_nif,
     probe: {:camera_stop_preview, []},
     screen: :emulator_ok,
     note:
-      "no camera, but the DemoScreen renders gracefully (discovery: rendered) so " <>
-        "P4 holds it to :emulator_ok; preview start fails gracefully; " <>
-        "stop_preview safe probe"
+      "no camera, but the DemoScreen renders gracefully (rendered 2026-06-22 and " <>
+        "2026-10-08); stop_preview safe probe. Host needs the FileProvider the " <>
+        "mob.new template already declares"
   },
   mob_bluetooth: %{
     nif: :mob_bluetooth_nif,
     probe: {:bt_cancel_discovery, []},
     screen: nil,
-    note: "no BT adapter; cancel_discovery safe probe"
+    note: "no BT adapter; cancel_discovery safe probe (initialized 2026-10-08). F9: collides with mob_midi on NSBluetoothAlwaysUsageDescription"
   },
   mob_notify: %{
     nif: :mob_notify_nif,
     probe: {:notify_cancel, ["mob_ci_probe"]},
     screen: nil,
     note:
-      "notify_cancel/1 takes a STRING id (String.t()); cancelling a non-existent " <>
-        "id is a safe no-op init probe — integer args raise :badarg in the NIF"
+      "notify_cancel/1 takes a STRING id; cancelling a non-existent id is a safe " <>
+        "no-op init probe (initialized 2026-10-08). FCM <service> host requirement is " <>
+        "a build-time warning only (push is not exercised here)"
   },
   mob_screencast: %{
     nif: :mob_screencast_nif,
@@ -75,28 +84,125 @@
     screen: nil,
     buildable: false,
     note:
-      "host_requirement: needs <service io.mob.screencast.ScreencastService> in the " <>
-        "host AndroidManifest (hard build failure without it) — not buildable on an " <>
-        "unmodified host, so excluded from the auto-discovery set"
+      "host_requirement: <service io.mob.screencast.ScreencastService> in the host " <>
+        "AndroidManifest (F4; now declared in the manifest and warned at build) — " <>
+        "sloppy_joe declares it, the mob.new --blank harness does not, so it is " <>
+        "excluded from harness discovery sets"
   },
   mob_biometric: %{
     nif: :mob_biometric_nif,
     probe: nil,
     screen: :emulator_ok,
     note:
-      "no biometric hw, but the DemoScreen renders gracefully (discovery: rendered) " <>
-        "so P4 holds it to :emulator_ok; only authenticate/1 (triggers UI) — no safe probe"
+      "no biometric hw, but the DemoScreen renders gracefully (rendered 2026-06-22 " <>
+        "and 2026-10-08); only biometric_authenticate/1 (UI) — no safe probe"
   },
   mob_photos: %{
     nif: :mob_photos_nif,
     probe: nil,
     screen: nil,
-    note: "only photos_pick/2 (picker UI) — no safe probe"
+    note:
+      "photos_pick/2 opens the picker, media_list/1 needs the media permission — no " <>
+        "safe probe; loaded 2026-10-08. Expectations must come from the host's locked " <>
+        "version (0.1.3 lacks ACCESS_MEDIA_LOCATION, 0.2.0 declares it)"
   },
   mob_scanner: %{
     nif: :mob_scanner_nif,
     probe: nil,
     screen: nil,
-    note: "only scanner_scan/1 (camera UI) — no safe probe"
-  }
+    note: "only scanner_scan/1 (camera UI) — no safe probe; loaded 2026-10-08"
+  },
+  mob_wake: %{
+    nif: :mob_wake_nif,
+    probe: {:platform_signal, []},
+    screen: nil,
+    note: "platform_signal/0 is a read-only query; loaded via sloppy_joe 2026-10-08 (0.1.1)"
+  },
+
+  # ── the other 15 (harness discovery, mob.new --blank host, latest Hex) ────
+  mob_midi: %{
+    nif: :mob_midi_nif,
+    probe: {:midi_list_devices, []},
+    screen: :emulator_ok,
+    note: "no MIDI devices on redroid; list_devices/0 is read-only. KeyboardScreen + InputScreen"
+  },
+  mob_nfc: %{
+    nif: :mob_nfc_nif,
+    probe: {:nfc_available, []},
+    screen: nil,
+    note: "no NFC on redroid; nfc_available/0 is read-only (expect false)"
+  },
+  mob_sms: %{
+    nif: :mob_sms_nif,
+    probe: nil,
+    screen: :emulator_ok,
+    note: "sms_compose/2 opens the composer, arm_one_time_code/0 registers a receiver — no safe probe"
+  },
+  mob_speech: %{
+    nif: :mob_speech_nif,
+    probe: {:speech_available, []},
+    screen: :emulator_ok,
+    note: "no recognizer service on redroid; speech_available/0 is read-only (expect false)"
+  },
+  mob_whisper: %{
+    nif: :mob_whisper_nif,
+    probe: {:nif_loaded, []},
+    screen: nil,
+    note: "nif_loaded/0 is the plugin's own init probe; the model download is not exercised"
+  },
+  mob_nx_eigen: %{
+    nif: :nx_eigen,
+    probe: nil,
+    screen: nil,
+    buildable: false,
+    note:
+      "arm-only: mob_dev's native build installs the NxEigen OTP lib for arm64-v8a/" <>
+        "armeabi-v7a only (x86_64 never got one, mob_dev native_build.ex), so on the " <>
+        "x86_64 farm the NIF cannot load; covered by the arm64 lanes only (docs/budgets.md)"
+  },
+  mob_scene3d: %{
+    nif: :mob_scene3d_nif,
+    probe: {:scene3d_caps, []},
+    screen: nil,
+    note:
+      "scene3d_caps/0 is read-only; ui component :scene3d has no showcase convention " <>
+        "(P5 skip). host_requirement: jvmTarget 17 (mob.new pins 1.8) — see note after discovery"
+  },
+  mob_doom: %{
+    nif: :mob_doom_nif,
+    probe: nil,
+    screen: nil,
+    note: "doom_nif_update/0 before doom_nif_init/1 is undefined behaviour — no safe probe; ui :mob_doom (P5 skip)"
+  },
+  mob_in_app_purchase: %{
+    nif: :mob_iap_nif,
+    probe: nil,
+    screen: :emulator_ok,
+    note: "every export talks to Play Billing (absent on redroid) — no safe probe; Catalog/Cart/Confirmation screens"
+  },
+  mob_audio_capture: %{
+    nif: :mob_audio_capture_nif,
+    probe: {:audio_capture_stop, []},
+    screen: :emulator_ok,
+    note: "audio_capture_stop/0 is an idempotent no-op; host_requirement <service io.mob.audiocapture.AudioCaptureService> (warning)"
+  },
+  mob_background: %{
+    nif: :mob_background_nif,
+    probe: {:background_stop, []},
+    screen: nil,
+    buildable: false,
+    note:
+      "F10: MobBackgroundBridge.kt references io.mob.background.BeamForegroundService, " <>
+        "which the plugin does not ship — the host must add the class AND the <service>; " <>
+        "on an unmodified mob.new --blank host the Kotlin build fails (discovery 2026-10-08)"
+  },
+  mob_vision: %{
+    nif: :mob_vision_nif,
+    probe: nil,
+    screen: nil,
+    note: "recognize_text/1 needs an image — no safe probe"
+  },
+  mob_deliver: %{nif: nil, probe: nil, screen: nil, note: "pure Elixir (deliver agent); nothing native to probe"},
+  mob_ash: %{nif: nil, probe: nil, screen: nil, note: "pure Elixir (screens generator); nothing native to probe"},
+  mob_mishka: %{nif: nil, probe: nil, screen: nil, note: "pure Elixir components; no ui_components manifest entry, nothing native to probe"}
 }

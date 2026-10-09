@@ -18,8 +18,8 @@ defmodule MobCi.PluginsTest do
 
   describe "real ecosystem plugins resolve from ~/code (realism gate)" do
     test "a fixture wins; a real plugin falls back to the sibling repo" do
-      assert Plugins.fixture_dir(:mob_ci_haptic) =~ "/mob_ci/fixtures/mob_ci_haptic"
-      assert Plugins.fixture_dir(:mob_camera) =~ "/code/mob_camera"
+      assert Plugins.fixture_dir(:mob_ci_haptic) == Path.expand("../../fixtures/mob_ci_haptic", __DIR__)
+      assert Plugins.fixture_dir(:mob_camera) == Path.expand("~/code/mob_camera")
     end
 
     test "load_manifest reads a real plugin's manifest" do

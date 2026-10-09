@@ -17,7 +17,8 @@ defmodule MobCi.Plugins do
   @fixtures_dir Path.expand("../../fixtures", __DIR__)
   # Real (published) plugins live as sibling repos under ~/code/<name> — the
   # realism gate (sloppy_joe host) reasons about these, not the fixtures.
-  @ecosystem_dir Path.expand("../..", @fixtures_dir)
+  # Explicit (not derived from __DIR__) so a worktree resolves the same siblings.
+  @ecosystem_dir Path.expand("~/code")
 
   @doc """
   The fixed sample set milestone 1 runs the full P1–P11 catalog against.
@@ -39,10 +40,8 @@ defmodule MobCi.Plugins do
   """
   @spec fixture_dir(atom()) :: Path.t()
   def fixture_dir(name) when is_atom(name) do
-    fixture = Path.join(@fixtures_dir, Atom.to_string(name))
-
     cond do
-      File.dir?(fixture) -> fixture
+      fixture?(name) -> Path.join(@fixtures_dir, Atom.to_string(name))
       dir = Map.get(resolved_dirs(), name) -> dir
       true -> Path.join(@ecosystem_dir, Atom.to_string(name))
     end
@@ -60,6 +59,10 @@ defmodule MobCi.Plugins do
   @doc "The resolved plugin dirs set by `put_resolved_dirs/1` (empty by default)."
   @spec resolved_dirs() :: %{atom() => Path.t()}
   def resolved_dirs, do: Application.get_env(:mob_ci, :plugin_dirs, %{})
+
+  @doc "Is `name` one of mob_ci's own fixture plugins (as opposed to a real, published one)?"
+  @spec fixture?(atom()) :: boolean()
+  def fixture?(name) when is_atom(name), do: File.dir?(Path.join(@fixtures_dir, Atom.to_string(name)))
 
   @doc "Path to a fixture plugin's manifest (may not exist for tier-0 plugins)."
   @spec manifest_path(atom()) :: Path.t()
@@ -166,6 +169,51 @@ defmodule MobCi.Plugins do
         is_map(m),
         child <- get_in(m, [:lifecycle, :supervised]) || [],
         do: worker_id(child)
+  end
+
+  # ── owners: which plugin contributed what (layer attribution of a failure) ──
+
+  @doc "NIF module → the plugin that contributes it."
+  @spec nif_owners(Enumerable.t()) :: %{atom() => atom()}
+  def nif_owners(names) do
+    for {n, m} <- activated(names),
+        is_map(m),
+        nif <- Map.get(m, :nifs, []),
+        is_map(nif),
+        mod = nif[:module],
+        is_atom(mod),
+        into: %{},
+        do: {mod, n}
+  end
+
+  @doc "Screen module → the plugin that declares it."
+  @spec screen_owners(Enumerable.t()) :: %{module() => atom()}
+  def screen_owners(names) do
+    for {n, m} <- activated(names),
+        is_map(m),
+        s <- Map.get(m, :screens, []),
+        is_map(s),
+        mod = s[:module],
+        is_atom(mod),
+        into: %{},
+        do: {mod, n}
+  end
+
+  @doc "Android permission → the plugins that declare it."
+  @spec permission_owners(Enumerable.t()) :: %{String.t() => [atom()]}
+  def permission_owners(names) do
+    for {n, m} <- activated(names),
+        is_map(m),
+        perm <- get_in(m, [:android, :permissions]) || [],
+        reduce: %{} do
+      acc -> Map.update(acc, perm, [n], &(&1 ++ [n]))
+    end
+  end
+
+  @doc "Plugins in the set that contribute at least one UI component (P5's suspects)."
+  @spec component_owners(Enumerable.t()) :: [atom()]
+  def component_owners(names) do
+    for {n, m} <- activated(names), is_map(m), Map.get(m, :ui_components, []) != [], do: n
   end
 
   defp worker_id(mod) when is_atom(mod), do: mod

@@ -26,9 +26,19 @@ defmodule MobCi.Report do
   defp header(title), do: "── #{title} " <> String.duplicate("─", max(0, 60 - String.length(title)))
 
   defp result_line(%Result{} = r) do
-    base = "  #{@glyph[r.status]} #{r.id}  #{r.title}"
+    base = "  #{@glyph[r.status]} #{r.id}  #{r.title}" <> layer_tag(r)
     if r.detail, do: base <> "\n        ↳ #{r.detail}", else: base
   end
+
+  defp layer_tag(%Result{layer: nil}), do: ""
+  defp layer_tag(%Result{layer: layer}), do: "  @ #{format_layer(layer)}"
+
+  @doc "A layer as its canonical one-token form: `static | build:<path> | boot | plugin:<p> | conflict:<set> | health`."
+  @spec format_layer(Result.layer()) :: String.t()
+  def format_layer({:build, dir}), do: "build:#{dir}"
+  def format_layer({:plugin, p}), do: "plugin:#{p}"
+  def format_layer({:conflict, set}), do: "conflict:#{Enum.join(set, ",")}"
+  def format_layer(atom) when is_atom(atom), do: to_string(atom)
 
   @doc "Tally results by status."
   @spec tally([Result.t()]) :: %{pass: non_neg_integer(), fail: non_neg_integer(), error: non_neg_integer(), skip: non_neg_integer()}

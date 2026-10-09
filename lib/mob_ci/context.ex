@@ -13,6 +13,9 @@ defmodule MobCi.Context do
   @enforce_keys [:set, :host]
   defstruct set: [],
             host: :harness,
+            # the host app's directory — names the build layer (`{:build, dir}`)
+            # a build-side failure is attributed to.
+            host_dir: nil,
             node: nil,
             repo: nil,
             build: %{status: :unknown, apk: nil, permissions: nil, conflicts: []},
@@ -38,6 +41,7 @@ defmodule MobCi.Context do
   @type t :: %__MODULE__{
           set: [atom()],
           host: :harness | :sloppy_joe | :generated,
+          host_dir: Path.t() | nil,
           node: node() | nil,
           repo: module() | nil,
           build: %{

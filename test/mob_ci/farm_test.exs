@@ -31,6 +31,23 @@ defmodule MobCi.FarmTest do
     assert Farm.parse_kv(output, ["INDEX", "SERIAL"]) == %{index: 2, serial: "127.0.0.1:5702"}
   end
 
+  test "dist_cookies dials the project's managed cookie first, then the legacy public one" do
+    pkg = "com.example.mob_ci_test_#{System.unique_integer([:positive])}"
+    path = MobDev.DistCookie.default_path(pkg)
+    on_exit(fn -> File.rm(path) end)
+
+    assert [managed, :mob_secret] = Farm.dist_cookies(pkg)
+    assert managed != :mob_secret
+    assert Atom.to_string(managed) =~ ~r/^[0-9a-f]{64}$/
+    # the same project keeps the same cookie across runs (what deploy wrote is what we dial)
+    assert [^managed, :mob_secret] = Farm.dist_cookies(pkg)
+  end
+
+  test "await_node never spins on a non-distributed host (no cookie can be tried)" do
+    refute Node.alive?()
+    refute Farm.await_node(:"nobody_mob_ci@127.0.0.1", 60_000, [:mob_secret, :other])
+  end
+
   test "the ci-farm.sh script exists and is executable" do
     assert File.exists?(Farm.script())
     assert (File.stat!(Farm.script()).mode &&& 0o100) != 0

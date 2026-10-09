@@ -48,8 +48,9 @@ defmodule MobCi.Invariants do
   # the one invariant that's meaningful even before a device boots — it catches a
   # gap in `cross_validate` (conflict it missed → build succeeded or died at the
   # linker) and a false positive (clean set it wrongly rejected).
-  def p1(%Context{set: set, build: build}) do
+  def p1(%Context{set: set, build: build} = ctx) do
     conflicts = Validator.cross_validate(Plugins.activated(set)).errors
+    build_layer = {:build, ctx.host_dir}
 
     case {conflicts, build.status} do
       {[], :ok} ->
@@ -57,24 +58,29 @@ defmodule MobCi.Invariants do
 
       {[], {:conflict, msgs}} ->
         Result.fail(:p1, title(:p1), "cross_validate found no conflict but build reported one", msgs)
+        |> Result.at(:static)
 
       {[], {:error, reason}} ->
-        Result.fail(:p1, title(:p1), "clean set failed to build", reason)
+        Result.fail(:p1, title(:p1), "clean set failed to build", reason) |> Result.at(build_layer)
 
       {[_ | _] = cs, {:conflict, msgs}} ->
         if conflicts_named?(cs, msgs),
           do: Result.pass(:p1, title(:p1), "conflicting set rejected with named conflicts"),
-          else: Result.fail(:p1, title(:p1), "build rejected the set but didn't name the conflicts", %{expected: cs, got: msgs})
+          else:
+            Result.fail(:p1, title(:p1), "build rejected the set but didn't name the conflicts", %{expected: cs, got: msgs})
+            |> Result.at(build_layer)
 
       {[_ | _] = cs, :ok} ->
         Result.fail(:p1, title(:p1), "conflicting set built anyway — cross_validate/build gap", cs)
+        |> Result.at(:static)
 
       {_cs, :unknown} ->
-        Result.error(:p1, title(:p1), "build status unknown (build layer didn't run)")
+        Result.error(:p1, title(:p1), "build status unknown (build layer didn't run)") |> Result.at(build_layer)
 
       {_cs, {:error, reason}} ->
         # Conflicting set that failed for a non-conflict reason — can't attribute.
         Result.error(:p1, title(:p1), "conflicting set errored without a conflict verdict", reason)
+        |> Result.at(build_layer)
     end
   end
 
@@ -93,29 +99,36 @@ defmodule MobCi.Invariants do
   end
 
   # ── P2 — BEAM boots and the node registers ───────────────────────────────────
-  def p2(%Context{node: nil}), do: Result.error(:p2, title(:p2), "no node leased")
+  def p2(%Context{node: nil}), do: Result.error(:p2, title(:p2), "no node leased") |> Result.at(:boot)
 
   def p2(%Context{node: node}) do
     if Probe.node_up?(node),
       do: Result.pass(:p2, title(:p2), "#{node} reachable"),
-      else: Result.fail(:p2, title(:p2), "#{node} did not register / is unreachable")
+      else: Result.fail(:p2, title(:p2), "#{node} did not register / is unreachable") |> Result.at(:boot)
   end
 
   # ── P3 — every activated NIF loads on device ─────────────────────────────────
-  def p3(%Context{node: nil}), do: Result.error(:p3, title(:p3), "no node leased")
+  def p3(%Context{node: nil}), do: Result.error(:p3, title(:p3), "no node leased") |> Result.at(:boot)
 
   def p3(%Context{set: set, node: node, nif_probes: probes}) do
+    owners = Plugins.nif_owners(set)
+
     Plugins.expected_nif_modules(set)
     |> Enum.map(fn nif ->
+      layer = {:plugin, owners[nif]}
+
       cond do
+        not Probe.node_up?(node) ->
+          Result.error(:p3_item, "#{nif}", "node unreachable") |> Result.at(:boot)
+
         not Probe.module_loaded?(node, nif) ->
-          Result.fail(:p3_item, "#{nif}", "#{nif} not loaded on device")
+          Result.fail(:p3_item, "#{nif}", "#{nif} not loaded on device") |> Result.at(layer)
 
         Map.has_key?(probes, nif) ->
           case Probe.nif_initialized?(node, nif, probes[nif]) do
             :loaded -> Result.pass(:p3_item, "#{nif}", "#{nif} initialized")
-            :not_loaded -> Result.fail(:p3_item, "#{nif}", "#{nif} stub loaded but NIF not linked")
-            {:error, reason} -> Result.error(:p3_item, "#{nif}", "probe failed", reason)
+            :not_loaded -> Result.fail(:p3_item, "#{nif}", "#{nif} stub loaded but NIF not linked") |> Result.at(layer)
+            {:error, reason} -> Result.error(:p3_item, "#{nif}", "probe failed", reason) |> Result.at(layer)
           end
 
         true ->
@@ -127,9 +140,11 @@ defmodule MobCi.Invariants do
   end
 
   # ── P4 — every declared screen pushes and renders ────────────────────────────
-  def p4(%Context{node: nil}), do: Result.error(:p4, title(:p4), "no node leased")
+  def p4(%Context{node: nil}), do: Result.error(:p4, title(:p4), "no node leased") |> Result.at(:boot)
 
   def p4(%Context{set: set, node: node, screen_caps: caps}) do
+    owners = Plugins.screen_owners(set)
+
     Plugins.expected_screen_modules(set)
     |> Enum.map(fn screen ->
       case Probe.push_and_read(node, screen) do
@@ -142,6 +157,7 @@ defmodule MobCi.Invariants do
         {:error, reason} ->
           degrade_or_fail(screen, caps, "push/render failed: #{inspect(reason)}")
       end
+      |> Result.at({:plugin, owners[screen]})
     end)
     |> Result.rollup(:p4, title(:p4))
   end
@@ -158,35 +174,51 @@ defmodule MobCi.Invariants do
   end
 
   # ── P5 — every UI component renders without a dispatch crash ──────────────────
+  #
+  # The showcase screen embeds each component via the fixtures' `widget/1`
+  # convention; real plugins have no generic host-side embedding yet, so their
+  # components are reported as an honest skip, never a trivial pass.
   def p5(%Context{set: set} = ctx) do
-    components = Plugins.expected_components(set)
+    {fixtures, real} = set |> Plugins.component_owners() |> Enum.split_with(&Plugins.fixture?/1)
+    embedded = Plugins.expected_components(fixtures)
+    open = if real == [], do: "", else: "; no showcase convention for #{Enum.join(real, ", ")} (open)"
+
+    suspects =
+      case fixtures do
+        [one] -> {:plugin, one}
+        many -> {:conflict, many}
+      end
 
     cond do
-      components == [] ->
+      fixtures == [] and real == [] ->
         Result.skip(:p5, title(:p5), "no UI components in this set")
 
+      fixtures == [] ->
+        Result.skip(:p5, title(:p5), "no showcase convention for real plugins yet: #{Enum.join(real, ", ")}")
+
       ctx.node == nil ->
-        Result.error(:p5, title(:p5), "no node leased")
+        Result.error(:p5, title(:p5), "no node leased") |> Result.at(:boot)
 
       ctx.showcase_screen == nil ->
         Result.error(:p5, title(:p5), "no showcase screen built (harness didn't emit one)")
+        |> Result.at({:build, ctx.host_dir})
 
       true ->
         case Probe.push_and_read(ctx.node, ctx.showcase_screen) do
           {:ok, %{assigns: assigns}} when is_map(assigns) ->
-            Result.pass(:p5, title(:p5), "showcase of #{length(components)} component(s) rendered")
+            Result.pass(:p5, title(:p5), "showcase of #{length(embedded)} component(s) rendered" <> open)
 
           {:error, reason} ->
-            Result.fail(:p5, title(:p5), "component showcase crashed", reason)
+            Result.fail(:p5, title(:p5), "component showcase crashed", reason) |> Result.at(suspects)
         end
     end
   end
 
   # ── P6 — merged APK permissions == union of activated plugins' ────────────────
-  def p6(%Context{set: set, build: %{permissions: nil}}) do
+  def p6(%Context{set: set, build: %{permissions: nil}} = ctx) do
     if Plugins.expected_permissions(set) |> Enum.empty?(),
       do: Result.skip(:p6, title(:p6), "no permissions expected and none read"),
-      else: Result.error(:p6, title(:p6), "build layer didn't read APK permissions")
+      else: Result.error(:p6, title(:p6), "build layer didn't read APK permissions") |> Result.at({:build, ctx.host_dir})
   end
 
   def p6(%Context{set: set, build: %{permissions: actual}}) do
@@ -200,9 +232,15 @@ defmodule MobCi.Invariants do
     # to detect cleanly and is better caught at the host-side merge layer.
     cond do
       MapSet.size(missing) > 0 ->
+        owners = Plugins.permission_owners(set)
+
+        culprits =
+          missing |> Enum.flat_map(&Map.get(owners, &1, [])) |> Enum.uniq() |> Enum.map(&{:plugin, &1})
+
         Result.fail(:p6, title(:p6), "activated-plugin permissions missing from the APK", %{
           missing: MapSet.to_list(missing)
         })
+        |> Result.at(Result.attribute(Enum.map(culprits, &%Result{id: :p6, title: "", status: :fail, layer: &1})))
 
       true ->
         Result.pass(:p6, title(:p6), "all #{MapSet.size(expected)} activated-plugin permission(s) present")
@@ -210,9 +248,9 @@ defmodule MobCi.Invariants do
   end
 
   # ── P7 — on-device runtime manifest == activated set exactly ──────────────────
-  def p7(%Context{node: nil}), do: Result.error(:p7, title(:p7), "no node leased")
+  def p7(%Context{node: nil}), do: Result.error(:p7, title(:p7), "no node leased") |> Result.at(:boot)
 
-  def p7(%Context{set: set, node: node}) do
+  def p7(%Context{set: set, node: node} = ctx) do
     expected = MapSet.new(Plugins.expected_screens(set))
 
     case Probe.runtime_screens(node) do
@@ -224,14 +262,17 @@ defmodule MobCi.Invariants do
             Result.pass(:p7, title(:p7), "#{MapSet.size(expected)} screen route(s) match the activated set")
 
           true ->
+            # The runtime manifest is generated by the build (regen hook), so a
+            # drift is the build's: a stale priv/generated/mob_plugins.exs.
             Result.fail(:p7, title(:p7), "runtime manifest drifted from activated set", %{
               missing: MapSet.difference(expected, actual) |> MapSet.to_list(),
               leaked: MapSet.difference(actual, expected) |> MapSet.to_list()
             })
+            |> Result.at({:build, ctx.host_dir})
         end
 
       {:error, reason} ->
-        Result.error(:p7, title(:p7), "could not read runtime manifest", reason)
+        Result.error(:p7, title(:p7), "could not read runtime manifest", reason) |> Result.at(:boot)
     end
   end
 
@@ -258,7 +299,7 @@ defmodule MobCi.Invariants do
         Result.skip(:p8, title(:p8), "no migration-bearing plugin in this set")
 
       node == nil or repo == nil ->
-        Result.error(:p8, title(:p8), "no node/repo to check tables against")
+        Result.error(:p8, title(:p8), "no node/repo to check tables against") |> Result.at(:boot)
 
       true ->
         subjects
@@ -268,6 +309,7 @@ defmodule MobCi.Invariants do
             {:ok, false} -> Result.fail(:p8_item, table, "#{name}: migration table #{table} missing")
             {:error, reason} -> Result.error(:p8_item, table, "table check failed", reason)
           end
+          |> Result.at({:plugin, name})
         end)
         |> Result.rollup(:p8, title(:p8))
     end
@@ -282,7 +324,7 @@ defmodule MobCi.Invariants do
         Result.skip(:p9, title(:p9), "no supervised-worker plugin in this set")
 
       node == nil ->
-        Result.error(:p9, title(:p9), "no node leased")
+        Result.error(:p9, title(:p9), "no node leased") |> Result.at(:boot)
 
       true ->
         workers
@@ -296,13 +338,14 @@ defmodule MobCi.Invariants do
           else
             Result.fail(:p9_item, "#{worker}", "supervised worker #{worker} not alive")
           end
+          |> Result.at({:plugin, plugin})
         end)
         |> Result.rollup(:p9, title(:p9))
     end
   end
 
   # ── P10 — interaction sweep leaves the BEAM alive ────────────────────────────
-  def p10(%Context{node: nil}), do: Result.error(:p10, title(:p10), "no node leased")
+  def p10(%Context{node: nil}), do: Result.error(:p10, title(:p10), "no node leased") |> Result.at(:boot)
 
   def p10(%Context{set: set, node: node}) do
     screens = Plugins.expected_screen_modules(set)
@@ -314,7 +357,7 @@ defmodule MobCi.Invariants do
 
     if Probe.node_up?(node),
       do: Result.pass(:p10, title(:p10), "survived a walk over #{length(screens)} screen(s)"),
-      else: Result.fail(:p10, title(:p10), "BEAM died during the interaction walk")
+      else: Result.fail(:p10, title(:p10), "BEAM died during the interaction walk") |> Result.at(:health)
   end
 
   # ── P11 — release tears down cleanly and frees the slot ──────────────────────
@@ -324,7 +367,7 @@ defmodule MobCi.Invariants do
 
   def p11(%Context{node: node}) do
     if Probe.node_up?(node),
-      do: Result.fail(:p11, title(:p11), "#{node} still reachable after release"),
+      do: Result.fail(:p11, title(:p11), "#{node} still reachable after release") |> Result.at(:health),
       else: Result.pass(:p11, title(:p11), "#{node} torn down")
   end
 
