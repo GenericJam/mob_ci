@@ -157,6 +157,118 @@ defmodule MobCi.Farm do
   def release(%Instance{index: i}), do: release(i)
   def release(index) when is_integer(index), do: (sh(["down", to_string(index)]); :ok)
 
+  # ── permissions and the release install (MOB-414) ───────────────────────────
+
+  @doc """
+  Grant the runtime permissions `plugins`' manifests declare to `pkg` on the
+  instance (`MobDev.Plugin.SelfTest.grant_permissions/4`, `adb shell pm
+  grant`). Must run after install and BEFORE the app launches: a self-test
+  must never meet a system prompt, and changing a running app's grants can
+  kill it. Returns the grant attempts (a non-runtime permission's refusal is
+  recorded, not raised).
+  """
+  @spec grant_permissions(Instance.t(), list(), String.t(), (String.t(), [String.t()] -> {String.t(), integer()})) ::
+          [MobDev.Plugin.SelfTest.grant()]
+  def grant_permissions(%Instance{serial: serial}, plugins, pkg, cmd \\ &cmd/2) do
+    device = %MobDev.Device{platform: :android, type: :emulator, serial: serial}
+    MobDev.Plugin.SelfTest.grant_permissions(device, plugins, pkg, cmd)
+  end
+
+  @doc "Install an APK on the instance (`adb install -r`)."
+  @spec install_apk(Instance.t(), Path.t()) :: :ok | {:error, term()}
+  def install_apk(%Instance{serial: serial}, apk) do
+    case cmd("adb", ["-s", serial, "install", "-r", apk]) do
+      {out, 0} -> if out =~ "Success", do: :ok, else: {:error, {:install, String.slice(out, -400, 400)}}
+      {out, code} -> {:error, {:install, code, String.slice(out, -400, 400)}}
+    end
+  end
+
+  @doc """
+  Make a freshly installed release build dialable. A release APK carries no
+  dist cookie (mob_dev writes it at deploy, the release path never does) and
+  unpacks its OTP tree on first launch, wiping `files/otp` — so: launch once,
+  wait for `files/otp/.installed_version`, stop the app, then write the
+  managed cookie as root (a release APK is not debuggable, `run-as` is
+  refused; redroid's adb shell is uid shell, its `su` is root) with the app's
+  owner and SELinux label. `launch/2` then starts it for real.
+  """
+  @spec provision_release(Instance.t(), keyword()) :: :ok | {:error, term()}
+  def provision_release(%Instance{} = inst, opts) do
+    app = Keyword.fetch!(opts, :app)
+    pkg = Keyword.fetch!(opts, :pkg)
+    [cookie | _] = Keyword.get_lazy(opts, :cookies, fn -> dist_cookies(pkg) end)
+    timeout = Keyword.get(opts, :timeout_ms, 90_000)
+
+    with {_out, 0} <- sh_status(["launch", to_string(inst.index), inst.suffix, to_string(inst.dist_port), pkg]),
+         :ok <- await_extracted(inst.serial, pkg, System.monotonic_time(:millisecond) + timeout),
+         {_out, 0} <- cmd("adb", ["-s", inst.serial, "shell", "am", "force-stop", pkg]),
+         {_out, 0} <- cmd("adb", ["-s", inst.serial, "shell", as_root(write_cookie_script(pkg, app, cookie))]) do
+      :ok
+    else
+      {:error, _} = err -> err
+      {out, code} -> {:error, {:provision_release, code, String.slice(out, -400, 400)}}
+    end
+  end
+
+  defp await_extracted(serial, pkg, deadline) do
+    marker = "/data/data/#{pkg}/files/otp/.installed_version"
+
+    case cmd("adb", ["-s", serial, "shell", as_root("test -f #{marker} && echo present")]) do
+      {out, 0} when is_binary(out) ->
+        if out =~ "present", do: :ok, else: retry_extracted(serial, pkg, deadline)
+
+      _ ->
+        retry_extracted(serial, pkg, deadline)
+    end
+  end
+
+  defp retry_extracted(serial, pkg, deadline) do
+    if System.monotonic_time(:millisecond) >= deadline do
+      {:error, {:otp_not_extracted, pkg}}
+    else
+      Process.sleep(2_000)
+      await_extracted(serial, pkg, deadline)
+    end
+  end
+
+  @doc """
+  The device shell script writing `cookie` to
+  `files/otp/<app>/mob_dist_cookie` (where `Mob.Dist` reads it), owned by the
+  app's uid with mode 600 and its data dir's SELinux label. Pure; the cookie
+  is mob_dev's 64-hex managed cookie, so it needs no quoting.
+  """
+  @spec write_cookie_script(String.t(), atom() | String.t(), atom() | String.t()) :: String.t()
+  def write_cookie_script(pkg, app, cookie) do
+    cookie = to_string(cookie)
+
+    unless cookie =~ ~r/\A[A-Za-z0-9_]+\z/,
+      do: raise(ArgumentError, "refusing to put a non-alphanumeric cookie in a shell script")
+
+    dir = "/data/data/#{pkg}/files/otp/#{app}"
+    file = "#{dir}/mob_dist_cookie"
+
+    "mkdir -p #{dir} && printf %s #{cookie} > #{file} && " <>
+      "chown $(stat -c %u:%g /data/data/#{pkg}) #{dir} #{file} && chmod 600 #{file} && " <>
+      "chcon $(stat -c %C /data/data/#{pkg}/files) #{dir} #{file}"
+  end
+
+  @doc """
+  `script` run as root through the device's `su` (redroid ships
+  `/system/xbin/su`; `adb shell` itself is uid shell and can't read another
+  app's data dir). The scripts mob_ci builds hold no single quote.
+  """
+  @spec as_root(String.t()) :: String.t()
+  def as_root(script) do
+    if String.contains?(script, "'"), do: raise(ArgumentError, "as_root: script must not contain a single quote")
+    "su 0 sh -c '#{script}'"
+  end
+
+  defp cmd(exe, args) do
+    System.cmd(System.find_executable(exe) || exe, args, stderr_to_stdout: true)
+  rescue
+    e -> {Exception.message(e), 127}
+  end
+
   # ── shell plumbing ──────────────────────────────────────────────────────────
 
   defp sh(args), do: elem(sh_status(args), 0)

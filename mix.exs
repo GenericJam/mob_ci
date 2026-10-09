@@ -27,7 +27,9 @@ defmodule MobCi.MixProject do
       # and mob_ci is a dev/CI tool, not a published package.
       {:mob_dev, path: "../mob_dev"},
       # The plugin-combination sweep (milestone 2).
-      {:stream_data, "~> 1.1"}
+      {:stream_data, "~> 1.1"},
+      # The results store (MobCi.Store, MOB-414): one SQLite file per machine.
+      {:exqlite, "~> 0.42"}
     ]
   end
 

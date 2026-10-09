@@ -27,7 +27,37 @@ warm figures. Two runs on the box at once roughly double the deploy step
 (builds contend for the 4 cores); run cells sequentially.
 
 Budget rule of thumb for planning the nightly matrix: **~2 min per warm
-cell, ~5–9 min per cold cell, plus ~3 min when the Hex lock changes**.
+cell, ~5–9 min per cold cell, plus ~3 min when the Hex lock changes** — per
+build path; a cell running both paths (the default since MOB-414) costs
+about twice that, see below.
+
+## The release:android cell (MOB-414)
+
+Measured on the NUC 2026-10-09 with `mix ci.device --set default --versions
+hex` (mob 0.9.15, mob_dev 0.7.17, mob_new 0.6.7; generated host
+`ci_default_hex`, 4 plugins), `~/mob_ci_logs/mob414-default-hex{,2,-final}.log`:
+
+| step | cold | warm | what it is |
+|---|---|---|---|
+| `release:build` | **265 s** | 45–47 s | `mix mob.release --android` (zig for arm64-v8a, armeabi-v7a and x86_64, otp.zip, `gradlew bundleRelease`) + bundletool universal APK |
+| `release:boot` | 12 s | 11.5 s | a fresh redroid, so no debug-pushed state can shadow the release |
+| `release:install` | 4.0 s | 4.3–4.4 s | `adb install -r` of the universal APK |
+| `release:grant` | 0.25 s | 0.25–0.33 s | `pm grant` of the manifests' runtime permissions, before launch |
+| `release:provision` | 3.5 s | 3.3–3.4 s | first launch unpacks otp.zip, stop, cookie written as root |
+| `release:launch` | 7.1 s | 7.1 s | relaunch with the CI node identity, wait for dist |
+| `release:probe` | 0.2 s | 0.2 s | P2, P12, P10 |
+| `release:release_live` + `release:teardown` | 0.9 s | 0.9 s | `docker rm -f` (then a no-op) |
+| **release path total** | ~4.5 min | **72–74 s** | |
+
+The deploy path of the same cell: deploy 216 s cold / 45 s warm (plus the
+new `grant` step, 0.2 s), 235 s / 65 s for the whole path. A warm
+`default`×`hex` cell with both paths took **138–141 s** end to end. Cold
+`master` singletons (mob_location, mob_whisper, mob_deliver) and the three
+together took 6.5–10 min per cell, both paths (`release:build` 233 s for
+mob_location; `~/mob_ci_logs/mob414-*-master.log`). The first bundletool use
+downloads its jar (32 MB, once). The release build compiles three ABIs
+where the dev build compiles one (the farm's x86_64), which is most of its
+cold cost.
 
 ## Disk
 

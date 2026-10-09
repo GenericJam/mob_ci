@@ -2,19 +2,21 @@
 
 Orchestrator-first device CI for the mob ecosystem: generates host apps for
 plugin sets at pinned versions, builds them, runs them on the redroid farm,
-and checks the invariant catalog (P1–P11, P12 pending). Design:
+and checks the invariant catalog (P1–P12). Design:
 `decisions/2026-06-19-mob-ci-design.md`; what the 2026-10 revival adds:
 `decisions/2026-10-08-revived-version-rows-ios-selftests-matrix.md`.
 Working conventions: `AGENTS.md`. Findings: `FINDINGS.md`.
 
 ```sh
 mix ci.device --static                       # fixture harness, manifest gate only
-mix ci.device                                # fixture harness, full P1–P11 on the farm
+mix ci.device                                # fixture harness, full P1–P12 on the farm
 mix ci.device --host sloppy_joe              # the real app as host
 mix ci.device --static --set all --versions hex
-mix ci.device --set pairwise:3 --versions master
+mix ci.device --set default --versions hex   # dev APK + release APK, P1–P12, stored
+mix ci.device --set pairwise:3 --versions master --paths deploy
 mix ci.sweep --static --set all --versions hex
 mix ci.sets                                  # every named set
+mix ci.report                                # latest grid per versions row, from the store
 ```
 
 ## Version rows and sets (`--set` × `--versions`)
@@ -73,6 +75,45 @@ unsigned path checkouts (`MobCi.Host`). Generation failures are layer
 (`fixtures/_harness`, `mix ci.device` with no `--set`) is unchanged.
 
 Details and rationale: `decisions/2026-10-08-version-rows-and-deterministic-sets.md`.
+
+## Build paths, P12 and the results store
+
+A cell runs two **build paths** (`--paths deploy,release`, the default for a
+cell; the fixture harness defaults to `deploy` and may add `release`; the
+shared sloppy_joe checkout refuses `release`, which builds in the host tree):
+
+| path | what is built and installed | invariants |
+|---|---|---|
+| `deploy:android` | the dev APK, `mix mob.deploy --native --device <serial>` | P1–P12 |
+| `release:android` | `mix mob.release --android` (signed with a throwaway CI upload key), turned into one universal APK with bundletool, installed on a fresh redroid | P2, P12, P10, P11 |
+
+The release APK carries no dist cookie, so mob_ci launches it once (it
+unpacks `otp.zip`), stops it, writes the managed cookie as root, then
+launches it for real. bundletool is downloaded to
+`~/.local/share/mob_ci/bundletool-all-<v>.jar` on first use
+(`MOB_CI_BUNDLETOOL` overrides). A path that fails to build is attributed
+`build:deploy:android` / `build:release:android`, with `/<plugin>` when
+mob_dev's output names the failing plugin.
+
+**P12** runs every activated plugin's self-test on the device
+(`MobDev.Plugin.SelfTest.run_all/3`, mob_dev ≥ 0.7.17), after the
+manifests' runtime permissions were granted to the installed app and before
+it launched. Pass, fail and skip map one to one; a plugin without a
+`selftest:` is the skip `no_selftest`. A failure is `plugin:<p>` when the
+plugin fails in its own `singleton:<p>` cell too (newest stored result, same
+row and path), `conflict:<set>` when it passes there, `plugin:<p>?` when no
+singleton result exists yet.
+
+**The store** is one SQLite file, `~/.local/share/mob_ci/results.sqlite`
+(`MOB_CI_STORE` or `--store` overrides; schema `priv/schema.sql`). Every
+`mix ci.device` and `mix ci.sweep` run, static or device, records a run row
+and, per path, a summary cell plus a row per invariant and per plugin
+self-test. `mix ci.report` prints the latest grid per versions row
+(`--versions`, `--set`, `--invariants` for the failing rows behind it);
+`MobCi.Store.query/2` is the reader for anything else (matrix.md, MOB-417).
+The `--artifacts` dir still gets `junit.xml`, `summary.json`,
+`timings.json` and the build logs. Rationale:
+`decisions/2026-10-08-p12-release-cell-results-store.md`.
 
 ## Tests
 

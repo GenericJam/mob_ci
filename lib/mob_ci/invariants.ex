@@ -1,6 +1,6 @@
 defmodule MobCi.Invariants do
   @moduledoc """
-  The P1–P11 invariant catalog. Each `p<N>/1` takes a `%MobCi.Context{}` and
+  The P1–P12 invariant catalog. Each `p<N>/1` takes a `%MobCi.Context{}` and
   returns a `%MobCi.Result{}`. `all/0` lists them with the layer each needs
   (`:pure` — manifests only; `:build` — the L2 build output; `:device` — a live
   leased node), so the runner can run the offline ones in unit tests and gate
@@ -14,6 +14,7 @@ defmodule MobCi.Invariants do
   """
 
   alias MobCi.{Context, Plugins, Probe, Result}
+  alias MobDev.Plugin.SelfTest
   alias MobDev.Plugin.Validator
 
   @catalog [
@@ -27,7 +28,8 @@ defmodule MobCi.Invariants do
     {:p8, "tier-3 migrations applied on device", :device},
     {:p9, "tier-4 supervised workers alive and on_start ran", :device},
     {:p10, "interaction sweep leaves the BEAM alive", :device},
-    {:p11, "release tears down cleanly and frees the slot", :device}
+    {:p11, "release tears down cleanly and frees the slot", :device},
+    {:p12, "every active plugin's self-test passes (or skips honestly)", :device}
   ]
 
   @doc "The catalog as `{id, title, layer}` tuples."
@@ -387,6 +389,94 @@ defmodule MobCi.Invariants do
       do: Result.fail(:p11, title(:p11), "#{node} still reachable after release") |> Result.at(:health),
       else: Result.pass(:p11, title(:p11), "#{node} torn down")
   end
+
+  # ── P12 — every active plugin's self-test passes (or skips honestly) ────────
+  #
+  # mob_dev's `SelfTest.run_all/3` calls each activated plugin's `selftest:`
+  # module on the device (MOB-411). Its answer maps one to one: :pass → pass,
+  # {:skip, reason} → skip with the reason (a plugin without a selftest is the
+  # skip `no_selftest`, so it stays visible), {:fail, reason} → fail, except a
+  # call that never started on the device, which is the boot layer's error. A
+  # failure is attributed by comparing with the plugin's singleton cell
+  # (`p12_layer/3`).
+  def p12(%Context{node: nil}), do: Result.error(:p12, title(:p12), "no node leased") |> Result.at(:boot)
+
+  def p12(%Context{set: set, node: node} = ctx) do
+    run_all = ctx.selftest_run_all || (&SelfTest.run_all/3)
+    singleton = ctx.singleton_selftest || fn _plugin -> nil end
+    opts = [plugins: Plugins.activated(set), timeout_ms: ctx.selftest_timeout_ms]
+
+    outcome =
+      try do
+        {:ok, run_all.(node, ctx.selftest_ctx, opts)}
+      catch
+        kind, reason -> {:crashed, Exception.format_banner(kind, reason, __STACKTRACE__)}
+      end
+
+    case outcome do
+      {:crashed, banner} ->
+        Result.error(:p12, title(:p12), "self-test runner crashed: #{banner}") |> Result.at(:boot)
+
+      {:ok, entries} ->
+        items = Enum.map(entries, &selftest_item(&1, set, singleton))
+        %{Result.rollup(items, :p12, title(:p12)) | evidence: %{items: items}}
+    end
+  end
+
+  @doc """
+  One `SelfTest.run_all/3` entry as a `:p12_item` result titled with the
+  plugin name (evidence `%{ms:, module:}`). `singleton` answers the newest
+  outcome of the plugin's own self-test in its singleton cell (or nil).
+  """
+  @spec selftest_item(map(), [atom()], (atom() -> Result.status() | nil)) :: Result.t()
+  def selftest_item(%{plugin: plugin, module: module, result: result} = entry, set, singleton) do
+    name = to_string(plugin)
+    evidence = %{ms: Map.get(entry, :ms, 0), module: module}
+
+    item =
+      case result do
+        :pass ->
+          Result.pass(:p12_item, name, "#{name}: pass")
+
+        {:skip, "no selftest in manifest"} when is_nil(module) ->
+          Result.skip(:p12_item, name, "no_selftest")
+
+        {:skip, reason} ->
+          Result.skip(:p12_item, name, to_string(reason))
+
+        {:fail, reason} when is_binary(reason) ->
+          if never_started?(reason),
+            do: Result.error(:p12_item, name, reason) |> Result.at(:boot),
+            else: Result.fail(:p12_item, name, "#{name}: #{reason}") |> Result.at(p12_layer(plugin, set, singleton.(plugin)))
+
+        other ->
+          Result.error(:p12_item, name, "unexpected self-test entry #{inspect(other)}") |> Result.at({:plugin, plugin})
+      end
+
+    %{item | evidence: evidence}
+  end
+
+  # SelfTest's wording for a call that never started on the device: the spawn
+  # was refused, or no spawn reply came before the deadline (node hung or the
+  # link wedged). Infrastructure, not the plugin. A connection lost *while* a
+  # test ran ("node … is not reachable") is the plugin's: its test most likely
+  # took the app BEAM down.
+  defp never_started?(reason),
+    do: String.starts_with?(reason, "could not spawn on ") or String.starts_with?(reason, "no answer from ")
+
+  @doc """
+  Where a P12 failure of `plugin` in `set` belongs, given the plugin's newest
+  self-test outcome in its singleton cell on the same versions row, platform
+  and path: in the singleton cell itself, or failing there too, it is the
+  plugin's (`plugin:<p>`); passing alone, it is the combination's
+  (`conflict:<set>`); with no singleton answer (never ran, skipped, errored)
+  it is the plugin's, unconfirmed (`plugin:<p>?`).
+  """
+  @spec p12_layer(atom(), [atom()], Result.status() | nil) :: Result.layer()
+  def p12_layer(plugin, [plugin], _singleton), do: {:plugin, plugin}
+  def p12_layer(plugin, _set, :fail), do: {:plugin, plugin}
+  def p12_layer(_plugin, set, :pass), do: {:conflict, set}
+  def p12_layer(plugin, _set, _singleton), do: {:plugin_unconfirmed, plugin}
 
   defp title(id) do
     {_id, t, _layer} = Enum.find(@catalog, fn {i, _, _} -> i == id end)

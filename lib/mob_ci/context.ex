@@ -35,7 +35,15 @@ defmodule MobCi.Context do
             screen_caps: %{},
             # a generated screen embedding every activated component, for P5.
             showcase_screen: nil,
-            artifacts_dir: nil
+            artifacts_dir: nil,
+            # P12: what the self-tests are told about the device, their per-test
+            # timeout, the runner (nil = MobDev.Plugin.SelfTest.run_all/3, injectable
+            # for tests) and the singleton lookup (plugin → the newest outcome of
+            # its self-test in its singleton cell, or nil; nil = never known).
+            selftest_ctx: %{platform: :android, device: :emulator},
+            selftest_timeout_ms: 30_000,
+            selftest_run_all: nil,
+            singleton_selftest: nil
 
   @type build_status :: :unknown | :ok | {:conflict, [String.t()]} | {:error, term()}
   @type t :: %__MODULE__{
@@ -55,7 +63,11 @@ defmodule MobCi.Context do
           worker_names: %{atom() => atom()},
           screen_caps: %{module() => :emulator_ok | :hardware_degraded},
           showcase_screen: module() | nil,
-          artifacts_dir: Path.t() | nil
+          artifacts_dir: Path.t() | nil,
+          selftest_ctx: %{platform: :ios | :android, device: :simulator | :emulator | :physical},
+          selftest_timeout_ms: pos_integer(),
+          selftest_run_all: (node(), map(), keyword() -> [map()]) | nil,
+          singleton_selftest: (atom() -> MobCi.Result.status() | nil) | nil
         }
 
   @doc "NIF probe MFAs for the milestone-1 sample set (all ship the tier-1 `ping/0`)."

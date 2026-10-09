@@ -231,6 +231,10 @@ defmodule MobCi.Sweep do
            do: p,
            else: (_ -> nil)
 
+    # Grant before launch (P12's self-tests must not meet a prompt; a grant
+    # to a running app can kill it).
+    Farm.grant_permissions(inst, Plugins.activated(subset), harness.pkg)
+
     case Farm.launch(inst, app: harness.app, pkg: harness.pkg) do
       {:ok, live} ->
         ctx = %Context{
@@ -251,7 +255,7 @@ defmodule MobCi.Sweep do
         results =
           Invariants.run(ctx, [:pure, :build, :device])
           |> Enum.reject(&(&1.id == :p11))
-          |> MobCi.Result.stamp(harness.set, harness.versions)
+          |> MobCi.Result.stamp(harness.set, harness.versions, Build.path_label(:deploy))
 
         {verdict(results), results}
 

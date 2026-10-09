@@ -1,6 +1,6 @@
 # discovery — the device_caps baseline run against a real host.
 #
-# Activates a plugin set on a headless x86_64 ci-redroid, runs the P1–P11
+# Activates a plugin set on a headless x86_64 ci-redroid, runs the P1–P12
 # catalog, and prints per-result detail so `priv/device_caps.exs` is refined to
 # what the emulator actually does (never guessed):
 #
@@ -32,16 +32,21 @@ set =
 MobCi.Dist.ensure!()
 IO.puts("discovery host=#{host} set (#{length(set)} plugins): #{inspect(set)}")
 
-case MobCi.Run.run(set, host: host, artifacts_dir: opts[:artifacts] || "artifacts/discovery") do
-  {verdict, results} when verdict in [:ok, :fail] ->
-    IO.puts("\n=== discovery verdict: #{verdict} ===")
+runs = MobCi.Run.run(set, host: host, artifacts_dir: opts[:artifacts] || "artifacts/discovery")
 
-    for r <- results do
-      IO.puts("#{r.id}\t#{r.status}\t#{r.detail}")
-      if r.evidence, do: IO.puts("\tevidence: #{inspect(r.evidence, limit: 40)}")
-    end
+for %{path: path, outcome: outcome} <- runs do
+  case outcome do
+    {verdict, results} when verdict in [:ok, :fail] ->
+      IO.puts("\n=== discovery #{path} verdict: #{verdict} ===")
 
-  {:error, reason} ->
-    IO.puts("\n=== discovery ERROR (layer #{inspect(MobCi.Run.error_layer(reason))}): #{inspect(reason)} ===")
-    System.halt(1)
+      for r <- results do
+        IO.puts("#{r.id}\t#{r.status}\t#{r.detail}")
+        if r.evidence, do: IO.puts("\tevidence: #{inspect(r.evidence, limit: 40)}")
+      end
+
+    {:error, reason} ->
+      IO.puts("\n=== discovery #{path} ERROR (layer #{inspect(MobCi.Run.error_layer(reason))}): #{inspect(reason)} ===")
+  end
 end
+
+if MobCi.Run.verdict(runs) == :error, do: System.halt(1)

@@ -33,10 +33,15 @@ defmodule MobCi.Report do
   defp layer_tag(%Result{layer: nil}), do: ""
   defp layer_tag(%Result{layer: layer}), do: "  @ #{format_layer(layer)}"
 
-  @doc "A layer as its canonical one-token form: `static | build:<path> | boot | plugin:<p> | conflict:<set> | health`."
+  @doc """
+  A layer as its canonical one-token form: `static | build:<path> |
+  build:<path>/<p> | boot | plugin:<p> | plugin:<p>? | conflict:<set> | health`.
+  """
   @spec format_layer(Result.layer()) :: String.t()
   def format_layer({:build, dir}), do: "build:#{dir}"
+  def format_layer({:build, path, plugin}), do: "build:#{path}/#{plugin}"
   def format_layer({:plugin, p}), do: "plugin:#{p}"
+  def format_layer({:plugin_unconfirmed, p}), do: "plugin:#{p}?"
   def format_layer({:conflict, set}), do: "conflict:#{Enum.join(set, ",")}"
   def format_layer(atom) when is_atom(atom), do: to_string(atom)
 
@@ -70,7 +75,7 @@ defmodule MobCi.Report do
   end
 
   defp junit_case(%Result{} = r) do
-    name = "#{r.id} — #{r.title}"
+    name = if r.path, do: "[#{r.path}] #{r.id} — #{r.title}", else: "#{r.id} — #{r.title}"
     body = junit_body(r)
     "    <testcase name=\"#{xml(name)}\" classname=\"mob_ci\">#{body}</testcase>"
   end
@@ -98,6 +103,8 @@ defmodule MobCi.Report do
   Write `junit.xml` + a `counterexample.json`-ish summary into `dir`. The
   counterexample is the load-bearing artifact: the failing plugin set + each
   failing invariant's detail/evidence, so a sweep failure is reproducible.
+  `results` may span several build paths of the cell (each result carries
+  its `path`).
   """
   @spec write_artifacts(Path.t() | nil, [atom()], [Result.t()]) :: :ok
   def write_artifacts(nil, _set, _results), do: :ok
@@ -114,15 +121,105 @@ defmodule MobCi.Report do
       plugin_set: set,
       set: stamped.set,
       versions: stamped.versions,
+      paths: results |> Enum.map(& &1.path) |> Enum.uniq(),
       ok: ok?(results),
       tally: tally(results),
       findings:
         Enum.map(failing, fn r ->
-          %{id: r.id, title: r.title, status: r.status, detail: r.detail, evidence: inspect(r.evidence)}
+          %{
+            id: r.id,
+            path: r.path,
+            title: r.title,
+            status: r.status,
+            layer: r.layer && format_layer(r.layer),
+            detail: r.detail,
+            evidence: inspect(r.evidence)
+          }
         end)
     }
 
     File.write!(Path.join(dir, "summary.json"), inspect(summary, pretty: true, limit: :infinity))
     :ok
+  end
+
+  # ── the stored grid (mix ci.report) ─────────────────────────────────────────
+
+  @doc """
+  The latest grid per versions row, as text: one block per row, one line per
+  set, one column per build path (`deploy:android`, `release:android`,
+  `deploy:ios_sim`, …), each cell `<glyph> <outcome>` plus `@ <layer>` when
+  attributed. `cells` are `MobCi.Store.query/2` summary rows
+  (`invariant: nil, latest: true`).
+  """
+  @spec grid([map()]) :: String.t()
+  def grid([]), do: "no results in the store yet"
+
+  def grid(cells) do
+    cells
+    |> Enum.group_by(& &1.versions_row)
+    |> Enum.sort_by(fn {row, _} -> {row_rank(row), row} end)
+    |> Enum.map_join("\n\n", fn {row, row_cells} -> row_block(row, row_cells) end)
+  end
+
+  defp row_rank("hex"), do: 0
+  defp row_rank("master"), do: 1
+  defp row_rank(_), do: 2
+
+  defp row_block(row, cells) do
+    paths = cells |> Enum.map(& &1.path) |> Enum.uniq() |> Enum.sort_by(&path_rank/1)
+    by_cell = Map.new(cells, &{{&1.set, &1.path}, &1})
+    sets = cells |> Enum.map(& &1.set) |> Enum.uniq() |> Enum.sort_by(&set_rank/1)
+    newest = cells |> Enum.map(& &1.started_at) |> Enum.max()
+
+    table =
+      [["set" | paths]] ++
+        for set <- sets do
+          [set | Enum.map(paths, fn p -> grid_cell(Map.get(by_cell, {set, p})) end)]
+        end
+
+    widths = Enum.zip_with(table, fn col -> col |> Enum.map(&String.length/1) |> Enum.max() end)
+
+    lines =
+      Enum.map(table, fn cols ->
+        cols
+        |> Enum.zip(widths)
+        |> Enum.map_join("  ", fn {c, w} -> String.pad_trailing(c, w) end)
+        |> String.trim_trailing()
+      end)
+
+    tally = Enum.frequencies_by(cells, & &1.outcome)
+
+    footer =
+      "#{Map.get(tally, :pass, 0)} passed, #{Map.get(tally, :fail, 0)} failed, " <>
+        "#{Map.get(tally, :error, 0)} errored, #{Map.get(tally, :skip, 0)} skipped"
+
+    Enum.join(
+      [header("versions: #{row} (latest run #{newest})") | Enum.map(lines, &("  " <> &1))] ++ ["  " <> footer],
+      "\n"
+    )
+  end
+
+  defp grid_cell(nil), do: "·"
+
+  defp grid_cell(%{outcome: outcome, layer: layer}),
+    do: "#{@glyph[outcome]} #{outcome}" <> if(layer, do: " @ #{layer}", else: "")
+
+  # static first, then android (deploy before release), then the other platforms.
+  defp path_rank("static"), do: {0, 0, "static"}
+
+  defp path_rank(path) do
+    {kind, platform} =
+      case String.split(path, ":", parts: 2) do
+        [k, p] -> {k, p}
+        [k] -> {k, ""}
+      end
+
+    rank = Enum.find_index(["deploy", "release"], &(&1 == kind)) || 2
+    {if(platform == "android", do: 1, else: 2), rank, path}
+  end
+
+  # blank, default, all, demo first; then the rest alphabetically (singletons group).
+  defp set_rank(set) do
+    {Enum.find_index(["blank", "default", "all", "demo"], &(&1 == set)) || 4, set}
   end
 end
