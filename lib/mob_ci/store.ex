@@ -20,13 +20,14 @@ defmodule MobCi.Store do
   `IF NOT EXISTS`), adds the columns a later version needs and records
   `PRAGMA user_version`; WAL mode and a busy timeout let the iOS lane, the
   queue's lane workers and an Android run write the same file. The trigger
-  queue's tables (`jobs`, `job_cells`, `heads`, `pushes`, schema 2) live in
-  the same file; `MobCi.Queue` and `MobCi.Poller` own them.
+  queue's tables (`jobs`, `job_cells`, `heads`, `pushes`, schema 2; schema 3
+  adds `job_cells.retry_of`) live in the same file; `MobCi.Queue` and
+  `MobCi.Poller` own them.
   """
 
   alias MobCi.{Report, Result}
 
-  @schema_version 2
+  @schema_version 3
   @schema_file Path.expand("../../priv/schema.sql", __DIR__)
   @external_resource @schema_file
   @schema File.read!(@schema_file)
@@ -114,14 +115,16 @@ defmodule MobCi.Store do
   def migrate(%__MODULE__{conn: conn} = store) do
     with :ok <- Exqlite.Sqlite3.execute(conn, @schema),
          :ok <- add_column(store, "runs", "job_id", "INTEGER"),
-         :ok <- add_column(store, "jobs", "publish_lane", "TEXT") do
+         :ok <- add_column(store, "jobs", "publish_lane", "TEXT"),
+         :ok <- add_column(store, "job_cells", "retry_of", "INTEGER") do
       if user_version(store) < @schema_version,
         do: Exqlite.Sqlite3.execute(conn, "PRAGMA user_version = #{@schema_version}"),
         else: :ok
     end
   end
 
-  # Schema 2: runs.job_id, jobs.publish_lane. ALTER TABLE has no IF NOT EXISTS, so look first.
+  # Schema 2: runs.job_id, jobs.publish_lane; schema 3: job_cells.retry_of (the
+  # cell a farm retry reruns). ALTER TABLE has no IF NOT EXISTS, so look first.
   defp add_column(%__MODULE__{conn: conn} = store, table, column, type) do
     present = store |> rows!("PRAGMA table_info(#{table})", []) |> Enum.any?(fn [_, name | _] -> name == column end)
     if present, do: :ok, else: Exqlite.Sqlite3.execute(conn, "ALTER TABLE #{table} ADD COLUMN #{column} #{type}")
@@ -488,9 +491,11 @@ defmodule MobCi.Store do
 
     whole = newest.(summaries, grid_key) ++ newest.(real, grid_key) ++ newest.(singleton_selftests, grid_key)
 
+    # A farm cell (the instance was lost) says nothing about the code, so it
+    # is never the baseline a later regression check compares against.
     baseline =
       real
-      |> Enum.filter(&(&1.outcome != :skip and (is_nil(reported) or &1.id <= reported)))
+      |> Enum.filter(&(&1.outcome != :skip and not farm?(&1) and (is_nil(reported) or &1.id <= reported)))
       |> newest.(grid_key)
 
     evidence = Enum.filter(summaries, &evidence_set?(&1.set))
@@ -499,6 +504,13 @@ defmodule MobCi.Store do
 
     {MapSet.new(whole, &cell_key/1), MapSet.new(baseline ++ evidence, &cell_key/1)}
   end
+
+  @doc """
+  Is this summary row a `farm` cell — its instance (redroid container, adb
+  device) was lost mid-path, so it says nothing about the code under test?
+  """
+  @spec farm?(map()) :: boolean()
+  def farm?(row), do: Map.get(row, :layer) in ["farm", :farm]
 
   @doc "Is `set` one `COMPATIBILITY.md` reads (`default`, `all`, `singleton:<p>`)?"
   @spec evidence_set?(String.t()) :: boolean()

@@ -21,6 +21,33 @@ defmodule MobCi.FarmTest do
     refute Farm.parse_admit("BUSY 5/5\n")
   end
 
+  test "lost_device? recognises adb and mob_dev saying the device went away, and nothing else" do
+    for text <- [
+          "✗ Android native build failed: Selected Android device(s) disconnected: 127.0.0.1:5700",
+          "adb: device offline",
+          "error: device '127.0.0.1:5701' not found",
+          "adb: no devices/emulators found",
+          "error: closed",
+          "adb: device still connecting"
+        ] do
+      assert Farm.lost_device?(text), text
+    end
+
+    # nested in an orchestration reason, as Run.error_layer sees it
+    assert Farm.lost_device?({:native_build, "… Selected Android device(s) disconnected: 127.0.0.1:5700"})
+
+    for text <- ["zig: error: undefined symbol", "BUILD FAILED", "Performing Streamed Install\nFailure [INSTALL_FAILED_NO_MATCHING_ABIS]", "device ok"] do
+      refute Farm.lost_device?(text), text
+    end
+  end
+
+  test "parse_alive reads ALIVE / LOST <why>; a check that couldn't run proves nothing" do
+    assert Farm.parse_alive("ALIVE\n") == :alive
+    assert Farm.parse_alive("LOST container ci-redroid0: missing\n") == {:lost, "container ci-redroid0: missing"}
+    assert Farm.parse_alive("LOST adb 127.0.0.1:5700: offline") == {:lost, "adb 127.0.0.1:5700: offline"}
+    assert Farm.parse_alive("sudo: a password is required\n") == :unknown
+  end
+
   test "parse_kv extracts INDEX/SERIAL past progress noise" do
     output = """
     >> waiting for boot_completed...

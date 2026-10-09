@@ -107,6 +107,57 @@ defmodule MobCi.Run do
   end
 
   @doc """
+  The paths of a run that lost their instance (layer `farm`): an
+  orchestration error `error_layer/1` puts at `:farm`, or catalog results
+  re-attributed to it by the post-path liveness check. `mix ci.device` exits
+  3 when this is non-empty, which the queue retries once.
+  """
+  @spec farm_lost([path_run()]) :: [String.t()]
+  def farm_lost(runs) do
+    for %{path: path, outcome: outcome} <- runs, farm?(outcome), do: path
+  end
+
+  defp farm?({:error, reason}), do: error_layer(reason) == :farm
+  defp farm?({_verdict, results}), do: Enum.any?(results, &(&1.layer == :farm))
+
+  @doc false
+  # A path's outcome once the post-path check found its instance gone: an
+  # orchestration error becomes `{:instance_lost, why, reason}` (layer
+  # `:farm`); failing or erroring catalog results are re-attributed to `:farm`
+  # (a probe that lost its device says nothing about the code). Passes and
+  # skips stand.
+  @spec mark_lost(outcome(), String.t()) :: outcome()
+  def mark_lost({:error, reason}, why), do: {:error, {:instance_lost, why, reason}}
+
+  def mark_lost({verdict, results}, why) do
+    {verdict,
+     Enum.map(results, fn
+       %Result{status: s} = r when s in [:fail, :error] ->
+         %{Result.at(r, :farm) | detail: "#{r.detail} [instance lost: #{why}]"}
+
+       r ->
+         r
+     end)}
+  end
+
+  # Did the path go wrong in a way the instance's disappearance could explain?
+  # (An error already at `:farm` needs no second look.)
+  defp needs_liveness_check?({:error, reason}), do: error_layer(reason) != :farm
+  defp needs_liveness_check?({_verdict, results}), do: Enum.any?(results, &(&1.status in [:fail, :error]))
+
+  # Probe results with a failure: is the instance still there? Run before the
+  # catalog releases the live instance (P11 checks that teardown).
+  defp farm_check(results, inst) do
+    with true <- needs_liveness_check?({:fail, results}),
+         {:lost, why} <- Farm.alive(inst) do
+      Logger.error("[mob_ci] layer=:farm instance #{inst.serial} lost during the probe: #{why}")
+      elem(mark_lost({:fail, results}, why), 1)
+    else
+      _ -> results
+    end
+  end
+
+  @doc """
   The results the `--artifacts` dir reports for a run: every path's catalog
   results, and for a path that never reached the catalog one `:path` error
   carrying the orchestration reason and its `error_layer/1`, so junit.xml and
@@ -209,12 +260,25 @@ defmodule MobCi.Run do
     end
   end
 
-  # Boot an instance, run `fun` on it and always release it.
+  # Boot an instance, run `fun` on it and always release it. A path that
+  # errored is checked against the instance before release: if the container
+  # or its adb device is gone, the error is the farm's (`mark_lost/2`), not
+  # the code's. (Probe results are checked in `farm_check/2`, before the
+  # catalog's own release_live tears the instance down.)
   defp with_instance(boot_step, release_step, opts, fun) do
     case step(boot_step, fn -> Farm.boot(Keyword.take(opts, [:profile])) end) do
       {:ok, inst} ->
         try do
-          fun.(inst)
+          outcome = fun.(inst)
+
+          with {:error, _} <- outcome,
+               true <- needs_liveness_check?(outcome),
+               {:lost, why} <- Farm.alive(inst) do
+            Logger.error("[mob_ci] layer=:farm instance #{inst.serial} lost: #{why}")
+            mark_lost(outcome, why)
+          else
+            _ -> outcome
+          end
         after
           step(release_step, fn -> Farm.release(inst) end)
         end
@@ -259,6 +323,7 @@ defmodule MobCi.Run do
         # Everything except P11 (which is post-release).
         results =
           step(:probe, fn -> Invariants.run(ctx, [:pure, :build, :device]) |> Enum.reject(&(&1.id == :p11)) end)
+          |> farm_check(inst)
 
         step(:release_live, fn -> Farm.release(live) end)
         finalize(:deploy, set, results ++ [Invariants.p11(ctx)], opts)
@@ -281,6 +346,7 @@ defmodule MobCi.Run do
 
       results =
         step(:"release:probe", fn -> [Invariants.p2(ctx), Invariants.p12(ctx), Invariants.p10(ctx)] end)
+        |> farm_check(inst)
 
       step(:"release:release_live", fn -> Farm.release(live) end)
       finalize(:release, set, results ++ [Invariants.p11(ctx)], opts)
@@ -325,14 +391,23 @@ defmodule MobCi.Run do
   `build:<path>` (`build:<path>/<p>` when mob_dev named the plugin, see
   `MobCi.Build.path_failure_layer/2`); a release APK the device refused →
   `build:release:android`; farm admission, boot and app launch → `:boot`.
+  A build, install or launch that failed because the device went away
+  (`MobCi.Farm.lost_device?/1`), and any error after which the instance was
+  found gone (`{:instance_lost, why, reason}`), → `:farm`.
   """
   @spec error_layer(term()) :: Result.layer()
   def error_layer({:prepare_failed, dir, _reason}), do: {:build, dir}
-  def error_layer({:build_failed, path, reason}) when path in [:deploy, :release], do: Build.path_failure_layer(path, reason)
-  def error_layer({:install_failed, path, _reason}), do: {:build, Build.path_label(path)}
+  def error_layer({:instance_lost, _why, _reason}), do: :farm
+
+  def error_layer({:build_failed, path, reason}) when path in [:deploy, :release],
+    do: if(Farm.lost_device?(reason), do: :farm, else: Build.path_failure_layer(path, reason))
+
+  def error_layer({:install_failed, path, reason}),
+    do: if(Farm.lost_device?(reason), do: :farm, else: {:build, Build.path_label(path)})
+
   def error_layer(:box_busy), do: :boot
   def error_layer({:boot_failed, _reason}), do: :boot
-  def error_layer({:launch_failed, _reason}), do: :boot
+  def error_layer({:launch_failed, reason}), do: if(Farm.lost_device?(reason), do: :farm, else: :boot)
   def error_layer(_other), do: nil
 
   defp error(reason) do

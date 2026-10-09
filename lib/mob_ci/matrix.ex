@@ -426,17 +426,19 @@ defmodule MobCi.Matrix do
   `pass → fail`, `pass → error` and `pass → skip → fail` regress; `fail →
   fail`, `error → fail`, a first-ever failure and `skip → fail` with no pass
   before it don't (nothing that worked broke; a skip proved nothing either
-  way). Sorted by row order, set, path.
+  way). A cell at layer `farm` (its instance was lost mid-path) is neither a
+  regression nor a previous outcome: `pass → farm → fail` regresses, `pass →
+  farm` doesn't. Sorted by row order, set, path.
   """
   @spec regressions([map()], [map()]) :: [map()]
   def regressions(window, history) do
     history =
       history
-      |> Enum.reject(&(&1.trigger == "replay"))
+      |> Enum.reject(&(&1.trigger == "replay" or Store.farm?(&1)))
       |> Enum.group_by(&grid_key/1)
 
     window
-    |> Enum.filter(&(&1.trigger != "replay" and &1.outcome in [:fail, :error]))
+    |> Enum.filter(&(&1.trigger != "replay" and not Store.farm?(&1) and &1.outcome in [:fail, :error]))
     |> Enum.flat_map(fn cell ->
       previous =
         history

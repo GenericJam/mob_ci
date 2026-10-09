@@ -71,6 +71,21 @@ the run rows (`runs.job_id`). `MobCi.Queue` owns `jobs` and `job_cells`;
   admits one per lane, so nothing it finds is live): `running` cells are
   requeued, and jobs the lane completed (`jobs.publish_lane`) but never
   published get their report run.
+- **A lost instance is retried once** (amended 2026-10-09, FINDINGS F13). A
+  path whose redroid went away mid-path — mob_dev or adb saying so
+  (`Selected Android device(s) disconnected`, `device offline`, `device '…'
+  not found`, `no devices/emulators found`, `error: closed`), or a failed
+  path after which `ci-farm.sh alive` finds the container stopped or adb
+  without the device — is layer `farm`, never `build:*`, `boot` or a plugin.
+  `mix ci.device` then exits 3 (it takes precedence over 1 and 2), and
+  `finish/5` queues one retry of the cell (`job_cells.retry_of`, schema 3),
+  claimed before anything else of its priority, on a fresh instance (every
+  path boots its own). Cells that deferred to the lost one defer to the
+  retry, so no job completes on the lost attempt. Both attempts stay: as
+  cells (`ci-run.sh queue show <job>`) and as runs in the store. A retry that
+  loses its instance too is recorded as is, not retried again. The report
+  never counts a `farm` cell as a regression, nor as the pass/fail a later
+  cell is compared with (`MobCi.Matrix.regressions/2`, `Store.retained/2`).
 
 ### Triggers
 

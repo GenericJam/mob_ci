@@ -101,13 +101,17 @@ defmodule MobCi.StoreTest do
     Exqlite.Sqlite3.close(conn)
 
     store = Store.open!(path)
-    assert Store.user_version(store) == 2
+    assert Store.user_version(store) == Store.schema_version()
     assert [[1, nil]] = Store.rows!(store, "SELECT id, job_id FROM runs", [])
     assert {:ok, run} = Store.record_run(store, %{trigger: "nightly", versions_row: "hex", job_id: 7})
     assert [[7]] = Store.rows!(store, "SELECT job_id FROM runs WHERE id = ?1", [run])
 
     for table <- ~w(jobs job_cells heads pushes),
         do: assert([[1]] = Store.rows!(store, "SELECT count(*) FROM sqlite_master WHERE name = ?1", [table]))
+
+    columns = fn table -> store |> Store.rows!("PRAGMA table_info(#{table})", []) |> Enum.map(&Enum.at(&1, 1)) end
+    assert "publish_lane" in columns.("jobs")
+    assert "retry_of" in columns.("job_cells")
 
     Store.close(store)
   end

@@ -93,6 +93,25 @@ defmodule MobCi.PublishTest do
       assert Matrix.regressions([Enum.max_by(all, & &1.id)], all) == []
     end
 
+    test "a lost instance (layer farm) never regresses and is never the previous outcome", %{store: store} do
+      # pass → farm: the code said nothing
+      refute regressed?(store, [:pass, :error], layer: "farm")
+
+      # pass → farm → fail: the fail is measured against the pass
+      record!(store, "master", [{"default", "deploy:android", :pass}])
+      record!(store, "master", [{"default", "deploy:android", :error}], layer: "farm")
+      record!(store, "master", [{"default", "deploy:android", :fail}])
+      all = summaries(store)
+      assert [%{versions_row: "master", previous: %{outcome: :pass}}] = Matrix.regressions([Enum.max_by(all, & &1.id)], all)
+
+      # fail → farm → fail: still not a regression (the farm cell is no pass either)
+      record!(store, "hex", [{"all", "deploy:android", :fail}])
+      record!(store, "hex", [{"all", "deploy:android", :error}], layer: "farm")
+      record!(store, "hex", [{"all", "deploy:android", :fail}])
+      all = summaries(store)
+      assert Matrix.regressions([Enum.max_by(all, & &1.id)], all) == []
+    end
+
     test "the key is (row, set, platform, path): another path's pass is not this one's baseline", %{store: store} do
       record!(store, "hex", [{"default", "release:android", :pass}])
       record!(store, "master", [{"default", "deploy:android", :pass}])
@@ -368,6 +387,17 @@ defmodule MobCi.PublishTest do
       record!(store, "hex", [{"pairwise:3", "deploy:android", :fail}], at: "2026-11-16T00:00:00Z")
       all = summaries(store)
       assert [%{set: "pairwise:3"}] = Matrix.regressions([Enum.max_by(all, & &1.id)], all)
+    end
+
+    test "a farm cell is never the kept baseline: the pass before it survives pruning", %{store: store} do
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :pass}], at: "2026-10-01T00:00:00Z")
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :error}], at: "2026-10-02T00:00:00Z", layer: "farm")
+      reported = summaries(store) |> Enum.map(& &1.id) |> Enum.max()
+      Store.prune(store, now: at("2026-11-15T00:00:00Z"), reported: reported)
+
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :fail}], at: "2026-11-16T00:00:00Z")
+      all = summaries(store)
+      assert [%{set: "pairwise:3", previous: %{outcome: :pass}}] = Matrix.regressions([Enum.max_by(all, & &1.id)], all)
     end
 
     test "a standalone prune keeps the baseline of a failure not posted yet (horizon = the marker)", %{store: store} do

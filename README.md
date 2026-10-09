@@ -104,7 +104,11 @@ launches it for real. bundletool is downloaded to
 `~/.local/share/mob_ci/bundletool-all-<v>.jar` on first use
 (`MOB_CI_BUNDLETOOL` overrides). A path that fails to build is attributed
 `build:deploy:android` / `build:release:android`, with `/<plugin>` when
-mob_dev's output names the failing plugin.
+mob_dev's output names the failing plugin. A path whose redroid went away
+mid-path (adb or mob_dev saying the device disconnected or went offline, or
+the container/adb device gone when the path failed) is layer `farm`:
+infrastructure, retried once by the trigger queue (`mix ci.device` exits 3)
+and never a regression in the report.
 
 **P12** runs every activated plugin's self-test on the device
 (`MobDev.Plugin.SelfTest.run_all/3`, mob_dev ≥ 0.7.17), after the

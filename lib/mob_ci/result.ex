@@ -26,6 +26,10 @@ defmodule MobCi.Result do
                              outright (`"deploy:android"`, `"release:android"`),
                              naming the plugin mob_dev blamed when it did.
     * `:boot`              — farm boot / launch / node registration.
+    * `:farm`              — the instance went away mid-path (adb transport
+                             dropped, adbd died, container gone): infrastructure,
+                             not the code under test. The queue retries such a
+                             cell once; the report never counts it as a regression.
     * `{:plugin, p}`       — one plugin's own contribution misbehaved.
     * `{:plugin_unconfirmed, p}` — p's self-test failed in a larger set and
                              there is no singleton result to say whether it
@@ -46,6 +50,7 @@ defmodule MobCi.Result do
           | {:build, Path.t()}
           | {:build, String.t(), atom()}
           | :boot
+          | :farm
           | {:plugin, atom()}
           | {:plugin_unconfirmed, atom()}
           | {:conflict, [atom()]}

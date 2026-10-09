@@ -250,3 +250,40 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   `$(getconf DARWIN_USER_TEMP_DIR)/tmp.*` dirs that hold the cell's own
   `Ci<App>.app` (`MobCi.Lane.Ios.Worker.app_state_dirs/3`); nothing else there
   is touched.
+
+## F13 — mob_dev's Android deploy races the adbd restart its own `adb root` causes
+
+(F12 is MOB-419's, in flight.)
+
+- **Upstream:** [MOB-459](https://linear.app/mobframework/issue/MOB-459).
+- **Found:** 2026-10-09 08:36 MDT, queue job 1, cell 7 (`singleton:mob_camera`
+  × `master`, run 38): the deploy path errored after `BUILD SUCCESSFUL` with
+  `✗ Android native build failed: Selected Android device(s) disconnected:
+  127.0.0.1:5700` (`~/mob_ci_logs/queue/cell-7/deploy.log` line 208) and was
+  recorded as `build:deploy:android` — a plugin build failure it wasn't.
+- **Where:** mob_dev `NativeBuild.fix_erts_helper_labels/2` runs `adb root`
+  after the APK install; on redroid that restarts adbd every time (the box's
+  kernel log shows `init: Service 'adbd' … exited with status 1` → `starting
+  service 'adbd'` once per deploy, 67 times that day). mob_dev sleeps a fixed
+  800 ms and goes on; `push_otp_release_android/6` then runs `adb devices` and
+  errors when the serial isn't listed. At 08:36:42 adbd went down at .256 (adb
+  server: `connection terminated: read failed`), mob_dev raised at .298, adb's
+  reconnect was still refused at .770; mob_ci's teardown removed the
+  container at .393 (`docker events`: create 08:33:05, kill 08:36:42.39).
+- **Not capacity in the memory sense:** no OOM or low-memory kill in the
+  kernel log, 5 GB available of 15, one CI instance on the box (`docker
+  events`: only `ci-redroid0`, plus staging's `redroid0`). The box is
+  CPU-saturated while a cell builds (load 9–11 on 4 cores: gradle + zig + the
+  lanes' and poller's BEAMs), which is what stretches the adbd restart past
+  mob_dev's 800 ms. The queue already runs one Android cell at a time and the
+  farm admit ceiling stays at 5; lowering either would not close a race whose
+  window is a fixed sleep.
+- **Fix (mob_dev):** after `adb root` answers `restarting adbd as root`, `adb
+  -s <serial> wait-for-device` (bounded) instead of sleeping, there and before
+  the OTP push.
+- **In mob_ci:** a build, install or launch whose output says the device went
+  away (`MobCi.Farm.lost_device?/1`), or any path after which `ci-farm.sh
+  alive` finds the container stopped or adb without the device, is layer
+  `farm`, not `build:*`/`boot`/the plugin; `mix ci.device` exits 3 and the
+  trigger queue reruns the cell once on a fresh instance; the report never
+  counts a `farm` cell as a regression (`decisions/2026-10-09-trigger-queue.md`).

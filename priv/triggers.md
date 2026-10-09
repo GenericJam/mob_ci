@@ -24,7 +24,9 @@ distribution, so no `elixir --name` wrapper is needed):
 | `mix ci.poll` | one git-remote poll cycle | seconds + the static gate |
 
 Exit codes: `0` pass · `1` an invariant/subset failed · `2` orchestration error
-(boot/build/launch). That is what every trigger gates on.
+(boot/build/launch) · `3` a path lost its instance (layer `farm`: the redroid's
+adb device or container went away mid-path; takes precedence; the queue retries
+the cell once). That is what every trigger gates on.
 
 ## `priv/ci-run.sh` — the one script triggers call
 
