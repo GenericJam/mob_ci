@@ -122,7 +122,7 @@ defmodule MobCi.HostTest do
           Versions.plugin_deps(resolved, [:mob_camera])
         )
 
-      patched = Host.splice_deps(@generated, block)
+      assert {:ok, patched} = Host.splice_deps(@generated, block)
 
       refute patched =~ "~> 0.9.8"
       assert patched =~ ~s|{:mob, path: "/cache/src/mob/#{@sha}", override: true}|
@@ -131,6 +131,14 @@ defmodule MobCi.HostTest do
       assert patched =~ ~s|{:credo, "~> 1.7"|
       assert patched =~ "defp aliases, do: []"
       assert {:ok, _} = Code.string_to_quoted(patched)
+    end
+
+    test "a template without a recognisable deps block is a mob_new-layer error, not a silent fallback" do
+      assert Host.splice_deps(
+               "defmodule X do\n  defp deps, do: []\nend\n",
+               "  defp deps do\n    []\n  end"
+             ) ==
+               {:error, {:mob_new, :deps_block_not_found}}
     end
   end
 

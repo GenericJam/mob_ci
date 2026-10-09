@@ -34,6 +34,7 @@ defmodule MobCi.Host do
 
   @hosts_root Path.expand("../../fixtures/_hosts", __DIR__)
   @generator_marker ".mob_ci_generator"
+  @deps_block ~r/  defp deps do\n.*?\n  end/s
 
   # The shared mob release key's fingerprint, as `mix mob.new` writes it into
   # every generated mob.exs (priv/templates/mob.new/mob.exs.eex).
@@ -158,10 +159,18 @@ defmodule MobCi.Host do
     {trusted, acknowledged}
   end
 
-  @doc "Swap the generated `defp deps do … end` for ours."
-  @spec splice_deps(String.t(), String.t()) :: String.t()
-  def splice_deps(mix_exs, block),
-    do: Regex.replace(~r/  defp deps do\n.*?\n  end/s, mix_exs, block, global: false)
+  @doc """
+  Swap the generated `defp deps do … end` for ours. A template whose deps
+  block this doesn't recognise is an error (layer `mob_new`), not a host
+  silently built on mob_new's own `~>` requirements.
+  """
+  @spec splice_deps(String.t(), String.t()) ::
+          {:ok, String.t()} | {:error, {:mob_new, :deps_block_not_found}}
+  def splice_deps(mix_exs, block) do
+    if Regex.match?(@deps_block, mix_exs),
+      do: {:ok, Regex.replace(@deps_block, mix_exs, block, global: false)},
+      else: {:error, {:mob_new, :deps_block_not_found}}
+  end
 
   @doc """
   `mix mob.new` argv for a host: blank, Android only, deps fetched by us.
@@ -279,7 +288,7 @@ defmodule MobCi.Host do
             Versions.plugin_deps(resolved, plugins)
           )
 
-        write(path, splice_deps(body, block), :mob_new)
+        with {:ok, patched} <- splice_deps(body, block), do: write(path, patched, :mob_new)
 
       {:error, reason} ->
         {:error, {:mob_new, {:mix_exs, reason}}}
