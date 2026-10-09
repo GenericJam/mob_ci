@@ -50,9 +50,17 @@ accepted forms.
 | `<file>` | `priv/sets/<file>.exs` — a committed regression set (a list of plugin atoms) |
 
 `mix ci.sets` lists them; `mix ci.sets --regen` rewrites the covering array
-after `priv/plugins.exs` or `priv/device_caps.exs` changes the pool (the test
-suite fails until you do); `mix ci.sets --check` verifies it. Plugins
-`priv/device_caps.exs` marks `buildable: false` are excluded from every set.
+after `priv/plugins.exs`, `priv/device_caps.exs` or `priv/sets/exclusions.exs`
+changes the pool (the test suite fails until you do); `mix ci.sets --check`
+verifies it. Plugins `priv/device_caps.exs` marks `buildable: false` are
+excluded from every set.
+
+**Exclusions.** `priv/sets/exclusions.exs` parks a plugin (`plugin: "F<n>:
+reason"`) while a known finding breaks every host that activates it, so
+`all`, the pairwise rows and the other built sets stay buildable. Its
+`singleton:<p>` still runs, and `--static` plans every set with the parked
+plugins included, so the collision stays on the report until the entry is
+removed. Today: `mob_midi` (F9, plist key collision with `mob_bluetooth`).
 
 ### Hosts
 

@@ -20,15 +20,18 @@ defmodule MobCi.Cell do
 
   @doc """
   Plan the cell for the raw `--set` / `--versions` values (either may be nil:
-  `default` and `hex`). Options are passed to `MobCi.Versions.resolve/2`
-  (`:remote`, `:cache_dir`), so tests plan with nothing fetched.
+  `default` and `hex`). `include_excluded: true` keeps the plugins in
+  `priv/sets/exclusions.exs` in the set (the static gate runs that way, so a
+  parked collision stays visible). The remaining options go to
+  `MobCi.Versions.resolve/2` (`:remote`, `:cache_dir`), so tests plan with
+  nothing fetched.
   """
   @spec plan(String.t() | nil, String.t() | nil, keyword()) :: {:ok, t()} | {:error, String.t()}
   def plan(set_name, versions_name, opts \\ []) do
     with {:ok, row} <- Versions.parse(versions_name),
          {:ok, spec} <- Sets.parse(set_name),
          {:ok, core} <- resolve(row, [:mob, :mob_dev, :mob_new], opts),
-         {:ok, plugins} <- set_plugins(spec, core),
+         {:ok, plugins} <- set_plugins(spec, core, Keyword.take(opts, [:include_excluded])),
          {:ok, full} <- resolve(row, plugins, opts) do
       resolved = %{core | repos: Map.merge(core.repos, full.repos)}
       Plugins.put_resolved_dirs(Versions.source_dirs(resolved))
@@ -56,20 +59,33 @@ defmodule MobCi.Cell do
     end
   end
 
-  defp set_plugins(spec, core) do
-    case Sets.resolve(spec, mob_new_dir: Versions.mob_new_dir(core)) do
+  defp set_plugins(spec, core, set_opts) do
+    case Sets.resolve(spec, [mob_new_dir: Versions.mob_new_dir(core)] ++ set_opts) do
       {:ok, _} = ok -> ok
       {:error, reason} -> {:error, "could not read set #{Sets.name(spec)}: #{inspect(reason)}"}
     end
   end
 
-  @doc "The console block every run prints: the set, its plugins, and the resolved versions."
+  @doc "The console block every run prints: the set, its plugins, the exclusions in force, and the resolved versions."
   @spec describe(t()) :: String.t()
   def describe(%{set: set, plugins: plugins, resolved: resolved}) do
     """
     set: #{set} (#{length(plugins)} plugin#{if length(plugins) == 1, do: "", else: "s"})
       #{if plugins == [], do: "(none)", else: Enum.map_join(plugins, ", ", &Atom.to_string/1)}
-    #{Versions.summary(resolved)}
+    #{exclusions_line(plugins)}#{Versions.summary(resolved)}
     """
+  end
+
+  defp exclusions_line(plugins) do
+    case Sets.exclusions() do
+      [] ->
+        ""
+
+      excluded ->
+        Enum.map_join(excluded, "", fn {p, reason} ->
+          state = if p in plugins, do: "included for the static gate", else: "excluded from built sets"
+          "  #{p}: #{state} — #{reason}\n"
+        end)
+    end
   end
 end

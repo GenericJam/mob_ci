@@ -16,7 +16,9 @@ defmodule MobCi.Sets do
       <file>           priv/sets/<file>.exs, a committed regression set
 
   Every set is drawn from `MobCi.Versions.plugins/0` minus what
-  `priv/device_caps.exs` marks unbuildable (`MobCi.DeviceCaps.buildable/1`),
+  `priv/device_caps.exs` marks unbuildable (`MobCi.DeviceCaps.buildable/1`)
+  and minus `priv/sets/exclusions.exs` (plugins parked while a known finding
+  is open; `--static` plans with them included so the finding stays visible),
   so the same name is the same set on every machine and every night. `all`
   and the pairwise rows use the committed plugin order; `default`, `demo` and
   file sets keep their source's activation order.
@@ -27,6 +29,7 @@ defmodule MobCi.Sets do
   @sets_dir Path.expand("../../priv/sets", __DIR__)
   @pairwise_path Path.join(@sets_dir, "pairwise.exs")
   @demo_path Path.join(@sets_dir, "demo.exs")
+  @exclusions_path Path.join(@sets_dir, "exclusions.exs")
 
   @type spec ::
           :blank
@@ -40,9 +43,30 @@ defmodule MobCi.Sets do
 
   # ── the pool ─────────────────────────────────────────────────────────────────
 
-  @doc "The buildable first-party plugins, in committed order — the pool every set draws from."
-  @spec pool() :: [atom()]
-  def pool, do: DeviceCaps.buildable(Versions.plugins())
+  @doc """
+  The buildable first-party plugins minus the committed exclusions, in
+  committed order — the pool every built set draws from. `include_excluded:
+  true` (what `--static` plans with) keeps the excluded plugins in, so the
+  finding that excluded them stays visible.
+  """
+  @spec pool(keyword()) :: [atom()]
+  def pool(opts \\ []) do
+    buildable = DeviceCaps.buildable(Versions.plugins())
+
+    if Keyword.get(opts, :include_excluded, false),
+      do: buildable,
+      else: Enum.reject(buildable, &Keyword.has_key?(exclusions(), &1))
+  end
+
+  @doc """
+  Plugins kept out of the built sets while a known finding is open
+  (`priv/sets/exclusions.exs`: plugin → reason naming the FINDINGS entry).
+  """
+  @spec exclusions() :: [{atom(), String.t()}]
+  def exclusions do
+    {list, _} = Code.eval_file(@exclusions_path)
+    list
+  end
 
   # ── names ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +81,7 @@ defmodule MobCi.Sets do
   def parse("all"), do: {:ok, :all}
   def parse("demo"), do: {:ok, :demo}
 
+  # A singleton of an excluded plugin still runs: alone it doesn't collide.
   def parse("singleton:" <> name) do
     plugin = String.to_atom(name)
 
@@ -121,7 +146,7 @@ defmodule MobCi.Sets do
   @doc "Every nightly set name, in run order: blank, default, singletons, all, pairwise rows, demo, files."
   @spec nightly() :: [String.t()]
   def nightly do
-    singletons = for p <- pool(), do: "singleton:#{p}"
+    singletons = for p <- pool(include_excluded: true), do: "singleton:#{p}"
     pairwise = for i <- 0..(length(pairwise_rows()) - 1)//1, do: "pairwise:#{i}"
     ["blank", "default"] ++ singletons ++ ["all"] ++ pairwise ++ ["demo"] ++ file_names()
   end
@@ -131,20 +156,23 @@ defmodule MobCi.Sets do
   @doc """
   The plugins of a set. `:default` needs `opts[:mob_new_dir]` (the resolved
   row's mob_new checkout, see `default_plugins/1`); everything else is pure.
+  `include_excluded: true` draws from the pool with the committed exclusions
+  kept in (`all`, `default`, `demo` and file sets grow back; the pairwise
+  rows and seeded sets are fixed by their definition and don't change).
   """
   @spec resolve(spec(), keyword()) :: {:ok, [atom()]} | {:error, term()}
   def resolve(:blank, _opts), do: {:ok, []}
-  def resolve(:all, _opts), do: {:ok, pool()}
-  def resolve(:demo, _opts), do: {:ok, in_pool(demo_plugins())}
+  def resolve(:all, opts), do: {:ok, pool(opts)}
+  def resolve(:demo, opts), do: {:ok, in_pool(demo_plugins(), opts)}
   def resolve({:singleton, p}, _opts), do: {:ok, [p]}
   def resolve({:pairwise, i}, _opts), do: {:ok, Enum.at(pairwise_rows(), i)}
   def resolve({:random, seed}, _opts), do: {:ok, random(seed, pool())}
-  def resolve({:file, name}, _opts), do: {:ok, file_plugins(name)}
+  def resolve({:file, name}, opts), do: {:ok, file_plugins(name, opts)}
 
   def resolve(:default, opts) do
     case Keyword.fetch(opts, :mob_new_dir) do
       {:ok, dir} ->
-        with {:ok, plugins} <- default_plugins(dir), do: {:ok, in_pool(plugins)}
+        with {:ok, plugins} <- default_plugins(dir), do: {:ok, in_pool(plugins, opts)}
 
       :error ->
         {:error, :default_needs_mob_new_dir}
@@ -342,15 +370,15 @@ defmodule MobCi.Sets do
 
   defp file_path(name), do: Path.join(@sets_dir, "#{name}.exs")
 
-  defp file_plugins(name) do
+  defp file_plugins(name, opts) do
     {plugins, _} = Code.eval_file(file_path(name))
-    in_pool(plugins)
+    in_pool(plugins, opts)
   end
 
   # Keep the source's own order (mob_new's, the demo's, the file's): activation
   # order is part of what a set tests.
-  defp in_pool(plugins) do
-    pool = pool()
+  defp in_pool(plugins, opts) do
+    pool = pool(opts)
     Enum.filter(plugins, &(&1 in pool))
   end
 

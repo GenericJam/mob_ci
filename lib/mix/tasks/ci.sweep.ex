@@ -44,7 +44,12 @@ defmodule Mix.Tasks.Ci.Sweep do
   @impl Mix.Task
   def run(argv) do
     {opts, _, _} = OptionParser.parse(argv, switches: @switches)
-    cell = if opts[:set] || opts[:versions], do: Cell.plan!(opts[:set], opts[:versions])
+    static? = opts[:static] == true or is_nil(opts[:runs])
+
+    # The static sweep keeps the plugins parked in priv/sets/exclusions.exs in
+    # the pool (the collision that parked them must stay visible); device
+    # sweeps build hosts, so they leave them out.
+    cell = if opts[:set] || opts[:versions], do: Cell.plan!(opts[:set], opts[:versions], include_excluded: static?)
     if cell, do: Mix.shell().info(Cell.describe(cell))
 
     cond do

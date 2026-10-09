@@ -91,18 +91,25 @@ P5 as "no showcase screen" rather than pushing a module that isn't there.
 | `random:<seed>` | 3–8 plugins from the seed | `:rand` exsss, replayable |
 | `<file>` | `priv/sets/<file>.exs` | a committed regression set |
 
-Every set draws from the pool `DeviceCaps.buildable(Versions.plugins())`, so
-`priv/device_caps.exs` is the one place that says a plugin can't be built on
-the CI host (mob_screencast today). `all` and the pairwise rows use the
-committed plugin order; `default`, `demo` and file sets keep their source's
-activation order, since order is part of what an activation tests.
+Every set draws from the pool `DeviceCaps.buildable(Versions.plugins())`
+minus `priv/sets/exclusions.exs`. `device_caps.exs` is the one place that
+says a plugin can't be built on the CI host (mob_screencast today);
+`exclusions.exs` parks a plugin (`plugin: "F<n>: reason"`) while a known
+cross-plugin finding breaks every host that activates it, so `all`, the
+pairwise array, seeded and file sets stay buildable. The parked plugin keeps
+its `singleton:<p>` (alone it doesn't collide), and `mix ci.device --static`
+/ `mix ci.sweep --static` plan with `include_excluded: true`, so the
+collision stays on the nightly report until the entry is removed. `all` and
+the pairwise rows use the committed plugin order; `default`, `demo` and file
+sets keep their source's activation order, since order is part of what an
+activation tests.
 
 The covering array is strength 2 over boolean factors: for every two plugins,
 all four of {both, a alone, b alone, neither} occur in some row. It is built
 greedily — each new row is the best of 2×N candidates (one per starting
 factor and starting value, the rest assigned in rotating order by most new
 pairs covered, ties to "on") — so it is a pure function of the pool: 11
-rows for 24 plugins. `mix ci.sets --regen` is the only writer of
+rows for 23 plugins. `mix ci.sets --regen` is the only writer of
 `priv/sets/pairwise.exs`; `test/mob_ci/sets_test.exs` fails when the file is
 stale, byte-different from the generator, or leaves a pair uncovered, and
 `mix ci.sets --check` says the same from the shell.
@@ -131,9 +138,10 @@ with a cell.
 - First real finding of the cell path, on both `hex` and `master`, 2026-10-08:
   `all` is rejected by the static gate because mob_bluetooth and mob_midi both
   declare the iOS plist key `NSBluetoothAlwaysUsageDescription`; the static
-  sweep shrinks it to exactly `[:mob_bluetooth, :mob_midi]`. The pairwise
-  rows that pair them inherit it. FINDINGS.md belongs to the MOB-412 slice;
-  the finding is reported there for an entry.
+  sweep shrinks it to exactly `[:mob_bluetooth, :mob_midi]`. Recorded as
+  F9 (MOB-412 slice); `mob_midi` is parked in `priv/sets/exclusions.exs` so
+  `all` and the pairwise array (11 rows over 23) build, and the static gate
+  on `all` stays red until F9 closes.
 - `master` resolution clones 27 repos on first use (about a minute on the
   Mac, cached after); `hex` resolution is 28 API calls and 25 small tarballs.
 - The static gate is now version-aware: a sibling checkout under `~/code`

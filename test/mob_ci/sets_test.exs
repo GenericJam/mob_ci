@@ -4,12 +4,30 @@ defmodule MobCi.SetsTest do
   alias MobCi.{DeviceCaps, Sets, Versions}
 
   describe "the pool" do
-    test "is the first-party plugins minus what device_caps marks unbuildable, in committed order" do
+    test "is the first-party plugins minus unbuildable (device_caps) minus the committed exclusions, in committed order" do
       pool = Sets.pool()
-      assert pool == Enum.filter(Versions.plugins(), &DeviceCaps.buildable?/1)
+      excluded = Keyword.keys(Sets.exclusions())
+      assert pool == Enum.filter(Versions.plugins(), &(DeviceCaps.buildable?(&1) and &1 not in excluded))
       assert :mob_camera in pool
       # mob_screencast's manifest <service> can't build on an unmodified host (F4).
       refute :mob_screencast in pool
+    end
+
+    test "every exclusion names a buildable first-party plugin and a FINDINGS entry" do
+      for {plugin, reason} <- Sets.exclusions() do
+        assert plugin in Versions.plugins()
+        assert DeviceCaps.buildable?(plugin), "#{plugin} is unbuildable; device_caps already excludes it"
+        assert reason =~ ~r/^F\d+: /
+      end
+    end
+
+    test "include_excluded: true keeps the parked plugins in (what --static plans with)" do
+      excluded = Keyword.keys(Sets.exclusions())
+      assert excluded != []
+      full = Sets.pool(include_excluded: true)
+      assert full == DeviceCaps.buildable(Versions.plugins())
+      for p <- excluded, do: assert(p in full)
+      for p <- excluded, do: refute(p in Sets.pool())
     end
   end
 
@@ -156,6 +174,13 @@ defmodule MobCi.SetsTest do
     test "blank is empty, all is the pool, a singleton is itself, a pairwise row is the committed row" do
       assert Sets.resolve(:blank, []) == {:ok, []}
       assert Sets.resolve(:all, []) == {:ok, Sets.pool()}
+      assert Sets.resolve(:all, include_excluded: true) == {:ok, Sets.pool(include_excluded: true)}
+      # an excluded plugin still has its singleton: alone it doesn't collide
+      [{excluded, _} | _] = Sets.exclusions()
+      assert Sets.resolve({:singleton, excluded}, []) == {:ok, [excluded]}
+      assert Sets.parse("singleton:#{excluded}") == {:ok, {:singleton, excluded}}
+      assert "singleton:#{excluded}" in Sets.nightly()
+      for row <- Sets.pairwise_rows(), do: refute(excluded in row)
       assert Sets.resolve({:singleton, :mob_camera}, []) == {:ok, [:mob_camera]}
       assert Sets.resolve({:pairwise, 2}, []) == {:ok, Enum.at(Sets.pairwise_rows(), 2)}
       assert Sets.resolve({:random, 3}, []) == {:ok, Sets.random(3, Sets.pool())}
@@ -209,7 +234,7 @@ defmodule MobCi.SetsTest do
     assert names == Enum.uniq(names)
     assert Enum.take(names, 2) == ["blank", "default"]
     singletons = Enum.filter(names, &String.starts_with?(&1, "singleton:"))
-    assert length(singletons) == length(Sets.pool())
+    assert length(singletons) == length(Sets.pool(include_excluded: true))
 
     assert Enum.find_index(names, &(&1 == "all")) >
              Enum.find_index(names, &(&1 == List.last(singletons)))
