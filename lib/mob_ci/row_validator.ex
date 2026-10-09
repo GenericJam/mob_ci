@@ -144,6 +144,8 @@ defmodule MobCi.RowValidator do
 
   defp build_project(dir, source, cache) do
     File.mkdir_p!(dir)
+    # A fresh mtime: a rebuild of an old failed project must not look stale to prune/2.
+    File.touch!(dir)
     File.write!(Path.join(dir, "mix.exs"), mix_exs(source))
 
     with {:deps, {_, 0}} <- {:deps, mix(dir, ["deps.get"])},
