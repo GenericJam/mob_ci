@@ -315,8 +315,8 @@ defmodule MobCi.Store do
   @doc """
   Cells joined with their run, oldest first. Filters (all optional):
 
-    * `:run_id`, `:versions_row`, `:set`, `:platform`, `:path`, `:outcome`,
-      `:trigger` — equality.
+    * `:id`, `:run_id`, `:versions_row`, `:set`, `:platform`, `:path`,
+      `:outcome`, `:trigger` — equality.
     * `:invariant` — equality; `nil` selects summary rows only.
     * `:latest` — `true` keeps only the newest row per (versions_row, set,
       platform, path, invariant): the current grid.
@@ -359,6 +359,7 @@ defmodule MobCi.Store do
   end
 
   @filter_columns [
+    id: "c.id",
     run_id: "c.run_id",
     versions_row: "r.versions_row",
     set: ~s{c."set"},
@@ -410,6 +411,109 @@ defmodule MobCi.Store do
       [%{outcome: outcome}] -> outcome
       [] -> nil
     end
+  end
+
+  # ── retention ────────────────────────────────────────────────────────────────
+
+  @doc """
+  Delete what the store no longer needs. A cell (its summary row plus its
+  invariant and self-test rows) whose run started more than `:days` (default
+  30) before `:now` is deleted unless it is
+
+    * the newest cell of its (versions_row, set, platform, path), overall or
+      among non-`replay` runs (what `matrix.md`, the P12 singleton lookup and
+      the next regression check read), kept whole and forever; or
+    * the newest passing cell of a `default`, `all` or `singleton:<p>` set
+      for its (set, platform, path, exact pins): the evidence
+      `COMPATIBILITY.md` is built from, kept as its summary row only.
+
+  Runs left without cells go too. Returns the counts and the `log_path`s of
+  the deleted rows (the caller deletes those files, `MobCi.Publish.prune/2`).
+  """
+  @spec prune(t(), keyword()) :: %{cells: non_neg_integer(), runs: non_neg_integer(), log_paths: [Path.t()]}
+  def prune(%__MODULE__{} = store, opts \\ []) do
+    now = Keyword.get(opts, :now, DateTime.utc_now())
+    cutoff = now |> DateTime.add(-Keyword.get(opts, :days, 30) * 86_400, :second) |> iso()
+    summaries = query(store, invariant: nil)
+    {whole, evidence} = retained(summaries)
+
+    exec!(store, "BEGIN IMMEDIATE", [])
+
+    try do
+      {cells, logs} =
+        for s <- summaries, s.started_at < cutoff, key = cell_key(s), not MapSet.member?(whole, key), reduce: {0, []} do
+          {n, logs} ->
+            only_details = MapSet.member?(evidence, key)
+            rows = query(store, run_id: s.run_id, set: s.set, platform: s.platform, path: s.path)
+            gone = if only_details, do: Enum.filter(rows, & &1.invariant), else: rows
+
+            exec!(
+              store,
+              ~s{DELETE FROM cells WHERE run_id = ?1 AND "set" = ?2 AND platform = ?3 AND path = ?4} <>
+                if(only_details, do: " AND invariant IS NOT NULL", else: ""),
+              [s.run_id, s.set, s.platform, s.path]
+            )
+
+            {n + length(gone), logs ++ for(r <- gone, r.log_path, do: r.log_path)}
+        end
+
+      exec!(store, "DELETE FROM runs WHERE started_at < ?1 AND NOT EXISTS (SELECT 1 FROM cells WHERE cells.run_id = runs.id)", [cutoff])
+      runs = changes(store)
+      exec!(store, "COMMIT", [])
+      %{cells: cells, runs: runs, log_paths: logs |> Enum.uniq() |> Enum.sort()}
+    rescue
+      e ->
+        exec!(store, "ROLLBACK", [])
+        reraise e, __STACKTRACE__
+    end
+  end
+
+  @evidence_sets ["default", "all"]
+
+  @doc false
+  # The cells `prune/2` keeps (pure): {kept whole, kept as summary only}, as
+  # {run_id, set, platform, path} keys.
+  @spec retained([map()]) :: {MapSet.t(), MapSet.t()}
+  def retained(summaries) do
+    newest = fn rows, by -> rows |> Enum.group_by(by) |> Enum.map(fn {_, rs} -> Enum.max_by(rs, & &1.id) end) end
+    grid_key = &{&1.versions_row, &1.set, &1.platform, &1.path}
+
+    whole =
+      (newest.(summaries, grid_key) ++ newest.(Enum.reject(summaries, &(&1.trigger == "replay")), grid_key))
+      |> MapSet.new(&cell_key/1)
+
+    evidence =
+      summaries
+      |> Enum.filter(&(&1.outcome == :pass and evidence_set?(&1.set)))
+      |> newest.(&{&1.set, &1.platform, &1.path, pins(&1.versions)})
+      |> MapSet.new(&cell_key/1)
+
+    {whole, evidence}
+  end
+
+  @doc "Is `set` one `COMPATIBILITY.md` reads (`default`, `all`, `singleton:<p>`)?"
+  @spec evidence_set?(String.t()) :: boolean()
+  def evidence_set?("singleton:" <> _), do: true
+  def evidence_set?(set), do: set in @evidence_sets
+
+  @doc """
+  The exact pins of a stored versions record, machine-independent: repo name
+  → `{version, sha, source}` (the record's `dir` is where *that* machine
+  materialised the pin, not part of it). `%{}` for a cell without versions.
+  """
+  @spec pins(map() | nil) :: %{String.t() => {String.t() | nil, String.t() | nil, String.t() | nil}}
+  def pins(%{"repos" => repos}) when is_map(repos),
+    do: Map.new(repos, fn {name, p} -> {to_string(name), {p["version"], p["sha"], p["source"]}} end)
+
+  def pins(_), do: %{}
+
+  defp cell_key(s), do: {s.run_id, s.set, s.platform, s.path}
+
+  defp iso(%DateTime{} = dt), do: dt |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+  defp changes(%__MODULE__{conn: conn}) do
+    {:ok, n} = Exqlite.Sqlite3.changes(conn)
+    n
   end
 
   # ── plumbing ─────────────────────────────────────────────────────────────────

@@ -204,10 +204,13 @@ defmodule MobCi.Report do
   defp grid_cell(%{outcome: outcome, layer: layer}),
     do: "#{@glyph[outcome]} #{outcome}" <> if(layer, do: " @ #{layer}", else: "")
 
-  # static first, then android (deploy before release), then the other platforms.
-  defp path_rank("static"), do: {0, 0, "static"}
+  @doc false
+  # Column order: static first, then android (deploy before release), then the
+  # other platforms (deploy before release; a simulator before a device).
+  # Shared with `MobCi.Matrix`.
+  def path_rank("static"), do: {0, 0, 0, "static"}
 
-  defp path_rank(path) do
+  def path_rank(path) do
     {kind, platform} =
       case String.split(path, ":", parts: 2) do
         [k, p] -> {k, p}
@@ -215,11 +218,14 @@ defmodule MobCi.Report do
       end
 
     rank = Enum.find_index(["deploy", "release"], &(&1 == kind)) || 2
-    {if(platform == "android", do: 1, else: 2), rank, path}
+    target = Enum.find_index(["android", "ios_sim", "ios_device"], &(&1 == platform)) || 3
+    {if(platform == "android", do: 1, else: 2), rank, target, path}
   end
 
-  # blank, default, all, demo first; then the rest alphabetically (singletons group).
-  defp set_rank(set) do
+  @doc false
+  # Row order: blank, default, all, demo first; then the rest alphabetically
+  # (singletons group). Shared with `MobCi.Matrix`.
+  def set_rank(set) do
     {Enum.find_index(["blank", "default", "all", "demo"], &(&1 == set)) || 4, set}
   end
 end
