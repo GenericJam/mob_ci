@@ -34,7 +34,7 @@ Latest run 2026-10-09T17:59:41Z. Core versions in this grid: mob 0.9.17 · mob_d
 
 ## master
 
-Latest run 2026-10-09T18:09:08Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.16 (git 1843423) · mob_dev 0.7.18 (git 65bdac9) · mob_new 0.6.7 (git 213ed49); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-09T18:19:51Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.16 (git 1843423) · mob_dev 0.7.18 (git 65bdac9) · mob_new 0.6.7 (git 213ed49); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -58,6 +58,16 @@ Latest run 2026-10-09T18:09:08Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | · | · | · |
 
 47 pass, 0 fail, 39 error, 10 skip.
+
+## rc:mob_camera@1935c2225a14f5c5867849305e23f6823b03ca8b
+
+Latest run 2026-10-09T18:09:18Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8.
+
+| set | deploy:android | release:android |
+| --- | --- | --- |
+| `singleton:mob_camera` | ✓ pass | ✓ pass |
+
+2 pass, 0 fail, 0 error, 0 skip.
 
 ## rc:mob_location@9fc8937f03ac497dec4171da5b3282bb58057b71
 
