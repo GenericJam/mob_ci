@@ -74,7 +74,8 @@ the run rows (`runs.job_id`). `MobCi.Queue` owns `jobs` and `job_cells`;
 - **A lost instance is retried once** (amended 2026-10-09, FINDINGS F13). A
   path whose redroid went away mid-path — mob_dev or adb saying so
   (`Selected Android device(s) disconnected`, `device offline`, `device '…'
-  not found`, `no devices/emulators found`, `error: closed`), or a failed
+  not found`, `no devices/emulators found`, `error: closed`, `device still
+  connecting`), or a failed
   path after which `ci-farm.sh alive` finds the container stopped or adb
   without the device — is layer `farm`, never `build:*`, `boot` or a plugin.
   `mix ci.device` then exits 3 (it takes precedence over 1 and 2), and

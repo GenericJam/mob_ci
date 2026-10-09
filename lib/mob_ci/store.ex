@@ -401,18 +401,19 @@ defmodule MobCi.Store do
   """
   @spec singleton_selftest(t(), atom() | String.t(), keyword()) :: outcome() | nil
   def singleton_selftest(store, plugin, opts) do
+    # Every row of the key, oldest first: the newest that isn't a `farm`
+    # cell's (an instance lost mid-probe says nothing about the plugin).
     filters = [
       set: "singleton:#{plugin}",
       invariant: "p12:#{plugin}",
       versions_row: Keyword.fetch!(opts, :versions_row),
       platform: Keyword.get(opts, :platform, :android),
-      path: Keyword.fetch!(opts, :path),
-      limit: 1
+      path: Keyword.fetch!(opts, :path)
     ]
 
-    case query(store, filters) do
-      [%{outcome: outcome}] -> outcome
-      [] -> nil
+    case store |> query(filters) |> Enum.reject(&farm?/1) |> List.last() do
+      %{outcome: outcome} -> outcome
+      nil -> nil
     end
   end
 
@@ -487,7 +488,7 @@ defmodule MobCi.Store do
     reported = Keyword.get(opts, :reported)
 
     singleton_selftests =
-      Enum.filter(summaries, &(String.starts_with?(&1.set, "singleton:") and MapSet.member?(selftests, cell_key(&1))))
+      Enum.filter(summaries, &(String.starts_with?(&1.set, "singleton:") and not farm?(&1) and MapSet.member?(selftests, cell_key(&1))))
 
     whole = newest.(summaries, grid_key) ++ newest.(real, grid_key) ++ newest.(singleton_selftests, grid_key)
 

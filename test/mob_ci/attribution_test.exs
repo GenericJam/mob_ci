@@ -199,6 +199,30 @@ defmodule MobCi.AttributionTest do
       assert Run.mark_lost({:error, {:launch_failed, :timeout}}, "gone") == {:error, {:instance_lost, "gone", {:launch_failed, :timeout}}}
     end
 
+    test "a lost probe's P12 items become farm too, so the singleton lookup can skip them" do
+      items = [Result.pass(:mob_a, "mob_a"), Result.fail(:mob_x, "mob_x", "node down") |> Result.at({:plugin, :mob_x})]
+      p12 = %{Result.rollup(items, :p12, "self-tests") | evidence: %{items: items}}
+
+      {:fail, [marked]} = Run.mark_lost({:fail, [p12]}, "gone")
+      assert marked.layer == :farm
+      assert Enum.map(marked.evidence.items, &{&1.status, &1.layer}) == [{:pass, nil}, {:fail, :farm}]
+
+      # stored, the farm self-test row is not the singleton's answer: the older pass is
+      dir = Path.join(System.tmp_dir!(), "mob_ci_attr_#{System.unique_integer([:positive])}")
+      store = MobCi.Store.open!(Path.join(dir, "r.sqlite"))
+      meta = %{set: "singleton:mob_x", platform: :android, path: "deploy:android", versions: nil, duration_ms: nil, log_path: nil}
+      ok = %{Result.rollup([Result.pass(:mob_x, "mob_x")], :p12, "self-tests") | evidence: %{items: [Result.pass(:mob_x, "mob_x")]}}
+
+      for results <- [[ok], [marked]] do
+        {:ok, run} = MobCi.Store.record_run(store, %{trigger: "nightly", versions_row: "hex", host: "nuc", mob_ci_sha: "x"})
+        MobCi.Store.record_results(store, run, meta, {:ok, results})
+      end
+
+      assert MobCi.Store.singleton_selftest(store, :mob_x, versions_row: "hex", path: "deploy:android") == :pass
+      MobCi.Store.close(store)
+      File.rm_rf!(dir)
+    end
+
     test "farm_lost/1 names the paths that lost their instance (what makes ci.device exit 3)" do
       lost = "Selected Android device(s) disconnected: 127.0.0.1:5700"
 

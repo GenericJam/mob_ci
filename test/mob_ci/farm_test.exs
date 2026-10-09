@@ -49,6 +49,59 @@ defmodule MobCi.FarmTest do
     assert Farm.parse_alive("* daemon started successfully\nLOST adb 127.0.0.1:5700: offline\n") == {:lost, "adb 127.0.0.1:5700: offline"}
   end
 
+  describe "ci-farm.sh alive (stub sudo/docker and adb)" do
+    setup do
+      bin = Path.join(System.tmp_dir!(), "mob_ci_alive_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(bin)
+
+      # `sudo docker inspect …` answers $STUB_RUNNING (or fails like a missing container)
+      File.write!(Path.join(bin, "sudo"), """
+      #!/usr/bin/env bash
+      [ "$STUB_RUNNING" = missing ] && { echo; exit 1; }
+      echo "$STUB_RUNNING"
+      """)
+
+      File.write!(Path.join(bin, "adb"), """
+      #!/usr/bin/env bash
+      echo "$STUB_ADB_OUT"; exit "$STUB_ADB_CODE"
+      """)
+
+      for f <- ~w(sudo adb), do: File.chmod!(Path.join(bin, f), 0o755)
+      on_exit(fn -> File.rm_rf!(bin) end)
+      %{bin: bin}
+    end
+
+    defp alive(bin, running, adb_out, adb_code) do
+      {out, 0} =
+        System.cmd("bash", [Farm.script(), "alive", "0"],
+          env: [
+            {"PATH", bin <> ":" <> System.get_env("PATH")},
+            {"STUB_RUNNING", running},
+            {"STUB_ADB_OUT", adb_out},
+            {"STUB_ADB_CODE", to_string(adb_code)},
+            {"MOB_CI_ALIVE_TRIES", "2"},
+            {"MOB_CI_ALIVE_SLEEP", "0"}
+          ],
+          stderr_to_stdout: true
+        )
+
+      Farm.parse_alive(out)
+    end
+
+    test "a running container whose adb sees the device is alive", %{bin: bin} do
+      assert alive(bin, "true", "device", 0) == :alive
+    end
+
+    test "adb without the device (exit 1) is a loss, after the grace", %{bin: bin} do
+      assert alive(bin, "true", "error: device offline", 1) == {:lost, "adb 127.0.0.1:5700: error: device offline"}
+    end
+
+    test "a stopped or missing container is a loss", %{bin: bin} do
+      assert alive(bin, "false", "device", 0) == {:lost, "container ci-redroid0: false"}
+      assert alive(bin, "missing", "device", 0) == {:lost, "container ci-redroid0: missing"}
+    end
+  end
+
   test "parse_kv extracts INDEX/SERIAL past progress noise" do
     output = """
     >> waiting for boot_completed...

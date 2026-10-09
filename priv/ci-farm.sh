@@ -94,18 +94,21 @@ down() {
 }
 
 # alive <index> — is the instance still usable? The container must be running
-# and adb must see the device; an adbd restart (`adb root`) gets 10 s to come
-# back. Prints ALIVE or `LOST <why>` (MobCi.Farm.alive/1 → layer `farm`).
+# and adb must see the device; an adbd restart (`adb root`) gets
+# MOB_CI_ALIVE_TRIES × MOB_CI_ALIVE_SLEEP (6 × 2 s) to come back. Prints ALIVE
+# or `LOST <why>` (MobCi.Farm.alive/1 → layer `farm`).
 alive() {
-  local i=$1 ser running state=""; ser=$(serial "$i")
+  local i=$1 ser running state="" n
+  ser=$(serial "$i")
   # `docker inspect` of a missing container prints an empty line and fails.
   running=$($DOCKER inspect -f '{{.State.Running}}' "ci-redroid$i" 2>/dev/null | tr -d '[:space:]' || true)
   [ -n "$running" ] || running=missing
   if [ "$running" != true ]; then echo "LOST container ci-redroid$i: $running"; return 0; fi
-  for _ in 1 2 3 4 5 6; do
-    state=$($ADB -s "$ser" get-state 2>&1 | tr -d '\r' | tail -1)
+  for n in $(seq "${MOB_CI_ALIVE_TRIES:-6}"); do
+    # adb exits 1 when the device is offline or gone: that is the answer, not an error.
+    state=$($ADB -s "$ser" get-state 2>&1 | tr -d '\r' | tail -1) || true
     [ "$state" = device ] && { echo ALIVE; return 0; }
-    sleep 2
+    [ "$n" -lt "${MOB_CI_ALIVE_TRIES:-6}" ] && sleep "${MOB_CI_ALIVE_SLEEP:-2}"
   done
   echo "LOST adb $ser: $state"
 }

@@ -124,21 +124,24 @@ defmodule MobCi.Run do
   # A path's outcome once the post-path check found its instance gone: an
   # orchestration error becomes `{:instance_lost, why, reason}` (layer
   # `:farm`); failing or erroring catalog results are re-attributed to `:farm`
-  # (a probe that lost its device says nothing about the code). Passes and
-  # skips stand.
+  # (a probe that lost its device says nothing about the code), and so are
+  # P12's failing per-plugin items, which the store keeps as `p12:<p>` rows
+  # the singleton lookup reads. Passes and skips stand.
   @spec mark_lost(outcome(), String.t()) :: outcome()
   def mark_lost({:error, reason}, why), do: {:error, {:instance_lost, why, reason}}
 
-  def mark_lost({verdict, results}, why) do
-    {verdict,
-     Enum.map(results, fn
-       %Result{status: s} = r when s in [:fail, :error] ->
-         %{Result.at(r, :farm) | detail: "#{r.detail} [instance lost: #{why}]"}
+  def mark_lost({verdict, results}, why), do: {verdict, Enum.map(results, &lost(&1, why))}
 
-       r ->
-         r
-     end)}
+  defp lost(%Result{status: s} = r, why) when s in [:fail, :error] do
+    r = %{Result.at(r, :farm) | detail: "#{r.detail} [instance lost: #{why}]"}
+
+    case r.evidence do
+      %{items: items} = ev when is_list(items) -> %{r | evidence: %{ev | items: Enum.map(items, &lost(&1, why))}}
+      _ -> r
+    end
   end
+
+  defp lost(r, _why), do: r
 
   # Did the path go wrong in a way the instance's disappearance could explain?
   # (An error already at `:farm` needs no second look.)
