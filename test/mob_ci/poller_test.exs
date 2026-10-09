@@ -151,6 +151,17 @@ defmodule MobCi.PollerTest do
       assert [id] = result.jobs
       assert Queue.job(store, id).trigger == "pre-push"
       assert Poller.pending_pushes(store) == []
+      assert [[^id]] = Store.rows!(store, "SELECT job_id FROM pushes WHERE id = ?1", [push])
+    end
+
+    test "a notice for a head the poller already saw is covered, by no job of this cycle", %{store: store} do
+      {:ok, push} = Poller.record_push(store, "mob_camera", sha("3"), "refs/heads/master", @t0)
+      # another repo moves in the same cycle
+      result = cycle(store, heads("1", "2", "3", "9"))
+      assert [{^push, :covered}] = result.pushes
+      assert [id] = result.jobs
+      assert Queue.job(store, id).trigger == "poll"
+      assert [[nil]] = Store.rows!(store, "SELECT job_id FROM pushes WHERE id = ?1", [push])
     end
 
     test "a sha pushed to a branch runs as its own rc row", %{store: store} do

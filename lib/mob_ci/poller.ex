@@ -246,7 +246,9 @@ defmodule MobCi.Poller do
       for {push, status} <- settled, status != :pending do
         job_id =
           case status do
-            :covered -> poll_job_id
+            # the poll job only if this cycle saw the repo move (else an
+            # earlier cycle's job already ran or queued that head)
+            :covered -> if Enum.any?(changes, &(&1.repo == push.repo)), do: poll_job_id
             :branch -> Enum.find_value(enqueued, fn {tag, id} -> if tag == {:push, push.id}, do: id end)
             :expired -> nil
           end
