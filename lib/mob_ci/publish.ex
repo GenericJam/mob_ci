@@ -226,6 +226,10 @@ defmodule MobCi.Publish do
   in `repo` (a temporary index; the working tree and HEAD are untouched).
   Returns `{:ok, {:pushed, sha}}`, `{:ok, :unchanged}` or `{:error, reason}`.
   A rejected push (another publish won the race) is retried once on the new tip.
+  The push skips hooks (`--no-verify`): the checkout's own pre-push hook
+  (`priv/hooks/pre-push`, the static gate) would otherwise run and record
+  harness runs into the store on every publish, and a branch of generated
+  files has nothing for it to check.
   """
   @spec git_push(%{String.t() => String.t()}, Path.t()) :: {:ok, term()} | {:error, term()}
   def git_push(files, repo, attempts \\ 2) do
@@ -240,7 +244,7 @@ defmodule MobCi.Publish do
           {:ok, :unchanged}
         else
           with {:ok, commit} <- commit(repo, tree, parent) do
-            case git(repo, ["push", "--quiet", "origin", "#{commit}:refs/heads/#{@branch}"]) do
+            case git(repo, ["push", "--quiet", "--no-verify", "origin", "#{commit}:refs/heads/#{@branch}"]) do
               {:ok, _} -> {:ok, {:pushed, commit}}
               {:error, _} when attempts > 1 -> git_push(files, repo, attempts - 1)
               {:error, _} = err -> err

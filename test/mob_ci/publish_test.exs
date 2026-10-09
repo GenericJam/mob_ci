@@ -321,6 +321,27 @@ defmodule MobCi.PublishTest do
       assert File.read!(Path.join(repo, "work.txt")) == "untouched"
       assert git_out(repo, ["status", "--porcelain"]) == "?? work.txt"
     end
+
+    test "the push never runs the checkout's pre-push hook", %{dir: dir} do
+      remote = Path.join(dir, "remote.git")
+      repo = Path.join(dir, "repo")
+      hooks = Path.join(dir, "hooks")
+      ran = Path.join(dir, "hook-ran")
+      File.mkdir_p!(repo)
+      File.mkdir_p!(hooks)
+      {_, 0} = System.cmd("git", ["init", "--quiet", "--bare", remote])
+      git!(repo, ["init", "--quiet", "-b", "main"])
+      git!(repo, ["remote", "add", "origin", remote])
+      # like the NUC checkout: core.hooksPath points at a pre-push hook (there,
+      # the static gate, which records runs); this one records and refuses
+      git!(repo, ["config", "core.hooksPath", hooks])
+      File.write!(Path.join(hooks, "pre-push"), "#!/bin/sh\ntouch #{ran}\nexit 1\n")
+      File.chmod!(Path.join(hooks, "pre-push"), 0o755)
+
+      assert {:ok, {:pushed, sha}} = Publish.git_push(%{"matrix.md" => "a\n"}, repo)
+      assert git_out(remote, ["rev-parse", "matrix"]) == sha
+      refute File.exists?(ran)
+    end
   end
 
   # ── retention ────────────────────────────────────────────────────────────────
