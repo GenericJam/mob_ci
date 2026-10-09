@@ -137,12 +137,20 @@ defmodule MobCi.Host do
 
     # First-party plugins are signed in release CI with the shared mob key;
     # this is its fingerprint, as `mix mob.new` pre-trusts it.
-    config :mob, :trusted_plugins, #{inspect(trusted, limit: :infinity)}
+    config :mob, :trusted_plugins, #{render_map(trusted)}
 
     # Path checkouts (git rows) carry no release signature; the trust gate
     # needs this acknowledgement to build them, as under `mix mob.new --local`.
     config :mob, :acknowledge_unsafe_plugins, #{inspect(acknowledged, limit: :infinity)}
     """
+  end
+
+  # A map literal in sorted key order. `inspect/1` prints small atom-keyed maps
+  # in atom-creation order on OTP 26+, which would make the generated file (and
+  # its diff between two runs) depend on what the VM had loaded first.
+  defp render_map(map) do
+    entries = map |> Enum.sort() |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{inspect(v)}" end)
+    "%{#{entries}}"
   end
 
   @doc """
