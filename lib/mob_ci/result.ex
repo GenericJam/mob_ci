@@ -15,12 +15,26 @@ defmodule MobCi.Result do
   (`MobCi.Sets.name/1`) and the version record (`MobCi.Versions.record/1`).
   Invariants leave them `nil`; the orchestrator stamps every result of a run
   with `stamp/3` before it is reported or stored.
+  `layer` says *where* a non-passing result belongs, so every failure is
+  attributed (a result that cannot say which layer failed is a bug in mob_ci):
+
+    * `:static`            — the manifests / `cross_validate` verdict.
+    * `{:build, dir}`      — the native build of the host at `dir`.
+    * `:boot`              — farm boot / launch / node registration.
+    * `{:plugin, p}`       — one plugin's own contribution misbehaved.
+    * `{:conflict, [p]}`   — several plugins implicated; the singleton
+                             comparison (P12, MOB-414) splits plugin from conflict.
+    * `:health`            — the app BEAM as a whole (died, or outlived release).
+
+  `nil` on a pass/skip.
   """
 
   @enforce_keys [:id, :title, :status]
-  defstruct [:id, :title, :status, :detail, :evidence, :set, :versions]
+  defstruct [:id, :title, :status, :detail, :evidence, :set, :versions, :layer]
 
   @type status :: :pass | :fail | :skip | :error
+  @type layer ::
+          :static | {:build, Path.t()} | :boot | {:plugin, atom()} | {:conflict, [atom()]} | :health | nil
   @type t :: %__MODULE__{
           id: atom(),
           title: String.t(),
@@ -28,7 +42,8 @@ defmodule MobCi.Result do
           detail: String.t() | nil,
           evidence: term(),
           set: String.t() | nil,
-          versions: map() | nil
+          versions: map() | nil,
+          layer: layer()
         }
 
   @doc "Stamp every result with the cell that produced it."
@@ -44,6 +59,24 @@ defmodule MobCi.Result do
   def error(id, title, detail, evidence \\ nil),
     do: %__MODULE__{id: id, title: title, status: :error, detail: detail, evidence: evidence}
 
+  @doc "Attribute a result to a layer (no-op on pass/skip, which have nothing to attribute)."
+  @spec at(t(), layer()) :: t()
+  def at(%__MODULE__{status: s} = r, _layer) when s in [:pass, :skip], do: r
+  def at(%__MODULE__{} = r, layer), do: %{r | layer: layer}
+
+  @doc """
+  The layer a list of (bad) results points at: one shared layer stays as is;
+  several distinct plugins become `{:conflict, plugins}`; otherwise the first.
+  """
+  @spec attribute([t()]) :: layer()
+  def attribute(results) do
+    case results |> Enum.map(& &1.layer) |> Enum.reject(&is_nil/1) |> Enum.uniq() do
+      [] -> nil
+      [one] -> one
+      many -> if Enum.all?(many, &match?({:plugin, _}, &1)), do: {:conflict, Enum.map(many, &elem(&1, 1))}, else: hd(many)
+    end
+  end
+
   @doc "Collapse a list of per-item results into one (worst status wins). Results-first so it pipes."
   @spec rollup([t()], atom(), String.t()) :: t()
   def rollup(results, id, title) do
@@ -58,7 +91,7 @@ defmodule MobCi.Result do
 
   defp worst(id, title, results, status) do
     bad = Enum.filter(results, &(&1.status == status))
-    %__MODULE__{id: id, title: title, status: status, detail: summarize(bad), evidence: bad}
+    %__MODULE__{id: id, title: title, status: status, detail: summarize(bad), evidence: bad, layer: attribute(bad)}
   end
 
   defp summarize(results) do

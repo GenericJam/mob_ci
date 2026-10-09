@@ -55,14 +55,14 @@ defmodule Mix.Tasks.Ci.Sweep do
     cond do
       cell && opts[:static] -> static_cell(cell, opts)
       cell && is_nil(opts[:runs]) -> static_cell(cell, opts)
-      opts[:static] or is_nil(opts[:runs]) -> static(opts)
+      opts[:static] == true or is_nil(opts[:runs]) -> static(opts)
       cell -> device(cell: cell, runs: opts[:runs], fresh: opts[:fresh] == true)
       true -> device(runs: opts[:runs])
     end
   end
 
   defp device(sweep_opts) do
-    Dist.ensure!(:"mob_ci_sweep@127.0.0.1")
+    Dist.ensure!()
 
     case Sweep.device_sweep(sweep_opts) do
       {:error, reason} ->

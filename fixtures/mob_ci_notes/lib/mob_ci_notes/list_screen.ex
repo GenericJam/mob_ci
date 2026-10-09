@@ -5,7 +5,9 @@ defmodule MobCiNotes.ListScreen do
   """
   use Mob.Screen
 
-  @items ["alpha", "beta", "gamma"]
+  # mob >= 0.9 expands `@name` inside ~MOB as an assign, so a module attribute
+  # can't be read there; a plain function can.
+  defp items, do: ["alpha", "beta", "gamma"]
 
   def mount(_params, _session, socket), do: {:ok, socket}
 
@@ -14,7 +16,7 @@ defmodule MobCiNotes.ListScreen do
     <Scroll background={:background}>
       <Column background={:background} padding={:space_lg}>
         <Text text="MobCiNotes" text_size={:xl} text_color={:on_surface} padding={:space_sm} />
-        {for item <- @items, do: row(item)}
+        {for item <- items(), do: row(item)}
       </Column>
     </Scroll>
     """

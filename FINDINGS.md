@@ -137,3 +137,97 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   deterministically green again. The REALISM gate (`host: :sloppy_joe`)
   deliberately stays on the app's live deps, so it still surfaces F5/F6 against
   whatever mob_dev the app pins. Bump `@mob_dev_req` once 0.6.x ships the fix.
+
+  **Update (2026-10-08, MOB-412):** the self-test harness now uses *path deps on
+  the ecosystem's mob + mob_dev checkouts* (`Build.core_deps/1`, the `master`
+  row), so this pin is gone; `mix mob.deploy --native --device <x86_64 serial>`
+  on mob_dev 0.7.16 narrows correctly (see `docs/budgets.md`, harness baseline).
+
+## F7 — sloppy_joe master commits machine-absolute path deps
+
+- **Upstream:** [MOB-420](https://linear.app/mobframework/issue/MOB-420) → fixed by
+  [GenericJam/sloppy_joe#20](https://github.com/GenericJam/sloppy_joe/pull/20).
+- **Found:** 2026-10-08, first realism-gate run after the revival.
+- **Where:** `sloppy_joe/mix.exs` declares `{:mob_dev, path: "/Users/kevin/code/mob_dev"}`
+  and `{:mob_wake, path: "/Users/kevin/code/mob_wake"}`.
+- **Impact:** on any machine but one, `mix deps.get` stops with
+  `* mob_wake (/Users/kevin/code/mob_wake) the dependency is not available`. The
+  app that is supposed to be "the realistic host" could not be prepared at all on
+  the CI box.
+- **Fix:** Hex deps (`mob_dev ~> 0.7.16` supports mob 0.9; `mob_wake 0.1.1` is
+  published and v2-signed), in #20.
+- **Workaround in mob_ci:** `Build.prepare_sloppy_joe/1` rewrites any absolute
+  `path:` that doesn't exist here to the sibling under `~/code` for the duration
+  of the run (`Build.relocate_path_deps/3`), restoring `mix.exs` on cleanup.
+
+## F8 — sloppy_joe master locks v1-signed plugin releases its own mob_dev refuses
+
+- **Upstream:** [MOB-420](https://linear.app/mobframework/issue/MOB-420) → fixed by
+  [GenericJam/sloppy_joe#20](https://github.com/GenericJam/sloppy_joe/pull/20).
+- **Found:** 2026-10-08, realism gate (`mix ci.device --host sloppy_joe`, log
+  `~/mob_ci_logs/realism4.log`, attributed `build:/home/kevin/code/sloppy_joe`).
+- **Where:** `sloppy_joe/mix.lock` pins mob_biometric 0.1.4, mob_bluetooth 0.3.0,
+  mob_camera 0.1.8, mob_location 0.1.3, mob_notify 0.1.2, mob_photos 0.1.2,
+  mob_scanner 0.1.2, mob_screencast 0.1.1, mob_video 0.1.0, mob_touch 0.1.0 — every
+  one a **v1 signature envelope**. mob_dev ≥ 0.7.4 (MOB-287, and the path dep at
+  master) refuses v1:
+
+  ```
+  ** (Mix) plugin signature check failed — refusing to build
+    - plugin :mob_biometric ships a legacy v1 signature, which mob_dev does not accept.
+  ```
+
+- **Impact:** the Android native build of sloppy_joe master cannot start; a user
+  cloning master hits the same wall. Note also that before the gate fires the
+  deploy prints `runtime plugin manifest (0 screens, …)` — failed-verification
+  plugins are silently dropped from the manifest regen, so a partially-refused set
+  would ship a host with *fewer* screens than activated. The gate catches it today
+  because it refuses the whole build; worth a loud per-plugin line in that regen.
+- **Fix:** lock the re-signed releases (MOB-287/MOB-336): #20 does
+  `mix deps.update` within the existing constraints; `verify_plugin/1` → `:ok` for
+  all 11.
+- **Workaround in mob_ci:** none — the realism gate reports the app as it is;
+  `Build.classify_failure/1` names the cause (`{:signature_gate, [per-plugin lines]}`)
+  so the report says *which* plugins are v1 instead of "native build failed".
+
+## F9 — `mob_bluetooth` + `mob_midi` both declare `NSBluetoothAlwaysUsageDescription` (differing values)
+
+- **Upstream:** [MOB-421](https://linear.app/mobframework/issue/MOB-421).
+- **Found:** 2026-10-08, static sweep over the `all` set (MOB-413); shrinks to
+  `[:mob_bluetooth, :mob_midi]`.
+- **Where:** `mob_bluetooth/priv/mob_plugin.exs` (`"Bluetooth access is required to
+  discover and advertise to nearby devices."`) and `mob_midi/priv/mob_plugin.exs`
+  (`"Bluetooth access is required to connect to wireless (BLE) MIDI devices."`) —
+  the same iOS plist key with different strings, so
+  `MobDev.Plugin.Validator.cross_validate/2` reports a collision.
+- **Impact:** a host activating both (any app with BLE MIDI *and* general BLE) is
+  rejected at validate with a plugin-vs-plugin conflict it cannot resolve by
+  configuration — unless the author knows about the MOB-387 host exemption and sets
+  the key in `ios/Info.plist` themselves.
+- **Fix:** a usage-description string is the host's prose, not a plugin's. Validator:
+  when more than one plugin contributes a `*UsageDescription` key, say "set it in
+  ios/Info.plist" instead of "collision"; plugin guide: declare such keys as
+  defaults the host overrides.
+- **Workaround in mob_ci:** `priv/sets/exclusions.exs` excludes `mob_midi` from
+  `all`/pairwise with reason `F9`; the singleton still runs and the static gate
+  still sees the pair, so the entry stays visible until the fix lands.
+
+## F10 — `mob_background` does not build on an unmodified host (bridge references a class the plugin doesn't ship)
+
+- **Upstream:** [MOB-423](https://linear.app/mobframework/issue/MOB-423).
+- **Found:** 2026-10-08, harness discovery over the 15 plugins sloppy_joe doesn't
+  carry (`~/mob_ci_logs/disco2.log`, attributed `build:<harness>`).
+- **Where:** `mob_background`'s Android bridge, copied into the host as
+  `android/app/src/main/java/io/mob/background/MobBackgroundBridge.kt`, references
+  `BeamForegroundService` (lines 39/40/52/53: `Unresolved reference`). The class is
+  not part of the plugin's shipped Kotlin; the manifest's `host_requirements` only
+  says the host must declare the `<service>` in `AndroidManifest.xml`.
+- **Impact:** activating `mob_background` on a `mix mob.new --blank` host (or any
+  host that followed the requirement literally) is an opaque Kotlin compilation
+  failure, not a warning — the same shape as F4 for mob_screencast in June.
+- **Fix:** ship `BeamForegroundService` in the plugin's Kotlin (and contribute the
+  `<service>` via manifest merge), or document the class the host must provide
+  and have the validator check for it.
+- **Workaround in mob_ci:** `priv/device_caps.exs` marks it `buildable: false`;
+  `nx_eigen` likewise (arm-only, F-less: a documented platform limit, see
+  `docs/budgets.md`).

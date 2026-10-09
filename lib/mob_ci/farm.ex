@@ -100,17 +100,20 @@ defmodule MobCi.Farm do
   @doc """
   Launch the deployed app on `instance` with the CI node identity (tunnels +
   relaunch), then wait for its node to register. `app` is the host `:app`, `pkg`
-  the Android package. Returns the instance with `:node` populated.
+  the Android package. The node is dialled with `:cookies` (default
+  `dist_cookies(pkg)`: the project's mob_dev-managed private cookie, then the
+  legacy `:mob_secret`). Returns the instance with `:node` populated.
   """
   @spec launch(Instance.t(), keyword()) :: {:ok, Instance.t()} | {:error, term()}
   def launch(%Instance{} = inst, opts) do
     app = Keyword.fetch!(opts, :app)
     pkg = Keyword.fetch!(opts, :pkg)
     node = node_name(app, inst.suffix)
+    cookies = Keyword.get_lazy(opts, :cookies, fn -> dist_cookies(pkg) end)
 
     case sh_status(["launch", to_string(inst.index), inst.suffix, to_string(inst.dist_port), pkg]) do
       {_out, 0} ->
-        if await_node(node, Keyword.get(opts, :timeout_ms, 60_000)),
+        if await_node(node, Keyword.get(opts, :timeout_ms, 60_000), cookies),
           do: {:ok, %{inst | node: node}},
           else: {:error, {:node_never_registered, node}}
 
@@ -119,18 +122,33 @@ defmodule MobCi.Farm do
     end
   end
 
-  @doc "Poll until `node` is reachable over distribution, or the timeout elapses."
-  @spec await_node(node(), non_neg_integer()) :: boolean()
-  def await_node(node, timeout_ms) do
-    deadline = System.monotonic_time(:millisecond) + timeout_ms
-    do_await(node, deadline)
+  @doc """
+  The cookies a deployed app may answer to, most likely first: the private
+  per-project cookie mob_dev writes at deploy (`~/.mob/dist_cookies/<sha256 of
+  the bundle id>`, MOB-49 — the bundle id is the Android package for both
+  hosts), then the public legacy `:mob_secret` of pre-MOB-49 apps.
+  """
+  @spec dist_cookies(String.t()) :: [atom(), ...]
+  def dist_cookies(pkg) do
+    managed = pkg |> MobDev.DistCookie.default_path() |> MobDev.DistCookie.load_or_create!()
+    Enum.uniq([managed, MobDev.DistCookie.legacy_cookie()])
   end
 
-  defp do_await(node, deadline) do
+  @doc "Poll until `node` accepts one of `cookies` over distribution, or the timeout elapses."
+  @spec await_node(node(), non_neg_integer(), [atom(), ...]) :: boolean()
+  def await_node(node, timeout_ms, cookies \\ [MobDev.DistCookie.legacy_cookie()]) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    do_await(node, cookies, deadline)
+  end
+
+  defp do_await(node, cookies, deadline) do
     cond do
-      Node.connect(node) == true -> true
+      # Per-node cookies need a distributed host (`MobCi.Dist.ensure!/1`); without
+      # one no cookie can be tried, so don't spin until the deadline.
+      not Node.alive?() -> false
+      match?({:ok, _}, MobDev.DistCookie.connect(node, cookies)) -> true
       System.monotonic_time(:millisecond) >= deadline -> false
-      true -> Process.sleep(2_000); do_await(node, deadline)
+      true -> Process.sleep(2_000); do_await(node, cookies, deadline)
     end
   end
 

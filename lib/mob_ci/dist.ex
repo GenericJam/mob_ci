@@ -11,8 +11,15 @@ defmodule MobCi.Dist do
   EPMD + `net_kernel` and sets the cookie.
   """
 
-  @default_name :"mob_ci@127.0.0.1"
   @cookie :mob_secret
+
+  @doc """
+  The host node name for this OS process: `mob_ci_<os pid>@127.0.0.1`. Two
+  runs on the same box (a realism gate next to a harness run) must not fight
+  over one fixed name, and the device never needs to know ours.
+  """
+  @spec default_name() :: node()
+  def default_name, do: :"mob_ci_#{System.pid()}@127.0.0.1"
 
   @doc """
   Ensure the node is distributed with the `mob_secret` cookie. Idempotent.
@@ -20,7 +27,7 @@ defmodule MobCi.Dist do
   (re)asserts the cookie. Raises if distribution cannot be started.
   """
   @spec ensure!(node()) :: :ok
-  def ensure!(name \\ @default_name) do
+  def ensure!(name \\ default_name()) do
     _ = System.cmd("epmd", ["-daemon"], stderr_to_stdout: true)
 
     unless Node.alive?() do

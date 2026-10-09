@@ -22,16 +22,60 @@ defmodule MobCi.Build do
   @harness_root Path.expand("../../fixtures/_harness", __DIR__)
   @sdk_dir "/home/kevin/Android/Sdk"
 
-  # The SELF-TEST harness pins mob_dev to a known-good version for deterministic
-  # validation: 0.6.12 regressed `mob.deploy`'s platform narrowing (FINDINGS F5/F6
-  # — crashes without `arp`; with `arp`, builds the wrong ABI for an x86_64
-  # device), which would make mob_ci's own self-test red on an upstream bump. The
-  # REALISM gate (host: :sloppy_joe) deliberately uses the app's own live deps, so
-  # ecosystem regressions like F5/F6 still surface there. Bump this once mob_dev
-  # ships the narrowing fix.
-  @mob_dev_req "== 0.6.5"
+  # The ecosystem checkout root: the NUC keeps mob, mob_dev, mob_new, every
+  # plugin and sloppy_joe as siblings under ~/code (and the core three track
+  # origin/master, see the 2026-10-08 decision). Explicit, not derived from
+  # __DIR__, so a worktree under ~/code/mob_ci-worktrees/<slug> resolves the
+  # same siblings as the main checkout.
+  @ecosystem_dir Path.expand("~/code")
 
   @type host :: :harness | :sloppy_joe
+  @type dep :: {atom(), String.t()} | {atom(), keyword()} | {atom(), String.t(), keyword()}
+
+  @doc "The ecosystem checkout root (`~/code`)."
+  @spec ecosystem_dir() :: Path.t()
+  def ecosystem_dir, do: @ecosystem_dir
+
+  @doc "Where generated harness apps live (`fixtures/_harness`)."
+  @spec harness_root() :: Path.t()
+  def harness_root, do: @harness_root
+
+  @doc """
+  The baseline core deps for the self-test harness: path deps on the ecosystem's
+  `mob` + `mob_dev` checkouts (origin/master on the NUC), i.e. the `master` row.
+  `MobCi.Versions` (MOB-413) produces the same shape for `hex`/`rc:` rows.
+  """
+  @spec core_deps(Path.t()) :: [dep()]
+  def core_deps(ecosystem_dir \\ @ecosystem_dir) do
+    [
+      {:mob, path: Path.join(ecosystem_dir, "mob"), override: true},
+      {:mob_dev, path: Path.join(ecosystem_dir, "mob_dev"), only: :dev, runtime: false, override: true}
+    ]
+  end
+
+  @doc "One dep tuple as its mix.exs source line (data in, source out)."
+  @spec render_dep(dep()) :: String.t()
+  def render_dep({name, req}) when is_binary(req), do: "{#{inspect(name)}, #{inspect(req)}}"
+  def render_dep({name, opts}) when is_list(opts), do: "{#{inspect(name)}, #{render_opts(opts)}}"
+  def render_dep({name, req, opts}) when is_binary(req) and is_list(opts),
+    do: "{#{inspect(name)}, #{inspect(req)}, #{render_opts(opts)}}"
+
+  defp render_opts(opts), do: Enum.map_join(opts, ", ", fn {k, v} -> "#{k}: #{inspect(v)}" end)
+
+  @doc """
+  Where the host's `mob` sources live: the path dep's dir when `core_deps` pins
+  `:mob` to a path, else `<host_dir>/deps/mob` (Hex/git deps are fetched there).
+  Both `mob.exs` (`config :mob_dev, :mob_dir`) and `local.properties`
+  (`mob.mob_dir`) must agree with this, or the native build reads a stale tree.
+  """
+  @spec mob_dir(Path.t(), [dep()]) :: Path.t()
+  def mob_dir(host_dir, core_deps) do
+    case List.keyfind(core_deps, :mob, 0) do
+      {:mob, opts} when is_list(opts) -> Keyword.get(opts, :path) || Path.join(host_dir, "deps/mob")
+      {:mob, _req, opts} when is_list(opts) -> Keyword.get(opts, :path) || Path.join(host_dir, "deps/mob")
+      _ -> Path.join(host_dir, "deps/mob")
+    end
+  end
 
   # ── pure construction (unit-tested) ──────────────────────────────────────────
 
@@ -39,53 +83,83 @@ defmodule MobCi.Build do
   @spec activated_names([atom()]) :: [atom()]
   def activated_names(set), do: for(name <- set, is_map(Plugins.load_manifest(name)), do: name)
 
-  @doc "The harness `mob.exs` body: mob_dir, the activated set, and the unsigned-plugin gate."
-  @spec mob_exs([atom()]) :: String.t()
-  def mob_exs(set) do
+  @doc """
+  The harness `mob.exs` body: mob_dir, the activated set, and the trust gate.
+  Fixtures are unsigned local prototypes (no pubkey → acknowledged); a real,
+  published plugin in the set is trusted by the fingerprint of the pubkey it
+  ships under `<host_dir>/deps/<plugin>` (so write this AFTER `deps.get`).
+  """
+  @spec mob_exs([atom()], Path.t(), Path.t() | nil) :: String.t()
+  def mob_exs(set, mob_dir, host_dir \\ nil) do
     activated = activated_names(set)
+
+    trusted =
+      if host_dir,
+        do: for(p <- activated, fp = plugin_fingerprint(p, host_dir), into: %{}, do: {p, fp}),
+        else: %{}
 
     """
     import Config
 
     config :mob_dev,
-      mob_dir: Path.join(File.cwd!(), "deps/mob"),
+      mob_dir: #{inspect(mob_dir)},
       elixir_lib:
         System.get_env("MOB_ELIXIR_LIB", :code.lib_dir(:elixir) |> to_string() |> Path.dirname())
 
     config :mob, :plugins, #{inspect(activated)}
 
-    # The fixtures are unsigned local prototypes — acknowledge them past the trust gate.
+    # Signed (published) plugins are trusted by their shipped pubkey; the unsigned
+    # fixtures are acknowledged past the trust gate.
+    config :mob, :trusted_plugins, #{inspect(trusted)}
     config :mob, :acknowledge_unsafe_plugins, #{inspect(activated)}
     """
   end
 
-  @doc "The `defp deps do … end` block wiring mob/mob_dev + the activated fixtures as path deps."
-  @spec deps_block([atom()], Path.t()) :: String.t()
-  def deps_block(set, harness_dir) do
-    fixture_deps =
-      for name <- activated_names(set) do
-        rel = Path.relative_to(Plugins.fixture_dir(name), harness_dir)
-        "      {:#{name}, path: \"#{rel}\"}"
-      end
+  @doc """
+  The `defp deps do … end` block: `core_deps` (mob + mob_dev, see `core_deps/1`)
+  followed by ecto and the activated plugins — a fixture as a path dep, a real
+  plugin as its latest Hex release (`>= 0.0.0`, the `hex` row; what a user gets).
+  """
+  @spec deps_block([atom()], Path.t(), [dep()]) :: String.t()
+  def deps_block(set, harness_dir, core_deps \\ core_deps()) do
+    plugin_deps = for name <- activated_names(set), do: "      " <> render_dep(plugin_dep(name, harness_dir))
 
     palette =
       if :mob_ci_palette in set,
-        do: ["      {:mob_ci_palette, path: \"#{Path.relative_to(Plugins.fixture_dir(:mob_ci_palette), harness_dir)}\"}"],
+        do: ["      " <> render_dep(plugin_dep(:mob_ci_palette, harness_dir))],
         else: []
 
     lines =
-      [
-        "      {:mob,     \"~> 0.7\"}",
-        "      {:mob_dev, \"#{@mob_dev_req}\", only: :dev, runtime: false}",
-        "      {:ecto_sqlite3, \"~> 0.18\"}"
-      ] ++ palette ++ fixture_deps
+      Enum.map(core_deps, &("      " <> render_dep(&1))) ++
+        ["      {:ecto_sqlite3, \"~> 0.18\"}"] ++ palette ++ plugin_deps
 
     "  defp deps do\n    [\n" <> Enum.join(lines, ",\n") <> "\n    ]\n  end"
   end
 
+  @doc """
+  The real plugins a host has fetched under `deps/` (those with a manifest),
+  plugin → dir: what `Plugins.put_resolved_dirs/1` gets so the invariants read
+  the manifest of the version the host actually built, not the `~/code` sibling.
+  """
+  @spec fetched_plugin_dirs(Path.t()) :: %{atom() => Path.t()}
+  def fetched_plugin_dirs(host_dir) do
+    for dir <- Path.wildcard(Path.join(host_dir, "deps/mob_*")),
+        File.exists?(Path.join(dir, "priv/mob_plugin.exs")),
+        into: %{},
+        do: {String.to_atom(Path.basename(dir)), dir}
+  end
+
+  @doc "A plugin's dep tuple for a harness at `harness_dir`: fixture → relative path dep; real → latest Hex."
+  @spec plugin_dep(atom(), Path.t()) :: dep()
+  def plugin_dep(name, harness_dir) do
+    if Plugins.fixture?(name),
+      do: {name, path: Path.relative_to(Plugins.fixture_dir(name), harness_dir)},
+      else: {name, ">= 0.0.0"}
+  end
+
   @doc "Android `local.properties` body (sdk + OTP cache paths + mob_dir)."
   @spec local_properties(Path.t()) :: String.t()
-  def local_properties(harness_dir) do
+  def local_properties(mob_dir) do
     %{base: base, arm32: arm32, x86_64: x86} = otp_paths()
 
     """
@@ -93,7 +167,7 @@ defmodule MobCi.Build do
     mob.otp_release=#{base}
     mob.otp_release_arm32=#{arm32}
     mob.otp_release_x86_64=#{x86}
-    mob.mob_dir=#{Path.join(harness_dir, "deps/mob")}
+    mob.mob_dir=#{mob_dir}
     """
   end
 
@@ -101,7 +175,11 @@ defmodule MobCi.Build do
   @spec package_name(atom() | String.t()) :: String.t()
   def package_name(app), do: "com.example.#{app}"
 
-  @sloppy_joe_dir Path.expand("~/code/sloppy_joe")
+  @sloppy_joe_dir Path.join(@ecosystem_dir, "sloppy_joe")
+
+  @doc "Where the real sloppy_joe checkout lives (`~/code/sloppy_joe`)."
+  @spec sloppy_joe_dir() :: Path.t()
+  def sloppy_joe_dir, do: @sloppy_joe_dir
 
   @doc """
   mob.exs body for the sloppy_joe gate: activate `subset` and clear the signature
@@ -115,14 +193,14 @@ defmodule MobCi.Build do
   via `acknowledge_unsafe_plugins` instead. Every plugin is listed in BOTH lists'
   union of effect, harmless for whichever path doesn't apply.
   """
-  @spec sloppy_joe_mob_exs([atom()]) :: String.t()
-  def sloppy_joe_mob_exs(subset) do
-    trusted = for p <- subset, fp = plugin_fingerprint(p), into: %{}, do: {p, fp}
+  @spec sloppy_joe_mob_exs([atom()], Path.t()) :: String.t()
+  def sloppy_joe_mob_exs(subset, dir \\ @sloppy_joe_dir) do
+    trusted = for p <- subset, fp = plugin_fingerprint(p, dir), into: %{}, do: {p, fp}
 
     """
     import Config
 
-    config :mob_dev, mob_dir: "#{Path.join(@sloppy_joe_dir, "deps/mob")}"
+    config :mob_dev, mob_dir: "#{Path.join(dir, "deps/mob")}"
 
     config :mob, :plugins, #{inspect(subset)}
     config :mob, :trusted_plugins, #{inspect(trusted)}
@@ -130,15 +208,23 @@ defmodule MobCi.Build do
     """
   end
 
-  # The signed-plugin trust fingerprint the gate will compute for `plugin`:
-  # "ed25519:" <> base64(sha256(raw 32-byte pubkey)) from its priv/mob_plugin.pub
-  # (mirrors MobDev.Plugin.{Verify.load_pubkey, Crypto.fingerprint}). Returns nil
-  # for an unsigned plugin (no/blank/malformed pubkey) — it isn't trusted; the
-  # acknowledge_unsafe path clears it instead.
-  @spec plugin_fingerprint(atom()) :: String.t() | nil
-  def plugin_fingerprint(plugin) do
-    path = Path.join([@sloppy_joe_dir, "deps", to_string(plugin), "priv", "mob_plugin.pub"])
+  @doc """
+  The signed-plugin trust fingerprint the gate will compute for `plugin`:
+  `"ed25519:" <> base64(sha256(raw 32-byte pubkey))` from its `priv/mob_plugin.pub`
+  (mirrors `MobDev.Plugin.{Verify.load_pubkey, Crypto.fingerprint}`). The pubkey
+  is read from the host's `deps/<plugin>` (Hex/git deps) or, for a path dep (Mix
+  never copies those into `deps/`), from the ecosystem checkout `~/code/<plugin>`.
+  `nil` for an unsigned plugin (no/blank/malformed pubkey): it isn't trusted; the
+  acknowledge_unsafe path clears it instead.
+  """
+  @spec plugin_fingerprint(atom(), Path.t()) :: String.t() | nil
+  def plugin_fingerprint(plugin, host_dir \\ @sloppy_joe_dir) do
+    [Path.join([host_dir, "deps", to_string(plugin)]), Path.join(@ecosystem_dir, to_string(plugin))]
+    |> Enum.map(&Path.join(&1, "priv/mob_plugin.pub"))
+    |> Enum.find_value(&fingerprint_of_pubkey_file/1)
+  end
 
+  defp fingerprint_of_pubkey_file(path) do
     with {:ok, contents} <- File.read(path),
          {:ok, pub} when byte_size(pub) == 32 <- Base.decode64(String.trim(contents)) do
       "ed25519:" <> Base.encode64(:crypto.hash(:sha256, pub))
@@ -147,11 +233,42 @@ defmodule MobCi.Build do
     end
   end
 
-  @doc "sloppy_joe's real plugin set (its mix.exs deps) — the realism gate's full activation."
+  @doc """
+  The `mob_*` plugin deps declared in a mix.exs body (`{:mob_x, "~> 1.0"}`,
+  `{:mob_x, path: …}`), in declaration order; `:mob` and `:mob_dev` are the
+  runtime/tooling, not plugins. Pure: the realism set is whatever the app
+  declares today, never a list mob_ci has to keep in sync by hand.
+  """
+  @spec plugin_deps(String.t()) :: [atom()]
+  def plugin_deps(mix_exs_body) do
+    ~r/^\s*\{:(mob_[a-z0-9_]+),/m
+    |> Regex.scan(mix_exs_body, capture: :all_but_first)
+    |> Enum.map(fn [name] -> String.to_atom(name) end)
+    |> Enum.reject(&(&1 == :mob_dev))
+  end
+
+  @doc "sloppy_joe's real plugin set (read from its mix.exs) — the realism gate's full activation."
   @spec sloppy_joe_plugins() :: [atom()]
-  def sloppy_joe_plugins do
-    [:mob_ash, :mob_biometric, :mob_bluetooth, :mob_camera, :mob_location, :mob_notify,
-     :mob_photos, :mob_scanner, :mob_screencast, :mob_video, :mob_touch]
+  def sloppy_joe_plugins, do: @sloppy_joe_dir |> Path.join("mix.exs") |> File.read!() |> plugin_deps()
+
+  @doc """
+  Rewrite absolute `path:` deps that don't exist on this machine to the sibling
+  checkout under `ecosystem_dir` (F7: sloppy_joe commits Mac-absolute
+  `/Users/kevin/code/<repo>` path deps, which no other host can resolve). A path
+  that exists, or whose basename has no sibling here, is left alone. `exists?`
+  is injectable so the rewrite is unit-testable without those directories.
+  """
+  @spec relocate_path_deps(String.t(), Path.t(), (Path.t() -> boolean())) :: String.t()
+  def relocate_path_deps(mix_exs_body, ecosystem_dir, exists? \\ &File.dir?/1) do
+    Regex.replace(~r/path: "([^"]+)"/, mix_exs_body, fn whole, path ->
+      sibling = Path.join(ecosystem_dir, Path.basename(path))
+
+      cond do
+        exists?.(path) -> whole
+        exists?.(sibling) -> ~s(path: "#{sibling}")
+        true -> whole
+      end
+    end)
   end
 
   @doc "Android package for a host: sloppy_joe has its own; the harness uses com.example.<app>."
@@ -162,31 +279,58 @@ defmodule MobCi.Build do
   @doc """
   Prepare the real sloppy_joe app to build with `subset` activated. Builds
   **in place** (reusing its deps + build cache) by transiently swapping its
-  gitignored `mob.exs`; returns a `:cleanup` thunk the caller MUST run to restore
-  the original. The carrier dial-out (`mcp.sloppyjoe.ca`) is left intact — a CI
-  build dials in as a transient, unclaimable device that teardown reaps (it has no
-  `kind:"staging"` row so the live Pool can't lease it); clean suppression is a
-  follow-up via `SLOPPY_JOE_PROXY_WS`.
+  gitignored `mob.exs` and relocating its machine-absolute path deps (F7), then
+  `mix deps.get` so the lock's plugin versions are present; returns a `:cleanup`
+  thunk the caller MUST run to restore both files. The carrier dial-out
+  (`mcp.sloppyjoe.ca`) is left intact — a CI build dials in as a transient,
+  unclaimable device that teardown reaps (it has no `kind:"staging"` row so the
+  live Pool can't lease it); clean suppression is a follow-up via
+  `SLOPPY_JOE_PROXY_WS`.
   """
   @spec prepare_sloppy_joe([atom()]) ::
           {:ok, %{dir: Path.t(), app: atom(), pkg: String.t(), cleanup: (-> any())}} | {:error, term()}
   def prepare_sloppy_joe(subset) do
-    mob_exs_path = Path.join(@sloppy_joe_dir, "mob.exs")
+    dir = @sloppy_joe_dir
+    mob_exs_path = Path.join(dir, "mob.exs")
+    mix_exs_path = Path.join(dir, "mix.exs")
 
-    if File.dir?(@sloppy_joe_dir) do
-      original = File.read!(mob_exs_path)
-      File.write!(mob_exs_path, sloppy_joe_mob_exs(subset))
+    if File.dir?(dir) do
+      original_mob_exs = File.read!(mob_exs_path)
+      original_mix_exs = File.read!(mix_exs_path)
+      clean_before = clean_tracked(dir)
 
-      {:ok,
-       %{
-         dir: @sloppy_joe_dir,
-         app: :sloppy_joe,
-         pkg: host_package(:sloppy_joe, :sloppy_joe),
-         cleanup: fn -> File.write!(mob_exs_path, original) end
-       }}
+      cleanup = fn ->
+        File.write!(mob_exs_path, original_mob_exs)
+        File.write!(mix_exs_path, original_mix_exs)
+        # The deploy regenerates tracked files (priv/generated/*, the plugin
+        # Kotlin bridge copies): leave the shared checkout exactly as we found
+        # it (only the paths that were clean before).
+        for path <- clean_before, do: System.cmd("git", ["-C", dir, "checkout", "--", path], stderr_to_stdout: true)
+      end
+
+      File.write!(mix_exs_path, relocate_path_deps(original_mix_exs, @ecosystem_dir))
+      File.write!(mob_exs_path, sloppy_joe_mob_exs(subset, dir))
+
+      case sh(["deps.get"], dir) do
+        {_out, 0} ->
+          Plugins.put_resolved_dirs(fetched_plugin_dirs(dir))
+          {:ok, %{dir: dir, app: :sloppy_joe, pkg: host_package(:sloppy_joe, :sloppy_joe), cleanup: cleanup}}
+
+        {out, code} ->
+          cleanup.()
+          {:error, {:sloppy_joe_prep, code, String.slice(out, -600, 600)}}
+      end
     else
-      {:error, {:sloppy_joe_missing, @sloppy_joe_dir}}
+      {:error, {:sloppy_joe_missing, dir}}
     end
+  end
+
+  # Tracked trees a native build regenerates; the ones clean right now are restored on cleanup.
+  @regenerated_paths ["priv/generated", "android/app/src/main/java/io/mob"]
+  defp clean_tracked(dir) do
+    for path <- @regenerated_paths,
+        match?({"", 0}, System.cmd("git", ["-C", dir, "status", "--porcelain", "--", path], stderr_to_stdout: true)),
+        do: path
   end
 
   @doc "The generated showcase screen module for P5: `<AppModule>.CiShowcase`."
@@ -196,7 +340,10 @@ defmodule MobCi.Build do
   @doc "Activated plugins that contribute a UI component, with their widget module + id (P5)."
   @spec component_widgets([atom()]) :: [{module(), atom()}]
   def component_widgets(set) do
+    # Only the fixtures follow the `<Plugin>.widget(id:)` convention the showcase
+    # relies on; a real plugin's component has no generic embedding (P5 skips it).
     for name <- activated_names(set),
+        Plugins.fixture?(name),
         m = Plugins.load_manifest(name),
         comps = Map.get(m, :ui_components, []),
         comps != [],
@@ -294,17 +441,17 @@ defmodule MobCi.Build do
     reuse = Keyword.get(opts, :reuse, true) and not Keyword.get(opts, :fresh, false)
 
     result =
-      if reuse and File.exists?(Path.join(dir, "mob.exs")) do
+      if reuse and reusable?(dir, set) do
         {:ok, %{dir: dir, app: app, pkg: pkg}}
       else
         generate_harness(set, dir, app, pkg)
       end
 
-    # Always (re)write the P5 showcase screen — cheap, and keeps it in sync with
-    # the activated set even when the harness dir is reused.
+    # Always (re)write mob.exs (activation + trust fingerprints from the fetched
+    # deps) and the P5 showcase screen — cheap, and keeps both in sync with the
+    # activated set even when the harness dir is reused.
     with {:ok, %{dir: d}} <- result do
-      File.mkdir_p!(Path.join(d, "lib/#{app}"))
-      File.write!(Path.join(d, "lib/#{app}/ci_showcase.ex"), showcase_source(set, app))
+      activate(d, set, app)
     end
 
     result
@@ -313,17 +460,33 @@ defmodule MobCi.Build do
   defp generate_harness(set, dir, app, pkg) do
     File.rm_rf!(dir)
     File.mkdir_p!(@harness_root)
+    mob_dir = mob_dir(dir, core_deps())
 
-    with {_o, 0} <- sh(["mob.new", to_string(app), "--dest", @harness_root, "--android"], @harness_root),
+    with {_o, 0} <- sh(mob_new_args(app), @harness_root),
          :ok <- splice_deps(dir, set),
-         :ok <- File.write(Path.join(dir, "mob.exs"), mob_exs(set)),
-         :ok <- File.write(Path.join(dir, "android/local.properties"), local_properties(dir)),
+         :ok <- File.write(Path.join(dir, "android/local.properties"), local_properties(mob_dir)),
          {_o2, 0} <- sh(["deps.get"], dir),
+         :ok <- activate(dir, set, app),
          {_o3, 0} <- sh(["mob.icon"], dir) do
       {:ok, %{dir: dir, app: app, pkg: pkg}}
     else
       {out, code} when is_integer(code) -> {:error, {:harness_prep, code, String.slice(out, -600, 600)}}
       {:error, _} = err -> err
+    end
+  end
+
+  @doc """
+  Can a prepared harness dir be reused as-is? Only when its mix.exs still
+  carries exactly the deps block we would generate now — a harness generated
+  against other core deps (the June `mob_dev == 0.6.5` pin, or a different
+  version row) is stale and must be regenerated, or the run silently tests the
+  wrong mob_dev.
+  """
+  @spec reusable?(Path.t(), [atom()], [dep()]) :: boolean()
+  def reusable?(dir, set, core_deps \\ core_deps()) do
+    case File.read(Path.join(dir, "mix.exs")) do
+      {:ok, body} -> File.exists?(Path.join(dir, "mob.exs")) and String.contains?(body, deps_block(set, dir, core_deps))
+      _ -> false
     end
   end
 
@@ -342,7 +505,7 @@ defmodule MobCi.Build do
     reuse = Keyword.get(opts, :reuse, true) and not Keyword.get(opts, :fresh, false)
 
     result =
-      if reuse and File.exists?(Path.join(dir, "mob.exs")) do
+      if reuse and reusable?(dir, pool) do
         {:ok, %{dir: dir, app: app, pkg: pkg}}
       else
         generate_sweep_harness(dir, app, pkg, pool)
@@ -351,7 +514,7 @@ defmodule MobCi.Build do
     # Always (re)write local.properties — it's machine-specific config mob.new
     # ships as placeholders, and the reuse path would otherwise keep stale paths.
     with {:ok, %{dir: d}} <- result do
-      File.write!(Path.join(d, "android/local.properties"), local_properties(d))
+      File.write!(Path.join(d, "android/local.properties"), local_properties(mob_dir(d, core_deps())))
     end
 
     result
@@ -361,10 +524,10 @@ defmodule MobCi.Build do
     File.rm_rf!(dir)
     File.mkdir_p!(@harness_root)
 
-    with {_o, 0} <- sh(["mob.new", to_string(app), "--dest", @harness_root, "--android"], @harness_root),
+    with {_o, 0} <- sh(mob_new_args(app), @harness_root),
          :ok <- File.write(Path.join(dir, "mix.exs"), patch_deps_for(dir, pool)),
-         :ok <- activate(dir, pool, app),
          {_o2, 0} <- sh(["deps.get"], dir),
+         :ok <- activate(dir, pool, app),
          {_o3, 0} <- sh(["mob.icon"], dir) do
       {:ok, %{dir: dir, app: app, pkg: pkg}}
     else
@@ -373,15 +536,26 @@ defmodule MobCi.Build do
     end
   end
 
+  @doc """
+  `mix mob.new` args for a harness: Android-only and `--blank`. The default
+  template is the showcase app, whose screens import mob_mishka components and
+  the other showcase plugins; once `deps_block/3` replaces its deps with the
+  set under test, that app no longer compiles (mob_new 0.6.7). The harness is
+  a host for the plugins under test, nothing else.
+  """
+  @spec mob_new_args(atom()) :: [String.t()]
+  def mob_new_args(app), do: ["mob.new", to_string(app), "--dest", @harness_root, "--android", "--blank"]
+
   defp patch_deps_for(dir, pool) do
     {:ok, body} = File.read(Path.join(dir, "mix.exs"))
     Regex.replace(~r/  defp deps do\n.*?\n  end/s, body, deps_block(pool, dir), global: false)
   end
 
-  @doc "Set the activated subset on a prepared (sweep) harness: rewrite mob.exs + the showcase."
+  @doc "Set the activated subset on a prepared harness: rewrite mob.exs (activation + trust) and the showcase."
   @spec activate(Path.t(), [atom()], atom()) :: :ok
   def activate(dir, subset, app \\ :mob_ci_sweep) do
-    File.write!(Path.join(dir, "mob.exs"), mob_exs(subset))
+    Plugins.put_resolved_dirs(fetched_plugin_dirs(dir))
+    File.write!(Path.join(dir, "mob.exs"), mob_exs(subset, mob_dir(dir, core_deps()), dir))
     File.mkdir_p!(Path.join(dir, "lib/#{app}"))
     File.write!(Path.join(dir, "lib/#{app}/ci_showcase.ex"), showcase_source(subset, app))
     :ok
@@ -404,22 +578,47 @@ defmodule MobCi.Build do
   @doc """
   Build + install + push to `serial` via `mix mob.deploy --native --device`.
   Returns `:ok`, `{:conflict, msgs}` (cross-plugin rejection at validate → P1's
-  expected path), or `{:error, reason}`.
+  expected path), or `{:error, reason}`. `log: path` keeps the complete deploy
+  output (the error tuple carries only its tail).
   """
-  @spec deploy(Path.t(), String.t()) :: :ok | {:conflict, [String.t()]} | {:error, term()}
-  def deploy(dir, serial) do
-    case sh(deploy_args(serial), dir) do
-      {_out, 0} -> :ok
-      {out, _code} -> classify_failure(out)
+  @spec deploy(Path.t(), String.t(), keyword()) :: :ok | {:conflict, [String.t()]} | {:error, term()}
+  def deploy(dir, serial, opts \\ []) do
+    {out, code} = sh(deploy_args(serial), dir)
+
+    if log = Keyword.get(opts, :log) do
+      File.mkdir_p!(Path.dirname(log))
+      File.write!(log, out)
+    end
+
+    if code == 0, do: :ok, else: classify_failure(out)
+  end
+
+  @doc """
+  Name the cause of a failed deploy from its output: a cross-plugin rejection
+  (`{:conflict, lines}`, P1's expected path), a refused plugin signature
+  (`{:error, {:signature_gate, lines}}` — the lines naming each plugin), a zig
+  toolchain mismatch (`{:error, {:toolchain, line}}`), else the native build's
+  tail. Pure, so each shape is pinned by a test.
+  """
+  @spec classify_failure(String.t()) :: {:conflict, [String.t()]} | {:error, term()}
+  def classify_failure(out) do
+    cond do
+      out =~ "declare the same" or out =~ "capability check failed" ->
+        {:conflict, conflict_lines(out)}
+
+      out =~ "plugin signature check failed" ->
+        {:error, {:signature_gate, lines_matching(out, ~r/^\s*- plugin :\w+/)}}
+
+      out =~ "zig version mismatch" ->
+        {:error, {:toolchain, lines_matching(out, ~r/zig version mismatch/) |> List.first()}}
+
+      true ->
+        {:error, {:native_build, String.slice(out, -800, 800)}}
     end
   end
 
-  defp classify_failure(out) do
-    if out =~ "declare the same" or out =~ "capability check failed" do
-      {:conflict, conflict_lines(out)}
-    else
-      {:error, {:native_build, String.slice(out, -800, 800)}}
-    end
+  defp lines_matching(out, regex) do
+    out |> String.split("\n") |> Enum.filter(&Regex.match?(regex, &1)) |> Enum.map(&String.trim/1)
   end
 
   defp conflict_lines(out) do
@@ -455,7 +654,40 @@ defmodule MobCi.Build do
     if is_nil(bin), do: {:error, :aapt_not_found}, else: run(bin, args)
   end
 
-  defp sh(args, cd), do: System.cmd("mix", args, cd: cd, stderr_to_stdout: true, env: [{"MIX_ENV", "dev"}])
+  @doc """
+  Environment for every `mix` we run inside a host app. zig is pinned to exactly
+  what the mob_dev under test requires (`MobDev.Toolchain.required_zig_version/0`,
+  an exact-match check that fails the native build otherwise): a host's own
+  `.tool-versions` (sloppy_joe pins no zig; mob.new's template pins a different
+  nightly), mob_ci's, or whatever `mise activate` put on PATH for the caller's
+  cwd must not decide which zig mob_dev's build gets. So the required version's
+  install dir (`mise where zig@<v>`) goes FIRST on PATH, and `MISE_ZIG_VERSION`
+  covers the shim path too. Without mise (or the version not installed) the
+  env override alone is passed and the build's own check reports the mismatch.
+  """
+  @spec build_env() :: [{String.t(), String.t()}]
+  def build_env do
+    zig = MobDev.Toolchain.required_zig_version()
+    env = [{"MIX_ENV", "dev"}, {"MISE_ZIG_VERSION", zig}]
+
+    case zig_bin_dir(zig) do
+      nil -> env
+      bin -> [{"PATH", bin <> ":" <> (System.get_env("PATH") || "")} | env]
+    end
+  end
+
+  defp zig_bin_dir(version) do
+    with mise when is_binary(mise) <- System.find_executable("mise"),
+         {out, 0} <- System.cmd(mise, ["where", "zig@" <> version], stderr_to_stdout: true),
+         bin = Path.join(String.trim(out), "bin"),
+         true <- File.exists?(Path.join(bin, "zig")) do
+      bin
+    else
+      _ -> nil
+    end
+  end
+
+  defp sh(args, cd), do: System.cmd("mix", args, cd: cd, stderr_to_stdout: true, env: build_env())
 
   defp run(bin, args) do
     case System.cmd(bin, args, stderr_to_stdout: true) do
