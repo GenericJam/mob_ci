@@ -228,7 +228,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       tee = Enum.into(["✓", String.duplicate("a", 1998)], %MobCi.Lane.Ios.Tee{echo: false})
       assert String.valid?(tee.tail)
       assert tee.tail == String.duplicate("a", 1998)
-      assert {:ok, _} = JSON.encode(%{"detail" => tee.tail}) |> then(&{:ok, &1})
+      assert JSON.encode!(%{"detail" => tee.tail}) =~ "aaa"
     end
 
     test "a lease release that exits non-zero is recorded as such, not as ok", %{tmp_dir: root} do
