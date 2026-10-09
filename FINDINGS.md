@@ -421,7 +421,8 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   average 6–9 on 4 cores widens the window, it isn't the cause). `--no-daemon` (mob_dev 0.7.20+) is
   not the cause; it only means every build starts two fresh JVMs that map the
   library, where a warm daemon would have mapped it once.
-- **Fix (mob_dev):** keep the native-platform locks (GenericJam/mob_dev#134).
+- **Fix (mob_dev):** keep the native-platform locks (GenericJam/mob_dev#134,
+  mob_dev **0.7.23** on Hex, 2026-10-09).
   The wrapper, daemon-registry and cache locks mob_dev still deletes are real
   OS locks, and deleting one another Gradle holds breaks its exclusion
   (MOB-469).
@@ -431,3 +432,11 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   `{:jvm_crash, lines}`) is layer `toolchain`, an infra layer like
   `farm`: exit 3, one retry, shown in the report, never a regression, a
   baseline or the P12 singleton result.
+- **Verified on the NUC:** the same loop with A as the release build
+  (`./gradlew --no-daemon bundleRelease --rerun-tasks`, three concurrent
+  builds in another host during each): **5/5 consecutive release builds
+  without a crash** when the locks are kept, **2/2 crashed** when they are
+  deleted. Then job 27 (master, Android, mob_dev 0.7.23): cells 128–131,
+  `singleton:mob_touch`, `mob_vision`, `mob_sensors`, `mob_scene3d`, deploy
+  and release all pass, no `hs_err` written. Scripts and hs_err copies:
+  `~/mob_ci_logs/mob-468/`.
