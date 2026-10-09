@@ -19,7 +19,7 @@ defmodule MobCi.Lane.Ios.Tee do
     def into(tee) do
       fun = fn
         acc, {:cont, chunk} ->
-          if acc.echo, do: IO.write(chunk)
+          if acc.echo, do: IO.binwrite(chunk)
           if acc.file, do: IO.binwrite(acc.file, chunk)
           tail = acc.tail <> chunk
           size = byte_size(tail)
@@ -27,7 +27,9 @@ defmodule MobCi.Lane.Ios.Tee do
           %{acc | tail: tail}
 
         acc, :done ->
-          acc
+          # A byte-count cut can land inside a multibyte character (✓ ✗ │ in
+          # mob's output); the tail goes into JSON, so it must be valid UTF-8.
+          %{acc | tail: String.replace_invalid(acc.tail, "")}
 
         _acc, :halt ->
           :ok

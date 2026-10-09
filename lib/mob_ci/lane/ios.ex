@@ -248,7 +248,9 @@ defmodule MobCi.Lane.Ios do
         trigger: "ci.device --platform ios",
         versions_row: row,
         host: Keyword.get(opts, :host, default_host()),
-        mob_ci_sha: Keyword.get(opts, :mob_ci_sha)
+        started_at: Keyword.get(opts, :started_at),
+        # The sha the worker checked out (the NUC's HEAD when the run began).
+        mob_ci_sha: Enum.find_value(results, & &1["mob_ci_sha"])
       })
 
     for r <- results do
@@ -382,12 +384,15 @@ defmodule MobCi.Lane.Ios do
       ]
       |> Enum.reject(fn {_k, v} -> is_nil(v) end)
 
+    started_at = DateTime.utc_now()
     results = run(cell, paths, run_opts ++ opts)
 
     store = Store.open!(o[:store] || Store.default_path())
 
     try do
-      {:ok, run_id} = record(store, cell, results, Keyword.take(run_opts, [:host]))
+      {:ok, run_id} =
+        record(store, cell, results, Keyword.take(run_opts, [:host]) ++ [started_at: started_at])
+
       Mix.shell().info("\nrecorded as run #{run_id} in #{o[:store] || Store.default_path()}")
     after
       Store.close(store)

@@ -137,7 +137,12 @@ defmodule MobCi.Lane.Ios.Spec do
            m["path"] != "deploy:ios_device" or is_binary(m["udid"]) ||
              {:error, "#{m["path"]} needs a udid"},
          true <- runtime?(m["min_runtime"]) || {:error, "min_runtime must look like 27.0, got #{inspect(m["min_runtime"])}"},
-         true <- is_binary(m["cell_id"]) and is_binary(m["set"]) || {:error, "cell_id and set are required"},
+         true <- is_binary(m["set"]) || {:error, "set is required"},
+         # The cell id names the scratch dir teardown deletes: only what
+         # `cell_id/4` produces, never a path.
+         true <-
+           (is_binary(m["cell_id"]) and m["cell_id"] =~ ~r/^[a-z0-9][a-z0-9_-]*$/) ||
+             {:error, "bad cell_id #{inspect(m["cell_id"])} (expected [a-z0-9][a-z0-9_-]*)"},
          true <- is_list(m["plugins"]) || {:error, "plugins must be a list"} do
       {:ok,
        %__MODULE__{

@@ -208,7 +208,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       {"result": {"devices": [
         {"hardwareProperties": {"reality": "physical", "udid": "00008110-X"},
          "deviceProperties": {"name": "Kevin's iPhone", "osVersionNumber": "26.5.2"},
-         "connectionProperties": {"tunnelState": "connected"}},
+         "connectionProperties": {"tunnelState": "disconnected"}},
         {"hardwareProperties": {"reality": "physical", "udid": "OTHER"},
          "deviceProperties": {"name": "iPad", "osVersionNumber": "27.0"},
          "connectionProperties": {"tunnelState": "unavailable"}},
@@ -218,9 +218,22 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       """
 
       assert Worker.parse_physical(json) == [
+               # An idle wired iPhone's tunnel is "disconnected" until used: still attached.
                %{"udid" => "00008110-X", "name" => "Kevin's iPhone", "runtime" => "26.5.2", "attached" => true},
                %{"udid" => "OTHER", "name" => "iPad", "runtime" => "27.0", "attached" => false}
              ]
+    end
+
+    test "a command tail cut inside a multibyte character is still valid UTF-8 (it goes into the result JSON)" do
+      tee = Enum.into(["✓", String.duplicate("a", 1998)], %MobCi.Lane.Ios.Tee{echo: false})
+      assert String.valid?(tee.tail)
+      assert tee.tail == String.duplicate("a", 1998)
+      assert {:ok, _} = JSON.encode(%{"detail" => tee.tail}) |> then(&{:ok, &1})
+    end
+
+    test "a lease release that exits non-zero is recorded as such, not as ok", %{tmp_dir: root} do
+      r = run(spec("deploy:ios_sim"), root, deps(%{release: fn _ -> {"no such session\n", 3} end}))
+      assert %{"result" => "exited 3: no such session"} = Enum.find(r["teardown"], &(&1["name"] == "release_lease"))
     end
   end
 

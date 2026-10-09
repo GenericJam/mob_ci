@@ -264,6 +264,8 @@ defmodule MobCi.Lane.IosTest do
 
         {:ok, run_id} = Ios.record(store, @cell, results, host: "kevin@mac")
         rows = MobCi.Store.query(store, run_id: run_id)
+        # The run carries the sha the worker checked out, not NULL.
+        assert Enum.all?(rows, &(&1.mob_ci_sha == @sha))
 
         summary = fn path -> Enum.find(rows, &(&1.path == path and is_nil(&1.invariant))) end
         assert %{platform: "ios", outcome: :fail, layer: "plugin:mob_camera"} = summary.("deploy:ios_sim")

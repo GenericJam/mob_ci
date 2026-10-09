@@ -57,6 +57,9 @@ defmodule MobCi.Lane.Ios.SpecTest do
             {JSON.encode!(%{good | "path" => "deploy:android"}), "unknown path"},
             {JSON.encode!(%{good | "udid" => nil}), "needs a udid"},
             {JSON.encode!(%{good | "min_runtime" => "latest"}), "min_runtime must look like 27.0"},
+            # The cell id names the dir teardown deletes: never a path or empty.
+            {JSON.encode!(%{good | "cell_id" => "../../.."}), "bad cell_id"},
+            {JSON.encode!(%{good | "cell_id" => ""}), "bad cell_id"},
             {JSON.encode!(%{good | "versions" => %{"row" => "hex"}}), "versions must be a record"}
           ] do
         assert {:error, reason} = Spec.from_json(doc)

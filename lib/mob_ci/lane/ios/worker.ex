@@ -105,7 +105,9 @@ defmodule MobCi.Lane.Ios.Worker do
         "udid" => hw["udid"],
         "name" => get_in(d, ["deviceProperties", "name"]),
         "runtime" => get_in(d, ["deviceProperties", "osVersionNumber"]),
-        "attached" => get_in(d, ["connectionProperties", "tunnelState"]) == "connected"
+        # CoreDevice opens tunnels on demand: an idle wired iPhone reports
+        # "disconnected"; only "unavailable" (or no state) means unreachable.
+        "attached" => get_in(d, ["connectionProperties", "tunnelState"]) not in [nil, "unavailable"]
       }
     end
   end
@@ -558,6 +560,7 @@ defmodule MobCi.Lane.Ios.Worker do
     case fun.() do
       {:error, why} -> {:error, inspect(why)}
       {:ok, v} -> {:ok, v}
+      {tail, code} when is_integer(code) and code != 0 -> {:error, "exited #{code}: #{String.trim(tail)}"}
       other -> {:ok, other}
     end
   rescue
