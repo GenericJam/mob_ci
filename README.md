@@ -136,10 +136,11 @@ with git plumbing (no working tree touched) and pushes, posts one Muster
 `#mob` summary of the cells recorded since the previous post (as
 `@mob_ci-nightly`; `@kevin` only when a `hex` cell whose previous non-skip
 outcome was a pass now fails or errors), and prunes the store (cells older
-than 30 days, except the newest per row/set/platform/path and the passing
-evidence `COMPATIBILITY.md` needs) and old `*.log` files under
-`~/mob_ci_logs`. Exit 0 unless a file couldn't be written; `--no-post`
-folds a job into the next post, `--no-push` keeps the files local.
+than 30 days, except what the grid, the P12 singleton lookup, the next
+regression check and `COMPATIBILITY.md` still read) and old `*.log` files
+under `~/mob_ci_logs`. Exit 0 unless a file couldn't be written or the store
+doesn't exist; `--no-post` folds a job into the next post, `--no-push` keeps
+the files local. Both lanes publishing at once take turns on a lock.
 
 `mix ci.replay <cell id>` reruns one stored cell (any row of it) as the
 `mix ci.device` call of its path, with `$MOB_CI_PINS` pointing

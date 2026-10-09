@@ -191,14 +191,70 @@ defmodule MobCi.PublishTest do
 
     test "--no-post and a failed post keep the cells for the next post", %{store: store, dir: dir} do
       record!(store, "hex", [{"default", "deploy:android", :pass}])
-      assert {:ok, %{posted: {:held, _}}} = publish(store, dir, post: false)
-      refute_received {:posted, _}
+      assert {:ok, %{posted: {:posted, _}}} = publish(store, dir, [])
 
+      record!(store, "hex", [{"default", "deploy:android", :pass}])
+      assert {:ok, %{posted: {:held, _}}} = publish(store, dir, post: false)
       assert {:ok, %{posted: {:failed, _, :down}}} = publish(store, dir, poster: fn _ -> {:error, :down} end)
 
       record!(store, "master", [{"default", "deploy:android", :pass}])
       assert {:ok, %{posted: {:posted, text}}} = publish(store, dir, [])
       assert text =~ "2 cells (hex 1 · master 1)"
+    end
+
+    test "the first publish (no marker) posts the newest run, not the whole history", %{store: store, dir: dir} do
+      record!(store, "hex", [{"default", "deploy:android", :pass}])
+      record!(store, "hex", [{"default", "deploy:android", :fail}])
+      record!(store, "master", [{"default", "deploy:android", :pass}, {"all", "deploy:android", :pass}])
+
+      assert {:ok, %{posted: {:posted, text}}} = publish(store, dir, [])
+      assert text =~ "mob_ci: 2 cells (master 2)"
+      # the old hex regression was never in a window: no stale @kevin
+      refute text =~ "@kevin"
+    end
+
+    test "two publishes at once post each cell once", %{store: store, dir: dir} do
+      record!(store, "hex", [{"default", "deploy:android", :pass}])
+      test_pid = self()
+
+      slow = fn text ->
+        Process.sleep(300)
+        send(test_pid, {:posted, text})
+        :ok
+      end
+
+      # two lanes = two processes, each with its own connection to the store
+      lane = fn ->
+        own = Store.open!(store.path)
+
+        try do
+          publish(own, dir, poster: slow)
+        after
+          Store.close(own)
+        end
+      end
+
+      results =
+        [Task.async(lane), Task.async(lane)]
+        |> Task.await_many(10_000)
+        |> Enum.map(fn {:ok, r} -> r.posted end)
+
+      assert Enum.count(results, &match?({:posted, _}, &1)) == 1
+      assert Enum.count(results, &(&1 == :nothing_new)) == 1
+      assert_received {:posted, _}
+      refute_received {:posted, _}
+      refute File.exists?(Publish.marker_path(store) <> ".lock")
+    end
+
+    test "an exception after the files are written is that step's error, not the publish's", %{store: store, dir: dir} do
+      record!(store, "hex", [{"default", "deploy:android", :pass}])
+
+      assert {:ok, report} =
+               publish(store, dir, pusher: fn _ -> raise "git is gone" end, poster: fn _ -> raise "muster is gone" end)
+
+      assert {:error, %RuntimeError{message: "git is gone"}} = report.pushed
+      assert {:error, %RuntimeError{message: "muster is gone"}} = report.posted
+      assert File.exists?(Path.join(dir, "out/matrix.md"))
     end
 
     test "a file that can't be written is the one error; nothing is pushed or posted", %{store: store, dir: dir} do
@@ -253,34 +309,65 @@ defmodule MobCi.PublishTest do
   describe "prune" do
     defp v(mob), do: %{row: "hex", repos: %{mob: %{version: mob, sha: nil, source: "hex"}, mob_dev: %{version: "0.7.17", sha: nil, source: "hex"}, mob_new: %{version: "0.6.8", sha: nil, source: "hex"}}}
 
-    test "keeps the newest cell per (row, set, platform, path) forever and passing evidence as a summary row", %{store: store} do
+    test "keeps the newest cell per (row, set, platform, path) whole, evidence as summary rows, deletes the rest", %{store: store} do
       now = at("2026-12-01T00:00:00Z")
-      # 60 days old: default passes on v1, superseded later; random:1 is old and superseded.
+      # 60 days old: default passes on v1 (superseded later); random:1 fails, superseded.
       old = record!(store, "hex", [{"default", "deploy:android", :pass}, {"random:1", "deploy:android", :fail}], at: "2026-10-01T00:00:00Z", versions: v("0.9.15"))
-      # 50 days old: the same default key fails on v2 — no longer newest either.
+      # 50 days old: default fails on v2 (the newest cell of v2's pins); random:1 passes, superseded.
       mid = record!(store, "hex", [{"default", "deploy:android", :fail}, {"random:1", "deploy:android", :pass}], at: "2026-10-10T00:00:00Z", versions: v("0.9.16"))
+      # nothing reads this one any more: the run goes too
+      gone = record!(store, "hex", [{"random:1", "deploy:android", :skip}], at: "2026-10-11T00:00:00Z")
       # 40 days old but the newest of its key: kept whole.
       lone = record!(store, "hex", [{"singleton:mob_x", "deploy:android", :fail}], at: "2026-10-20T00:00:00Z")
-      # recent
       recent = record!(store, "hex", [{"default", "deploy:android", :pass}, {"random:1", "deploy:android", :pass}], at: "2026-11-25T00:00:00Z", versions: v("0.9.17"))
 
       result = Store.prune(store, now: now)
-      rows = Store.query(store)
-      by_run = Enum.group_by(rows, & &1.run_id)
+      by_run = store |> Store.query() |> Enum.group_by(& &1.run_id)
 
-      # v1's default pass is COMPATIBILITY evidence: its summary stays, its invariant row goes.
       assert [%{set: "default", invariant: nil, outcome: :pass}] = by_run[old]
-      # the failing and superseded cells of old runs are gone; the mid run is empty and deleted
-      refute Map.has_key?(by_run, mid)
-      assert Store.query(store, run_id: mid) == []
-      # the newest of a key is kept whole however old
+      assert [%{set: "default", invariant: nil, outcome: :fail}] = by_run[mid]
+      refute Map.has_key?(by_run, gone)
       assert length(by_run[lone]) == 2
       assert length(by_run[recent]) == 4
-
-      assert result.cells == 1 + 2 + 2 + 2
+      assert result.cells == 3 + 3 + 2
       assert result.runs == 1
-      # what the renderers read is unchanged by pruning
-      assert Matrix.matrix_md(Store.query(store, invariant: nil)) =~ "✓ pass"
+    end
+
+    test "a later failure of the same pins keeps demoting their tuple after pruning", %{store: store} do
+      for {at, outcome, mob} <- [{"2026-10-01", :pass, "0.9.15"}, {"2026-10-02", :fail, "0.9.15"}, {"2026-10-03", :pass, "0.9.16"}] do
+        record!(store, "hex", [{"default", "deploy:android", outcome}], at: at <> "T00:00:00Z", versions: v(mob))
+      end
+
+      status = fn -> Enum.find(Matrix.tuples(summaries(store)), &(&1.pins["mob"] == {"0.9.15", nil, "hex"})).status end
+      assert status.()[{"default", "deploy:android"}] == :fail
+      Store.prune(store, now: at("2026-11-15T00:00:00Z"))
+      assert status.()[{"default", "deploy:android"}] == :fail
+    end
+
+    test "the P12 singleton lookup survives a newer errored singleton cell", %{store: store} do
+      {:ok, ok_run} = Store.record_run(store, %{trigger: "nightly", versions_row: "hex", host: "nuc", mob_ci_sha: "x", started_at: at("2026-10-01T00:00:00Z")})
+      base = %{set: "singleton:mob_x", platform: :android, path: "deploy:android"}
+      Store.record_cell(store, ok_run, Map.put(base, :outcome, :pass))
+      Store.record_cell(store, ok_run, Map.merge(base, %{invariant: "p12:mob_x", outcome: :pass}))
+      # host generation failed: a lone error summary, no self-test rows
+      {:ok, err_run} = Store.record_run(store, %{trigger: "nightly", versions_row: "hex", host: "nuc", mob_ci_sha: "x", started_at: at("2026-10-02T00:00:00Z")})
+      Store.record_cell(store, err_run, Map.merge(base, %{outcome: :error, layer: "mob_new"}))
+
+      lookup = fn -> Store.singleton_selftest(store, :mob_x, versions_row: "hex", platform: :android, path: "deploy:android") end
+      assert lookup.() == :pass
+      Store.prune(store, now: at("2026-11-15T00:00:00Z"))
+      assert lookup.() == :pass
+    end
+
+    test "the regression baseline survives a month of skips", %{store: store} do
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :pass}], at: "2026-10-01T00:00:00Z")
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :skip}], at: "2026-10-02T00:00:00Z")
+      reported = summaries(store) |> Enum.map(& &1.id) |> Enum.max()
+      Store.prune(store, now: at("2026-11-15T00:00:00Z"), reported: reported)
+
+      record!(store, "hex", [{"pairwise:3", "deploy:android", :fail}], at: "2026-11-16T00:00:00Z")
+      all = summaries(store)
+      assert [%{set: "pairwise:3"}] = Matrix.regressions([Enum.max_by(all, & &1.id)], all)
     end
 
     test "a newer replay doesn't make the row's real latest prunable", %{store: store} do

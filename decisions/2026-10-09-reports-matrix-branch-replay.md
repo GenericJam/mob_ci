@@ -62,10 +62,14 @@ segment.
   line.
 - **COMPATIBILITY.md**: a *tuple* is the exact pins (version, sha, source;
   not the recording machine's `dir`) of mob, mob_dev, mob_new and the
-  plugins. The `default` and `all` cells of the published rows are clustered
-  into tuples by consistency (every repo two cells share has the same pin),
-  so one night's `default` (two plugins) and `all` (24) on Android and iOS
-  form one tuple. A tuple is **verified** when the newest cell of each of
+  plugins. A cell belongs to every tuple whose pins agree with all of its
+  own (every repo they share has the same pin); `all` cells, the widest pin
+  sets, found the tuples. So one night's `default` (two plugins) and `all`
+  (24) on Android and iOS form one tuple, and a `default` cell counts for
+  every `all` tuple it is part of: a release of a plugin outside `default`
+  starts a new tuple without taking the older one's `default` results away
+  (an exclusive first-match clustering lost verified tuples exactly that
+  way). A tuple is **verified** when the newest cell of each of
   `default` and `all` on each of `static`, `deploy:android`,
   `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios`
   passed — a skip is not a pass. Verified tuples newest first, then the ten
@@ -80,8 +84,12 @@ The post covers the summary cells recorded since the previous *successful*
 post: a marker file beside the store (`published_cell_id`) holds the last
 reported summary id and advances only when the post went out. So
 `--no-post` (a trigger folding a job into the next post) or a failed post
-loses nothing, and overlapping jobs report each cell exactly once. No new
-cells, no post. The text: cell count per row, outcome counts, failures by
+loses nothing. Read marker → post → write marker runs under a lock file
+beside the store (two minutes' wait, a ten-minute-old lock is a crashed
+holder's), so the Android and iOS lanes publishing at once never post a
+cell twice. With no marker yet (the first publish on a store), the window
+is the newest run, not the whole history, so old regressions don't page
+anyone. No new cells, no post. The text: cell count per row, outcome counts, failures by
 layer, one line per regression, `@kevin the hex row regressed` when one is
 on `hex`, the matrix link. It posts as `@mob_ci-nightly`, a bot registered
 for the NUC (token in the NUC's `~/.config/muster/bots/`, server
@@ -99,9 +107,11 @@ worked broke, and a skip (device absent) proves nothing either way.
 Regressions on other rows are listed without the mention.
 
 Exit status of `--publish`: 0 whenever both files were written, including
-nothing to post and a failed push or post (printed as warnings; the next
-publish catches up); 1 only when a file can't be written. The triggers log
-a non-zero exit and keep draining.
+nothing to post and a failed push, post or prune (an exception in those
+steps is reported as a warning; the next publish catches up); 1 when a
+file can't be written or the store file doesn't exist (a wrong `--store`
+must not render an empty matrix and push it over the published one). The
+triggers log a non-zero exit and keep draining.
 
 ### Replay and regression sets
 
@@ -131,17 +141,26 @@ every night.
 
 ### Retention
 
-`--publish` ends with `Store.prune/2`: cells whose run is older than 30
-days are deleted, except the newest cell per (row, set, platform, path) —
-overall and among non-replay runs, kept whole forever (the grid, the P12
-singleton lookup and the next regression check read it) — and the newest
-passing `default` / `all` / `singleton:<p>` summary per (set, platform,
-path, exact pins), kept as its summary row only, because that is the
-evidence `COMPATIBILITY.md` is built from and a verified combination must
-not vanish after a month. Runs left empty go. Log files go when older than
-30 days and no remaining cell points at them: those the pruned cells
-referenced and `*.log` under `~/mob_ci_logs` (scripts and other files
-there are left alone). `mix ci.report --prune` runs only this step.
+`--publish` ends with `Store.prune/2`: a cell whose run is older than 30
+days is deleted unless something still reads it.
+
+- Kept whole, forever: the newest cell per (row, set, platform, path),
+  overall and among non-replay runs (the grid), and the newest
+  `singleton:<p>` cell per key that has self-test rows (`p12:<p>`, what the
+  P12 singleton lookup reads; a newer errored singleton cell has none).
+- Kept as its summary row only: the newest non-skip non-replay cell per
+  key among the cells already posted (the baseline of the next regression
+  check, so `pass → skip… → fail` still regresses after a month of skips),
+  and, for `default`, `all` and `singleton:<p>`, the newest cell and the
+  newest passing cell per (set, platform, path, exact pins): the evidence
+  `COMPATIBILITY.md` is built from. A verified combination must not vanish
+  after a month, and one demoted by a later failure of the same pins must
+  not be promoted back when that failure ages out.
+
+Runs left empty go. Log files go when older than 30 days and no remaining
+cell points at them: those the pruned cells referenced and `*.log` under
+`~/mob_ci_logs` (scripts and other files there are left alone).
+`mix ci.report --prune` runs only this step.
 
 ## Consequences
 

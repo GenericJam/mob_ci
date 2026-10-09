@@ -13,16 +13,19 @@ defmodule MobCi.Publish do
      an unchanged tree is not committed. Readers find them at
      `https://github.com/GenericJam/mob_ci/blob/matrix/COMPATIBILITY.md`.
   3. The cells recorded since the previous successful post (a marker file
-     beside the store holds the last reported summary id) become one Muster
-     `#mob` post (`MobCi.Matrix.post/3`); the marker advances only when the
-     post went out, so `--no-post` or a failed post folds those cells into
-     the next one and every cell is reported exactly once.
-  4. `MobCi.Store.prune/2` (30 days) and the log files it releases, plus
-     `*.log` files older than that under `:log_dirs` that no remaining cell
-     points at.
+     beside the store holds the last reported summary id; with no marker
+     yet, the newest run's cells) become one Muster `#mob` post
+     (`MobCi.Matrix.post/3`); the marker advances only when the post went
+     out, so `--no-post` or a failed post folds those cells into the next
+     one. Read marker → post → write marker runs under a lock file beside
+     the store, so two lanes publishing at once never post a cell twice.
+  4. `MobCi.Store.prune/2` (30 days; the regression baseline is kept among
+     the reported cells) and the log files it releases, plus `*.log` files
+     older than that under `:log_dirs` that no remaining cell points at.
 
-  The side effects are injectable (`:pusher`, `:poster`) so tests build the
-  post without sending it.
+  Steps 2–4 never fail the publish: an exception there is reported as that
+  step's `{:error, exception}`. The side effects are injectable (`:pusher`,
+  `:poster`) so tests build the post without sending it.
   """
 
   alias MobCi.{Matrix, Store}
@@ -52,11 +55,23 @@ defmodule MobCi.Publish do
     files = %{"matrix.md" => Matrix.matrix_md(summaries), "COMPATIBILITY.md" => Matrix.compatibility_md(summaries)}
 
     with :ok <- write_files(out, files) do
-      pushed = if Keyword.get(opts, :push, true), do: push(opts, files), else: :skipped
-      posted = post(store, summaries, opts)
-      pruned = if Keyword.get(opts, :prune, true), do: prune(store, opts), else: :skipped
+      pushed = if Keyword.get(opts, :push, true), do: safely(fn -> push(opts, files) end), else: :skipped
+      marker = Keyword.get_lazy(opts, :marker, fn -> marker_path(store) end)
+      posted = safely(fn -> with_lock(marker <> ".lock", fn -> post(marker, Store.query(store, invariant: nil), opts) end) end)
+
+      pruned =
+        if Keyword.get(opts, :prune, true),
+          do: safely(fn -> prune(store, Keyword.put(opts, :reported, read_marker(marker))) end),
+          else: :skipped
+
       {:ok, %{written: Enum.map(@files, &Path.join(out, &1)), pushed: pushed, posted: posted, pruned: pruned}}
     end
+  end
+
+  defp safely(fun) do
+    fun.()
+  rescue
+    e -> {:error, e}
   end
 
   defp write_files(out, files) do
@@ -84,10 +99,19 @@ defmodule MobCi.Publish do
 
   # ── the Muster post ──────────────────────────────────────────────────────────
 
-  defp post(store, summaries, opts) do
-    marker = Keyword.get_lazy(opts, :marker, fn -> marker_path(store) end)
-    since = read_marker(marker)
-    window = Enum.filter(summaries, &(&1.id > since))
+  # Under the lock, so the summaries are re-read: another publish may have
+  # posted (and recorded more) since `summaries` was taken.
+  defp post(marker, summaries, opts) do
+    window =
+      case read_marker(marker) do
+        nil ->
+          newest_run = summaries |> Enum.map(& &1.run_id) |> Enum.max(fn -> nil end)
+          Enum.filter(summaries, &(&1.run_id == newest_run))
+
+        since ->
+          Enum.filter(summaries, &(&1.id > since))
+      end
+
     text = Matrix.post(window, Matrix.regressions(window, summaries), url("matrix.md"))
 
     cond do
@@ -120,7 +144,51 @@ defmodule MobCi.Publish do
          {id, _} <- Integer.parse(String.trim(body)) do
       id
     else
-      _ -> 0
+      _ -> nil
+    end
+  end
+
+  @lock_wait_ms 120_000
+  @lock_stale_s 600
+
+  @doc false
+  # Run `fun` holding `lock` (an exclusively created file): wait up to two
+  # minutes for another holder; a lock older than ten minutes is a crashed
+  # holder's and is taken over.
+  def with_lock(lock, fun, waited \\ 0) do
+    case File.open(lock, [:write, :exclusive]) do
+      {:ok, io} ->
+        File.close(io)
+
+        try do
+          fun.()
+        after
+          File.rm(lock)
+        end
+
+      {:error, :eexist} ->
+        cond do
+          stale?(lock) ->
+            File.rm(lock)
+            with_lock(lock, fun, waited)
+
+          waited >= @lock_wait_ms ->
+            raise "mob_ci publish: #{lock} held for over #{div(@lock_wait_ms, 1000)} s"
+
+          true ->
+            Process.sleep(500)
+            with_lock(lock, fun, waited + 500)
+        end
+
+      {:error, reason} ->
+        raise "mob_ci publish: can't create #{lock}: #{inspect(reason)}"
+    end
+  end
+
+  defp stale?(lock) do
+    case File.stat(lock, time: :posix) do
+      {:ok, %{mtime: mtime}} -> System.os_time(:second) - mtime > @lock_stale_s
+      _ -> false
     end
   end
 
@@ -264,7 +332,7 @@ defmodule MobCi.Publish do
     cutoff = DateTime.to_unix(now) - days * 86_400
     log_dirs = Keyword.get(opts, :log_dirs, [Path.expand("~/mob_ci_logs")])
 
-    pruned = Store.prune(store, now: now, days: days)
+    pruned = Store.prune(store, now: now, days: days, reported: Keyword.get(opts, :reported))
     referenced = store |> Store.query() |> Enum.map(& &1.log_path) |> Enum.reject(&is_nil/1) |> MapSet.new()
 
     candidates =

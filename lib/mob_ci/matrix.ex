@@ -201,12 +201,17 @@ defmodule MobCi.Matrix do
 
   @doc """
   The version tuples of the public rows' `default` and `all` cells, newest
-  first. A tuple is the union of consistent pin sets (cells that agree on
-  every repo they share; all of them carry mob, mob_dev and mob_new), so the
-  `default` cell and the `all` cell of one night form one tuple even though
-  their plugin lists differ. Each is `%{pins, rows, newest, status, verified}`
-  where `status` maps `{set, path}` to the newest member cell's outcome and
-  `verified` is true when every `{default | all, path}` passed.
+  first. A tuple is a set of exact pins (mob, mob_dev, mob_new and plugins);
+  a cell belongs to every tuple whose pins agree with all of its own (they
+  share every repo at the same pin). `all` cells (the widest pin sets) found
+  the tuples, so one night's `default` (a few plugins) and `all` cells on
+  Android and iOS form one tuple, and a `default` cell counts for every
+  `all` tuple it is part of: a later release of a plugin outside `default`
+  starts a new tuple without taking the older one's `default` results away.
+  A `default` cell no `all` tuple contains founds its own. Each tuple is
+  `%{pins, rows, newest, status, verified}` where `status` maps `{set, path}`
+  to the newest member cell's outcome and `verified` is true when every
+  `{default | all, path}` passed.
   """
   @spec tuples([map()]) :: [map()]
   def tuples(summaries) do
@@ -214,11 +219,14 @@ defmodule MobCi.Matrix do
     |> Enum.filter(&(public_row?(&1.versions_row) and &1.set in @verified_sets))
     |> Enum.map(&Map.put(&1, :pins, Store.pins(&1.versions)))
     |> Enum.filter(fn c -> Enum.all?(@core, &Map.has_key?(c.pins, &1)) end)
-    |> Enum.sort_by(& &1.id, :desc)
+    |> Enum.sort_by(&{if(&1.set == "all", do: 0, else: 1), -&1.id})
     |> Enum.reduce([], fn cell, clusters ->
-      case Enum.find_index(clusters, &consistent?(&1.pins, cell.pins)) do
-        nil -> clusters ++ [%{pins: cell.pins, cells: [cell]}]
-        i -> List.update_at(clusters, i, &%{pins: Map.merge(&1.pins, cell.pins), cells: &1.cells ++ [cell]})
+      if Enum.any?(clusters, &consistent?(&1.pins, cell.pins)) do
+        Enum.map(clusters, fn c ->
+          if consistent?(c.pins, cell.pins), do: %{pins: Map.merge(c.pins, cell.pins), cells: c.cells ++ [cell]}, else: c
+        end)
+      else
+        clusters ++ [%{pins: cell.pins, cells: [cell]}]
       end
     end)
     |> Enum.map(&tuple/1)

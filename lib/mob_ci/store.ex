@@ -418,14 +418,20 @@ defmodule MobCi.Store do
   @doc """
   Delete what the store no longer needs. A cell (its summary row plus its
   invariant and self-test rows) whose run started more than `:days` (default
-  30) before `:now` is deleted unless it is
+  30) before `:now` is deleted unless something still reads it:
 
-    * the newest cell of its (versions_row, set, platform, path), overall or
-      among non-`replay` runs (what `matrix.md`, the P12 singleton lookup and
-      the next regression check read), kept whole and forever; or
-    * the newest passing cell of a `default`, `all` or `singleton:<p>` set
-      for its (set, platform, path, exact pins): the evidence
-      `COMPATIBILITY.md` is built from, kept as its summary row only.
+    * kept whole, forever: the newest cell of its (versions_row, set,
+      platform, path), overall and among non-`replay` runs (the grid), and
+      the newest `singleton:<p>` cell per key that has self-test rows (the
+      P12 singleton lookup, `singleton_selftest/3`, reads those rows, and an
+      errored cell has none);
+    * kept as its summary row only: the newest non-skip non-replay cell per
+      key among the cells already reported (`:reported`, the last summary id
+      a Muster post covered; default all), the baseline of the next
+      regression check; and for `default`, `all` and `singleton:<p>`, the
+      newest cell and the newest passing cell per (set, platform, path,
+      exact pins), the evidence `COMPATIBILITY.md` is built from (a later
+      failure of the same pins must keep demoting a tuple).
 
   Runs left without cells go too. Returns the counts and the `log_path`s of
   the deleted rows (the caller deletes those files, `MobCi.Publish.prune/2`).
@@ -434,18 +440,19 @@ defmodule MobCi.Store do
   def prune(%__MODULE__{} = store, opts \\ []) do
     now = Keyword.get(opts, :now, DateTime.utc_now())
     cutoff = now |> DateTime.add(-Keyword.get(opts, :days, 30) * 86_400, :second) |> iso()
-    summaries = query(store, invariant: nil)
-    {whole, evidence} = retained(summaries)
 
-    exec!(store, "BEGIN IMMEDIATE", [])
+    transaction!(store, fn ->
+      rows = query(store)
+      summaries = Enum.filter(rows, &is_nil(&1.invariant))
+      selftests = for r <- rows, String.starts_with?(r.invariant || "", "p12:"), into: MapSet.new(), do: cell_key(r)
+      {whole, summary_only} = retained(summaries, selftests: selftests, reported: Keyword.get(opts, :reported))
+      by_cell = Enum.group_by(rows, &cell_key/1)
 
-    try do
       {cells, logs} =
         for s <- summaries, s.started_at < cutoff, key = cell_key(s), not MapSet.member?(whole, key), reduce: {0, []} do
           {n, logs} ->
-            only_details = MapSet.member?(evidence, key)
-            rows = query(store, run_id: s.run_id, set: s.set, platform: s.platform, path: s.path)
-            gone = if only_details, do: Enum.filter(rows, & &1.invariant), else: rows
+            only_details = MapSet.member?(summary_only, key)
+            gone = if only_details, do: Enum.filter(by_cell[key], & &1.invariant), else: by_cell[key]
 
             exec!(
               store,
@@ -458,12 +465,20 @@ defmodule MobCi.Store do
         end
 
       exec!(store, "DELETE FROM runs WHERE started_at < ?1 AND NOT EXISTS (SELECT 1 FROM cells WHERE cells.run_id = runs.id)", [cutoff])
-      runs = changes(store)
+      %{cells: cells, runs: changes(store), log_paths: logs |> Enum.uniq() |> Enum.sort()}
+    end)
+  end
+
+  defp transaction!(store, fun) do
+    exec!(store, "BEGIN IMMEDIATE", [])
+
+    try do
+      result = fun.()
       exec!(store, "COMMIT", [])
-      %{cells: cells, runs: runs, log_paths: logs |> Enum.uniq() |> Enum.sort()}
+      result
     rescue
       e ->
-        exec!(store, "ROLLBACK", [])
+        _ = Exqlite.Sqlite3.execute(store.conn, "ROLLBACK")
         reraise e, __STACKTRACE__
     end
   end
@@ -472,23 +487,31 @@ defmodule MobCi.Store do
 
   @doc false
   # The cells `prune/2` keeps (pure): {kept whole, kept as summary only}, as
-  # {run_id, set, platform, path} keys.
-  @spec retained([map()]) :: {MapSet.t(), MapSet.t()}
-  def retained(summaries) do
+  # {run_id, set, platform, path} keys. `opts`: `:selftests` (keys of cells
+  # with `p12:` rows), `:reported` (last reported summary id, nil = all).
+  @spec retained([map()], keyword()) :: {MapSet.t(), MapSet.t()}
+  def retained(summaries, opts \\ []) do
     newest = fn rows, by -> rows |> Enum.group_by(by) |> Enum.map(fn {_, rs} -> Enum.max_by(rs, & &1.id) end) end
     grid_key = &{&1.versions_row, &1.set, &1.platform, &1.path}
+    real = Enum.reject(summaries, &(&1.trigger == "replay"))
+    selftests = Keyword.get(opts, :selftests, MapSet.new())
+    reported = Keyword.get(opts, :reported)
 
-    whole =
-      (newest.(summaries, grid_key) ++ newest.(Enum.reject(summaries, &(&1.trigger == "replay")), grid_key))
-      |> MapSet.new(&cell_key/1)
+    singleton_selftests =
+      Enum.filter(summaries, &(String.starts_with?(&1.set, "singleton:") and MapSet.member?(selftests, cell_key(&1))))
 
-    evidence =
-      summaries
-      |> Enum.filter(&(&1.outcome == :pass and evidence_set?(&1.set)))
-      |> newest.(&{&1.set, &1.platform, &1.path, pins(&1.versions)})
-      |> MapSet.new(&cell_key/1)
+    whole = newest.(summaries, grid_key) ++ newest.(real, grid_key) ++ newest.(singleton_selftests, grid_key)
 
-    {whole, evidence}
+    baseline =
+      real
+      |> Enum.filter(&(&1.outcome != :skip and (is_nil(reported) or &1.id <= reported)))
+      |> newest.(grid_key)
+
+    evidence = Enum.filter(summaries, &evidence_set?(&1.set))
+    pins_key = &{&1.set, &1.platform, &1.path, pins(&1.versions)}
+    evidence = newest.(evidence, pins_key) ++ newest.(Enum.filter(evidence, &(&1.outcome == :pass)), pins_key)
+
+    {MapSet.new(whole, &cell_key/1), MapSet.new(baseline ++ evidence, &cell_key/1)}
   end
 
   @doc "Is `set` one `COMPATIBILITY.md` reads (`default`, `all`, `singleton:<p>`)?"

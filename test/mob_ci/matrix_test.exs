@@ -175,6 +175,35 @@ defmodule MobCi.MatrixTest do
       assert v2.status[{"all", "deploy:android"}] == nil
     end
 
+    test "a release of a plugin outside default starts a new tuple without taking the older one's default results" do
+      core = %{"mob" => %{"version" => "0.9.15", "source" => "hex"}, "mob_dev" => %{"version" => "0.7.17", "source" => "hex"}, "mob_new" => %{"version" => "0.6.8", "source" => "hex"}}
+      loc = %{"mob_location" => %{"version" => "0.2.0", "source" => "hex"}}
+      cam = fn v -> %{"mob_camera" => %{"version" => v, "source" => "hex"}} end
+      rec = fn plugins -> %{"row" => "hex", "repos" => core |> Map.merge(loc) |> Map.merge(plugins)} end
+      ids = Stream.iterate(1, &(&1 + 1))
+
+      night_a =
+        for {_, path} <- @paths, {set, plugins} <- [{"default", %{}}, {"all", cam.("0.3.1")}],
+            do: %{set: set, path: path, outcome: :pass, at: "2026-10-07T02:00:00Z", versions: rec.(plugins)}
+
+      # night B: mob_camera 0.3.2 (not in default) breaks all; default passes again
+      night_b = [
+        %{set: "all", path: "deploy:android", outcome: :fail, at: "2026-10-08T02:00:00Z", versions: rec.(cam.("0.3.2"))},
+        %{set: "default", path: "deploy:android", outcome: :pass, at: "2026-10-08T02:00:00Z", versions: rec.(%{})}
+      ]
+
+      summaries =
+        Enum.zip_with(night_a ++ night_b, ids, fn c, id ->
+          Map.merge(c, %{id: id, versions_row: "hex", trigger: "nightly", started_at: c.at})
+        end)
+
+      by_camera = Map.new(Matrix.tuples(summaries), &{elem(&1.pins["mob_camera"], 0), &1})
+      assert by_camera["0.3.1"].verified
+      refute by_camera["0.3.2"].verified
+      # B's tuple has night B's default result too
+      assert by_camera["0.3.2"].status[{"default", "deploy:android"}] == :pass
+    end
+
     test "the plugin table lists passing plugin versions per mob / mob_dev, newest first", %{summaries: s} do
       md = Matrix.compatibility_md(s)
       [_, plugins] = String.split(md, "## Plugins")

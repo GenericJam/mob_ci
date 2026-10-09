@@ -36,8 +36,12 @@ defmodule Mix.Tasks.Ci.Report do
   `*.log` files older than 30 days under `~/mob_ci_logs`.
 
   Exit status: 0 whenever both files were written, including when there was
-  nothing new to post or the push / post failed (printed as warnings: the
-  next publish catches up); 1 only when a file could not be written.
+  nothing new to post or the push / post / prune failed (printed as
+  warnings: the next publish catches up); 1 when a file could not be
+  written or the store doesn't exist (a wrong `--store` must not push an
+  empty matrix over the published one). Two publishes at once (both lanes
+  finishing) take turns on a lock file beside the store, so no cell is
+  posted twice.
   """
   use Mix.Task
 
@@ -86,7 +90,10 @@ defmodule Mix.Tasks.Ci.Report do
     end
   end
 
+  # A missing store is a misconfigured $MOB_CI_STORE / --store, not an empty
+  # history: never render and push an empty matrix over the public branch.
   defp publish(path, opts) do
+    unless File.exists?(path), do: Mix.raise("no results store at #{path}; nothing published")
     store = Store.open!(path)
 
     try do
@@ -119,14 +126,17 @@ defmodule Mix.Tasks.Ci.Report do
   defp pushed_line(:skipped), do: "push: skipped (--no-push)"
   defp pushed_line({:ok, :unchanged}), do: "push: matrix branch unchanged"
   defp pushed_line({:ok, {:pushed, sha}}), do: "push: matrix branch → #{sha} (#{Publish.url("matrix.md")})"
+  defp pushed_line({:error, %_{} = e}), do: "WARNING push failed: #{Exception.message(e)}"
   defp pushed_line({:error, reason}), do: "WARNING push failed: #{inspect(reason)}"
 
   defp posted_line(:nothing_new), do: "muster: no new cells since the last post"
   defp posted_line({:held, text}), do: "muster: held for the next post (--no-post):\n" <> indent(text)
   defp posted_line({:posted, text}), do: "muster: posted to #mob:\n" <> indent(text)
   defp posted_line({:failed, text, reason}), do: "WARNING muster post failed (#{inspect(reason)}); kept for the next one:\n" <> indent(text)
+  defp posted_line({:error, e}), do: "WARNING muster step failed: #{Exception.message(e)}"
 
   defp pruned_line(:skipped), do: "prune: skipped"
+  defp pruned_line({:error, e}), do: "WARNING prune failed: #{Exception.message(e)}"
 
   defp pruned_line(p),
     do: "prune: #{p.cells} cell rows, #{p.runs} runs, #{length(p.logs_deleted)} log files"
