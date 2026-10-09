@@ -251,9 +251,36 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   `Ci<App>.app` (`MobCi.Lane.Ios.Worker.app_state_dirs/3`); nothing else there
   is touched.
 
-## F13 — mob_dev's Android deploy races the adbd restart its own `adb root` causes
+## F12 — a wired iPhone's node is unreachable: no USB IP from ARP on macOS 27, node named after an off-LAN WiFi IP
 
-(F12 is MOB-419's, in flight.)
+- **Upstream:** [MOB-428](https://linear.app/mobframework/issue/MOB-428);
+  GenericJam/mob_dev#128, GenericJam/mob_dev#129, GenericJam/mob#197
+  (mob_dev 0.7.18, mob 0.9.16).
+- **Found:** 2026-10-09, `deploy:ios_device` on Kevin's iPhone SE (iOS 26.5.2,
+  USB) from the Mac mini (macOS 27.0.1): build, sign and install passed, P2
+  failed at `boot` with `device usb ip: no device USB IP in ARP`. Reproduced by
+  hand on a blank host (`mix mob.deploy --native --ios --device <udid>`, then
+  the Connector), so mob_dev, not the lane.
+- **Where:** two causes, one behind the other.
+  1. mob_dev's `MobDev.Tunnel` read the phone's link-local address from `arp
+     -a`. On macOS 27.0.1, `arp` spawned from the BEAM (or Python) prints an
+     empty table and exits 0, while a shell — local or over ssh — lists
+     `169.254.1.100 on en11`; TCP and mDNS to the phone work from the BEAM.
+  2. With the address found, the connect timed out: mob's `mob_beam.m` names a
+     device node after its WiFi IP first, and the phone's WiFi
+     (`192.168.0.185`, from the app's `mob_diag_host_ip.txt`) is a network the
+     Mac can't route to.
+- **Fix:** mob_dev resolves the link-local address from the phone's own mDNS
+  name (devicectl's `<name>.coredevice.local` for that UDID → `<name>.local`)
+  and relaunches with `DEVICECTL_CHILD_MOB_NODE_HOST`: the phone's WiFi IP when
+  the Mac reaches it, else the link-local IP; mob takes `MOB_NODE_HOST` when it
+  is one of the phone's own IPv4s. Verified: the `hex` row (mob 0.9.16, mob_dev
+  0.7.18) passes `deploy:ios_device` for `default` and the hardware singletons,
+  nodes `…@169.254.1.100`.
+- **Impact on the matrix:** iPhone cells on rows before mob 0.9.16 / mob_dev
+  0.7.18 stay `fail @ boot` on this Mac while the phone's WiFi is off-LAN.
+
+## F13 — mob_dev's Android deploy races the adbd restart its own `adb root` causes
 
 - **Upstream:** [MOB-459](https://linear.app/mobframework/issue/MOB-459).
 - **Found:** 2026-10-09 08:36 MDT, queue job 1, cell 7 (`singleton:mob_camera`

@@ -63,6 +63,19 @@ defmodule Mix.Tasks.Ci.Device do
   `~/mob_ci_logs/ios`), `--store PATH`. See `worker/mac/README.md` for the
   Mac's one-time setup.
 
+  ## Physical Android: `--paths deploy:android_physical`
+
+  The Motos are attached to the Mac, not the NUC, so their path runs on the
+  same Mac lane: `mix ci.device --platform android --paths
+  deploy:android_physical --set … --versions …` (`--platform android` is
+  implied by the path). The worker leases the first attached phone it can
+  (`--serial` pins one), builds with `mix mob.deploy --native --device
+  <serial>` as the farm lane does, grants the manifests' runtime
+  permissions with `adb shell pm grant`, then P2, P12 and health; no phone
+  attached and free is `skip: device_absent`. The path can't be combined
+  with the farm's `deploy` / `release`. Every result records the phone's
+  model and Android version.
+
   ## Modes
 
     * `--static` — runs only the manifest-level checks: `cross_validate` (the
@@ -106,10 +119,25 @@ defmodule Mix.Tasks.Ci.Device do
     {opts, _rest, _invalid} = OptionParser.parse(argv, switches: @switches)
 
     case opts[:platform] do
-      "ios" -> MobCi.Lane.Ios.cli(argv)
-      p when p in [nil, "android"] -> run_android(opts)
-      other -> Mix.raise("unknown --platform #{inspect(other)} (expected: android | ios)")
+      "ios" ->
+        MobCi.Lane.Ios.cli(argv)
+
+      p when p in [nil, "android"] ->
+        if mac_lane_paths?(opts[:paths]),
+          do: MobCi.Lane.Ios.cli(if(p, do: argv, else: argv ++ ["--platform", "android"])),
+          else: run_android(opts)
+
+      other ->
+        Mix.raise("unknown --platform #{inspect(other)} (expected: android | ios)")
     end
+  end
+
+  @doc false
+  # The physical Android path runs on the Mac lane, not the farm.
+  def mac_lane_paths?(nil), do: false
+
+  def mac_lane_paths?(csv) do
+    csv |> String.split(",", trim: true) |> Enum.map(&String.trim/1) |> Enum.any?(&(&1 in MobCi.Lane.Ios.Spec.paths(:android)))
   end
 
   defp run_android(opts) do

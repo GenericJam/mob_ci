@@ -1,15 +1,20 @@
-# The device half of an iOS cell, run by MobCi.Lane.Ios.Worker inside the
+# The device half of a Mac lane cell, run by MobCi.Lane.Ios.Worker inside the
 # generated host project (so it uses the row's own mob_dev and the host's
 # mob.exs):
 #
-#     MIX_ENV=dev mix run --no-start <this file> <udid> <out.json> <timeout_ms>
+#     MIX_ENV=dev mix run --no-start <this file> <ios|android> <id> <out.json> <timeout_ms>
 #
-# It records facts and judges nothing: the worker maps them to invariants.
+# <id> is a simulator or iPhone udid, or an Android phone's adb serial. It
+# records facts and judges nothing: the worker maps them to invariants.
 #
-#   1. find the device (simulator or physical) by udid;
+#   1. find the device by id;
 #   2. grant every permission the activated manifests declare, BEFORE the app
 #      is (re)launched (a simulator may terminate an app whose privacy settings
-#      change under it; MobDev.Plugin.SelfTest.grant_permissions/4);
+#      change under it; MobDev.Plugin.SelfTest.grant_permissions/4). On an
+#      Android phone the grant is the farm lane's `adb shell pm grant`, which
+#      works on any adb-attached device for runtime permissions (mob_dev only
+#      issues it for emulators); an iPhone has no grant from outside, so its
+#      permission-gated self-tests meet the OS prompt and skip :needs_user;
 #   3. relaunch the app and attach over dist (MobDev.Connector, as
 #      `mix mob.selftest` does);
 #   4. read Mob.Diag.health/0, run every plugin's self-test
@@ -18,7 +23,8 @@
 #
 # The result is one JSON object written to <out.json>.
 
-[udid, out, timeout] = System.argv()
+[platform, udid, out, timeout] = System.argv()
+platform = String.to_existing_atom(platform)
 timeout = String.to_integer(timeout)
 
 alias MobDev.{Connector, Device, Smoke}
@@ -55,10 +61,12 @@ write = fn facts ->
 end
 
 plugins = MobDev.Plugin.activated_with_verify()
-bundle_id = MobDev.Config.ios_bundle_id()
+
+bundle_id =
+  if platform == :ios, do: MobDev.Config.ios_bundle_id(), else: MobDev.Config.bundle_id()
 
 device =
-  Mix.Tasks.Mob.Deploy.discover_devices([:ios])
+  Mix.Tasks.Mob.Deploy.discover_devices([platform])
   |> Enum.find(&(&1.serial == udid))
 
 case device do
@@ -66,15 +74,18 @@ case device do
     write.(%{found: false, node: nil, grants: [], entries: [], findings: []})
 
   %Device{} = device ->
+    grant_device =
+      if platform == :android, do: %{device | type: :emulator}, else: device
+
     grants =
-      SelfTest.grant_permissions(device, plugins, bundle_id, fn exe, argv ->
+      SelfTest.grant_permissions(grant_device, plugins, bundle_id, fn exe, argv ->
         System.cmd(exe, argv, stderr_to_stdout: true)
       end)
 
     Enum.each(grants, fn g -> IO.puts("probe: grant #{g.permission} (#{g.plugin}): #{inspect(g.status)}") end)
 
     {connected, failed} =
-      Connector.connect_all(only: [udid], platforms: [:ios], restart: true)
+      Connector.connect_all(only: [udid], platforms: [platform], restart: true)
 
     node =
       case Enum.find(connected, &(&1.serial == udid)) do
@@ -93,7 +104,7 @@ case device do
     {entries, findings} =
       if alive do
         before = snapshot.(node)
-        ctx = %{platform: :ios, device: device.type || :physical}
+        ctx = %{platform: platform, device: device.type || :physical}
         entries = SelfTest.run_all(node, ctx, plugins: plugins, timeout_ms: timeout)
         Enum.each(SelfTest.table(entries), &IO.puts("probe:   " <> &1))
         IO.puts("probe:   " <> SelfTest.summary(entries))

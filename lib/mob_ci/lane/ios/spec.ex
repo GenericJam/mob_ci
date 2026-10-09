@@ -1,14 +1,19 @@
 defmodule MobCi.Lane.Ios.Spec do
   @moduledoc """
-  One iOS cell as the NUC hands it to the Mac worker: the set (its name and
-  the plugins the NUC resolved for it), the version row as exact pins
-  (`MobCi.Versions.record/1`), the path and the device.
+  One cell of the Mac lane as the NUC hands it to the Mac worker: the set
+  (its name and the plugins the NUC resolved for it), the version row as
+  exact pins (`MobCi.Versions.record/1`), the path and the device. The lane
+  is the iOS lane plus the physical Android phones, which are attached to the
+  Mac too.
 
-      path               what the worker does
-      deploy:ios_sim     mix mob.deploy --native on a simulator, then P2, P12, health
-      deploy:ios_device  the same on a physical iPhone (skip: device_absent when
-                         it isn't attached or another agent holds it)
-      release:ios        mix mob.release --ios: a signed .ipa, no device
+      path                    what the worker does
+      deploy:ios_sim          mix mob.deploy --native on a simulator, then P2, P12, health
+      deploy:ios_device       the same on a physical iPhone (skip: device_absent when
+                              it isn't attached or another agent holds it)
+      release:ios             mix mob.release --ios: a signed .ipa, no device
+      deploy:android_physical mix mob.deploy --native on a physical Android phone
+                              (the Motos), then P2, P12, health; skip: device_absent
+                              when none is attached and free
 
   The NUC resolves the row (so both machines build the same versions and a
   `hex` row cannot drift between planning and building); the worker only
@@ -21,7 +26,9 @@ defmodule MobCi.Lane.Ios.Spec do
 
   alias MobCi.Versions.Remote
 
-  @paths ["deploy:ios_sim", "deploy:ios_device", "release:ios"]
+  @ios_paths ["deploy:ios_sim", "deploy:ios_device", "release:ios"]
+  @android_paths ["deploy:android_physical"]
+  @paths @ios_paths ++ @android_paths
 
   # `xcrun simctl privacy grant photos` on an iOS 26.x simulator runtime
   # writes a TCC row (auth_version=1) PhotoKit ignores, so a photos plugin's
@@ -44,16 +51,26 @@ defmodule MobCi.Lane.Ios.Spec do
           min_runtime: String.t()
         }
 
-  @doc "The paths an iOS cell can take."
+  @doc "Every path a Mac lane cell can take."
   @spec paths() :: [path()]
   def paths, do: @paths
+
+  @doc "The Mac lane's paths for one platform (`mix ci.device --platform`)."
+  @spec paths(:ios | :android) :: [path()]
+  def paths(:ios), do: @ios_paths
+  def paths(:android), do: @android_paths
+
+  @doc "The platform a path runs on, as the results store records it."
+  @spec platform(path()) :: String.t()
+  def platform(path) when path in @android_paths, do: "android"
+  def platform(_ios), do: "ios"
 
   @doc "The lowest simulator iOS runtime a cell runs on unless the spec says otherwise."
   def default_min_runtime, do: @default_min_runtime
 
   @doc "Whether the path runs on a device (and so leases one)."
   @spec device?(path()) :: boolean()
-  def device?(path), do: path in ["deploy:ios_sim", "deploy:ios_device"]
+  def device?(path), do: path in ["deploy:ios_sim", "deploy:ios_device", "deploy:android_physical"]
 
   @doc """
   Build a spec from a planned cell (`MobCi.Cell.plan/3`). The cell id is
@@ -64,6 +81,8 @@ defmodule MobCi.Lane.Ios.Spec do
   takes one to pin a simulator; without it the worker picks the booted
   simulator with the newest runtime at or above `opts[:min_runtime]`
   (default `#{@default_min_runtime}`) that it can lease.
+  `deploy:android_physical` takes an adb serial as `opts[:udid]` to pin a
+  phone; without it the worker picks the first attached phone it can lease.
   """
   @spec from_cell(map(), path(), keyword()) :: {:ok, t()} | {:error, String.t()}
   def from_cell(%{set: set, plugins: plugins, resolved: resolved}, path, opts \\ []) do
@@ -72,7 +91,7 @@ defmodule MobCi.Lane.Ios.Spec do
 
     cond do
       path not in @paths ->
-        {:error, "unknown iOS path #{inspect(path)} (expected: #{Enum.join(@paths, " | ")})"}
+        {:error, "unknown Mac lane path #{inspect(path)} (expected: #{Enum.join(@paths, " | ")})"}
 
       path == "deploy:ios_device" and not is_binary(udid) ->
         {:error, "#{path} needs a device udid"}

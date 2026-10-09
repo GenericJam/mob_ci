@@ -1,6 +1,8 @@
 defmodule MobCi.Lane.Ios do
   @moduledoc """
-  The iOS lane, NUC side. iOS builds cannot leave the Mac mini, so the NUC
+  The Mac lane, NUC side: iOS (simulators, Kevin's iPhone) and the physical
+  Android phones, all attached to the Mac mini. iOS builds cannot leave the
+  Mac, and the phones are shared there through `agent-lease`, so the NUC
   plans the cell (`MobCi.Cell.plan/3`: set, version row resolved to exact
   pins), runs the static gate, and hands each path to the Mac over ssh as a
   `MobCi.Lane.Ios.Spec`; `MobCi.Lane.Ios.Worker` runs it there and prints its
@@ -9,6 +11,8 @@ defmodule MobCi.Lane.Ios do
       mix ci.device --platform ios --set default --versions hex
       mix ci.device --platform ios --set singleton:mob_camera --versions master \\
         --paths deploy:ios_sim,release:ios
+      mix ci.device --platform android --paths deploy:android_physical \\
+        --set singleton:mob_nfc --versions hex
 
   Per run:
 
@@ -53,15 +57,20 @@ defmodule MobCi.Lane.Ios do
   @doc "Where the NUC keeps iOS logs and result files."
   def default_log_dir, do: Path.expand("~/mob_ci_logs/ios")
 
-  @doc "The udid a path runs on unless told otherwise (`nil`: the worker picks a simulator)."
+  @doc "The device id a path runs on unless told otherwise (`nil`: the worker picks)."
   @spec default_udid(Spec.path()) :: String.t() | nil
   def default_udid("deploy:ios_device"), do: @default_device
   def default_udid(_), do: nil
 
-  @doc "The udid for `path` given `opts[:sim_udid]` / `opts[:device_udid]`."
+  @doc """
+  The device id for `path` given `opts[:sim_udid]` / `opts[:device_udid]` /
+  `opts[:serial]` (an Android phone's adb serial; without one the worker
+  leases the first attached phone it can).
+  """
   @spec udid_for(Spec.path(), keyword()) :: String.t() | nil
   def udid_for("deploy:ios_sim", opts), do: opts[:sim_udid]
   def udid_for("deploy:ios_device", opts), do: opts[:device_udid] || default_udid("deploy:ios_device")
+  def udid_for("deploy:android_physical", opts), do: opts[:serial]
   def udid_for(_release, _opts), do: nil
 
   # ── commands (pure) ──────────────────────────────────────────────────────────
@@ -148,7 +157,7 @@ defmodule MobCi.Lane.Ios do
       "cell_id" => spec.cell_id,
       "set" => spec.set,
       "plugins" => Enum.map(spec.plugins, &to_string/1),
-      "platform" => "ios",
+      "platform" => Spec.platform(spec.path),
       "path" => spec.path,
       "udid" => spec.udid,
       "versions" => spec.versions,
@@ -245,7 +254,7 @@ defmodule MobCi.Lane.Ios do
 
     {:ok, run_id} =
       Store.record_run(store, %{
-        trigger: "ci.device --platform ios",
+        trigger: "ci.device --platform #{Enum.find_value(results, "ios", & &1["platform"])}",
         versions_row: row,
         host: Keyword.get(opts, :host, default_host()),
         started_at: Keyword.get(opts, :started_at),
@@ -254,23 +263,43 @@ defmodule MobCi.Lane.Ios do
       })
 
     for r <- results do
+      platform = String.to_existing_atom(r["platform"] || Spec.platform(r["path"]))
+
       singleton = fn plugin ->
-        Store.singleton_selftest(store, plugin, versions_row: row, platform: :ios, path: r["path"])
+        Store.singleton_selftest(store, plugin, versions_row: row, platform: platform, path: r["path"])
       end
 
       meta = %{
         set: cell.set,
-        platform: :ios,
+        platform: platform,
         path: r["path"],
         versions: r["versions"],
         duration_ms: r["duration_ms"],
-        log_path: r["log_path"]
+        log_path: r["log_path"],
+        device: device_record(r["device"])
       }
 
       Store.record_results(store, run_id, meta, settle_p12(to_outcome(r), cell.plugins, singleton))
     end
 
     {:ok, run_id}
+  end
+
+  @doc """
+  What the store keeps of the device a cell ran on (every row of the cell
+  carries it under `detail.device`): id, name, model and OS. nil for a cell
+  that never got a device (a release, a skip before the lease).
+  """
+  @spec device_record(map() | nil) :: map() | nil
+  def device_record(nil), do: nil
+
+  def device_record(device) do
+    %{
+      "id" => device["udid"],
+      "name" => device["name"],
+      "model" => device["model"] || device["name"],
+      "os" => device["os"] || (device["runtime"] && "iOS #{device["runtime"]}")
+    }
   end
 
   defp p12_result(items) do
@@ -339,7 +368,7 @@ defmodule MobCi.Lane.Ios do
     end
   end
 
-  # ── mix ci.device --platform ios ─────────────────────────────────────────────
+  # ── mix ci.device --platform ios | android ───────────────────────────────────
 
   @cli_switches [
     platform: :string,
@@ -348,6 +377,7 @@ defmodule MobCi.Lane.Ios do
     paths: :string,
     sim_udid: :string,
     device_udid: :string,
+    serial: :string,
     min_runtime: :string,
     host: :string,
     log_dir: :string,
@@ -355,8 +385,9 @@ defmodule MobCi.Lane.Ios do
   ]
 
   @doc """
-  `mix ci.device --platform ios …`: plan, run every path on the Mac, print a
-  line per cell and the result files. Exits 1 when a cell failed, 2 when one
+  `mix ci.device --platform ios …` (and `--platform android --paths
+  deploy:android_physical …`): plan, run every path on the Mac, print a line
+  per cell and the result files. Exits 1 when a cell failed, 2 when one
   errored.
   """
   @spec cli([String.t()], keyword()) :: :ok
@@ -366,19 +397,21 @@ defmodule MobCi.Lane.Ios do
     if rest != [] or invalid != [] do
       bad = Enum.map(invalid, &elem(&1, 0)) ++ rest
       Mix.raise(
-        "--platform ios takes --set --versions --paths --sim-udid --device-udid --min-runtime --host --log-dir --store; got #{Enum.join(bad, " ")}"
+        "the Mac lane takes --platform --set --versions --paths --sim-udid --device-udid --serial --min-runtime --host --log-dir --store; got #{Enum.join(bad, " ")}"
       )
     end
 
-    paths = parse_paths!(o[:paths])
+    platform = parse_platform!(o[:platform])
+    paths = parse_paths!(o[:paths], platform)
     cell = Cell.plan!(o[:set], o[:versions])
-    Mix.shell().info("── mob_ci iOS lane (#{o[:host] || default_host()}) ──\n" <> Cell.describe(cell))
+    Mix.shell().info("── mob_ci Mac lane, #{platform} (#{o[:host] || default_host()}) ──\n" <> Cell.describe(cell))
 
     run_opts =
       [
         host: o[:host],
         sim_udid: o[:sim_udid],
         device_udid: o[:device_udid],
+        serial: o[:serial],
         min_runtime: o[:min_runtime],
         log_dir: o[:log_dir]
       ]
@@ -414,17 +447,24 @@ defmodule MobCi.Lane.Ios do
     end
   end
 
-  @doc "`--paths` → the iOS paths (nil: all of them, in order)."
-  @spec parse_paths!(String.t() | nil) :: [Spec.path()]
-  def parse_paths!(nil), do: Spec.paths()
+  defp parse_platform!(nil), do: :ios
+  defp parse_platform!("ios"), do: :ios
+  defp parse_platform!("android"), do: :android
+  defp parse_platform!(other), do: Mix.raise("the Mac lane runs --platform ios | android, got #{inspect(other)}")
 
-  def parse_paths!(csv) do
+  @doc "`--paths` → the Mac lane's paths for `platform` (nil: all of them, in order)."
+  @spec parse_paths!(String.t() | nil, :ios | :android) :: [Spec.path()]
+  def parse_paths!(csv, platform \\ :ios)
+  def parse_paths!(nil, platform), do: Spec.paths(platform)
+
+  def parse_paths!(csv, platform) do
     paths = csv |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+    known = Spec.paths(platform)
 
-    case paths -- Spec.paths() do
+    case paths -- known do
       [] when paths != [] -> paths
       [] -> Mix.raise("--paths is empty")
-      bad -> Mix.raise("unknown iOS path(s) #{Enum.join(bad, ", ")} (expected: #{Enum.join(Spec.paths(), ", ")})")
+      bad -> Mix.raise("unknown #{platform} Mac lane path(s) #{Enum.join(bad, ", ")} (expected: #{Enum.join(known, ", ")})")
     end
   end
 

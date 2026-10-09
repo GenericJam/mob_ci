@@ -47,6 +47,17 @@ defmodule MobCi.Lane.Ios.SpecTest do
       assert spec!("release:ios").udid == nil
     end
 
+    test "the physical Android path runs on platform android, with or without a pinned serial" do
+      assert Spec.platform("deploy:android_physical") == "android"
+      assert Enum.map(Spec.paths(:ios), &Spec.platform/1) == ["ios", "ios", "ios"]
+
+      assert {:ok, %Spec{udid: nil}} = Spec.from_cell(@cell, "deploy:android_physical", stamp: "T1")
+
+      {:ok, pinned} = Spec.from_cell(@cell, "deploy:android_physical", stamp: "T1", udid: "ZY22DP6HFL")
+      {:ok, back} = Spec.from_json(Spec.to_json(pinned))
+      assert {back.path, back.udid} == {"deploy:android_physical", "ZY22DP6HFL"}
+    end
+
     test "anything but a schema-1 spec is refused with a reason" do
       good = JSON.decode!(Spec.to_json(spec!("deploy:ios_device")))
 
@@ -80,7 +91,7 @@ defmodule MobCi.Lane.Ios.SpecTest do
       assert {:ok, %Spec{udid: nil, min_runtime: "27.0"}} =
                Spec.from_cell(@cell, "deploy:ios_sim", stamp: "T1")
 
-      assert {:error, "unknown iOS path" <> _} = Spec.from_cell(@cell, "deploy:ios", udid: "U")
+      assert {:error, "unknown Mac lane path" <> _} = Spec.from_cell(@cell, "deploy:ios", udid: "U")
 
       assert {:error, "min runtime must look like 27.0" <> _} =
                Spec.from_cell(@cell, "deploy:ios_sim", min_runtime: "iOS 27")

@@ -233,7 +233,9 @@ defmodule MobCi.Store do
   single `error` summary row.
 
   `meta` carries `:set`, `:platform`, `:path`, `:versions`, `:duration_ms`
-  and `:log_path`.
+  and `:log_path`, and for a cell that ran on a known device `:device` (a
+  physical phone's id, name, model and OS), which every row keeps under
+  `detail.device`.
   """
   @spec record_results(t(), pos_integer(), map(), {:ok | :fail, [Result.t()]} | {:error, term(), Result.layer() | String.t()}) ::
           :ok
@@ -292,9 +294,15 @@ defmodule MobCi.Store do
   end
 
   defp cell_meta(meta, fields) do
-    meta
-    |> Map.take([:set, :platform, :path, :versions, :duration_ms, :log_path])
-    |> Map.merge(fields)
+    row =
+      meta
+      |> Map.take([:set, :platform, :path, :versions, :duration_ms, :log_path])
+      |> Map.merge(fields)
+
+    case meta[:device] do
+      nil -> row
+      device -> Map.update(row, :detail, %{device: device}, &Map.put(&1, :device, device))
+    end
   end
 
   @doc """
