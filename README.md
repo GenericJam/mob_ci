@@ -154,20 +154,29 @@ failed `random:<seed>` or sweep-subset cell into `priv/sets/<name>.exs`, a
 regression set the nightly runs from then on. Rationale:
 `decisions/2026-10-09-reports-matrix-branch-replay.md`.
 
-## iOS lane (`--platform ios`)
+## The Mac lane: iOS and the physical phones (`--platform ios | android`)
 
-iOS builds cannot leave the Mac mini, so the Mac is a thin ssh worker
-(`MobCi.Lane.Ios`, `worker/mac/`). The NUC plans the cell and runs the
-static gate, then per path ships a spec (set, plugins, exact pins) to
-`kevin@10.0.0.71`; the Mac generates an iOS host with the row's mob_new,
-builds it, runs it, deletes it and prints a result line the NUC collects and
-records in the store (platform `ios`).
+iOS builds cannot leave the Mac mini, and the physical phones (Kevin's
+iPhone, the two Motos) are plugged into it and shared there through
+`agent-lease`, so the Mac is a thin ssh worker (`MobCi.Lane.Ios`,
+`worker/mac/`). The NUC plans the cell and runs the static gate, then per
+path ships a spec (set, plugins, exact pins) to `kevin@10.0.0.71`; the Mac
+generates a host with the row's mob_new, builds it, runs it, deletes it and
+prints a result line the NUC collects and records in the store (platform
+`ios`, or `android` for the Motos).
 
 | path | what the worker does | layers |
 |---|---|---|
 | `deploy:ios_sim` | `mix mob.deploy --native --ios` on a leased simulator (newest iOS ≥ `--min-runtime`, default 27.0), grant, relaunch, P2, P12 self-tests, `Mob.Diag.health/0` delta | `build:deploy:ios_sim`, `boot`, `plugin:<p>`, `health` |
-| `deploy:ios_device` | the same on Kevin's iPhone; `skip: device_absent` when it isn't attached or leasable | `build:deploy:ios_device`, … |
+| `deploy:ios_device` | the same on Kevin's iPhone; `skip: device_absent` when it isn't attached or leasable. No pre-grant exists for a device: permission-gated self-tests skip `needs_user` | `build:deploy:ios_device`, … |
 | `release:ios` | `mix mob.regen_driver_tab --format c`, `mix mob.release --ios`, checks the signed `.ipa` | `build:release:ios` |
+| `deploy:android_physical` | `mix mob.deploy --native --device <serial>` (the farm's build) on the first attached Moto it can lease (newest Android first, `--serial` pins one), `adb shell pm grant` of the manifests' runtime permissions, relaunch, P2, P12, health; `skip: device_absent` when no phone is attached and free | `build:deploy:android_physical`, `boot`, `plugin:<p>`, `health` |
+
+`mix ci.device --platform android --paths deploy:android_physical --set … --versions …`
+runs the Moto path (`--paths deploy:android_physical` implies the platform;
+it can't be mixed with the farm's `deploy` / `release`). Every physical cell
+records the phone it ran on (id, name, model, OS) on each of its rows, under
+`detail.device`.
 
 Every path can also stop at `mob_new`, `elixir` or `doctor`; the worker's
 own problems are `error:disk` (under 5 GB free on `/`, the cell refuses to
@@ -175,10 +184,12 @@ start), `error:worker` and `error:ssh`. One host at a time; teardown always
 uninstalls, releases the lease and deletes the host, its `_build`, the cell's
 `TMPDIR` and the app's leftovers under `~/.mob` and the user temp dir. Logs
 and result JSON: `~/mob_ci_logs/ios/<cell_id>.{log,json}` on the NUC. On the
-Mac by hand: `mix ci.ios_cell --set default --versions hex --path deploy:ios_sim`.
+Mac by hand: `mix ci.ios_cell --set default --versions hex --path deploy:ios_sim`
+(or `--path deploy:android_physical`).
 
 Setup on the Mac: `worker/mac/README.md`. Rationale:
-`decisions/2026-10-08-ios-lane-mac-worker.md`.
+`decisions/2026-10-08-ios-lane-mac-worker.md`,
+`decisions/2026-10-09-physical-device-lane.md`.
 
 ## Triggers and the queue
 

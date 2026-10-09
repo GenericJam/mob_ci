@@ -1,8 +1,8 @@
 defmodule Mix.Tasks.Ci.IosCell do
-  @shortdoc "Run one iOS cell on this Mac (the Mac worker of the iOS lane)"
+  @shortdoc "Run one Mac lane cell on this Mac (iOS, or a physical Android phone)"
   @moduledoc """
-  The Mac side of the iOS lane (`MobCi.Lane.Ios.Worker`): one host at a time,
-  generated, built, run and deleted. The NUC starts it over ssh through
+  The Mac side of the Mac lane (`MobCi.Lane.Ios.Worker`): one host at a
+  time, generated, built, run and deleted. The NUC starts it over ssh through
   `worker/mac/mob_ci_ios_cell.sh` with a spec it planned; run by hand it plans
   the cell itself.
 
@@ -13,11 +13,14 @@ defmodule Mix.Tasks.Ci.IosCell do
       # by hand, on the Mac (paths run in order, one host each)
       mix ci.ios_cell --set default --versions hex --path deploy:ios_sim
       mix ci.ios_cell --set default --versions hex --path release:ios
+      mix ci.ios_cell --set singleton:mob_nfc --versions hex --path deploy:android_physical
 
   A `deploy:ios_sim` cell leases the booted simulator with the newest iOS
   runtime at or above `--min-runtime` (default 27.0: `simctl privacy grant
   photos` is ignored on 26.x) unless `--sim-udid` pins one;
-  `deploy:ios_device` uses `--device-udid` (default Kevin's iPhone).
+  `deploy:ios_device` uses `--device-udid` (default Kevin's iPhone);
+  `deploy:android_physical` leases the first attached Android phone it can,
+  newest Android first, unless `--serial` pins one.
 
   Each cell's result is printed as one line, `MOB_CI_RESULT <json>` (the line
   the NUC collects), and with `--out DIR` also written to
@@ -41,6 +44,7 @@ defmodule Mix.Tasks.Ci.IosCell do
     path: :keep,
     sim_udid: :string,
     device_udid: :string,
+    serial: :string,
     min_runtime: :string,
     out: :string,
     root: :string

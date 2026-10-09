@@ -1,27 +1,34 @@
 defmodule MobCi.Lane.Ios.Worker do
   @moduledoc """
-  Runs one iOS cell on the Mac mini (`mix ci.ios_cell`, which the NUC starts
-  over ssh through `worker/mac/mob_ci_ios_cell.sh`) and returns its result as
-  a JSON-able map.
+  Runs one Mac lane cell on the Mac mini (`mix ci.ios_cell`, which the NUC
+  starts over ssh through `worker/mac/mob_ci_ios_cell.sh`) and returns its
+  result as a JSON-able map. The Mac lane is every device attached to the
+  Mac: the iOS simulators, Kevin's iPhone, and the physical Android phones
+  (`deploy:android_physical`).
 
       step       what                                           layer on failure
       disk       df -k / has >= 5 GB free, or refuse            error:disk
       resolve    the spec's pins materialised on this Mac        error:worker
-      generate   MobCi.Host.generate(platform: :ios)             mob_new | elixir
+      generate   MobCi.Host.generate(platform: :ios | :android)  mob_new | elixir
       doctor     mix mob.doctor in the host                      doctor
       device     simulators: booted, iOS >= the spec's min_runtime,  boot (sim) | skip: device_absent
-                 newest runtime first; the iPhone: attached
+                 newest runtime first; the iPhone: attached;
+                 Android phones: `adb devices -l` over USB, newest
+                 Android first (or the spec's serial)
       lease      agent-lease acquire, first free candidate wins  boot (sim) | skip: device_absent
       build      mix mob.deploy --native --ios --device <udid>   build:<path>
-                 (release:ios: mix mob.regen_driver_tab --format c,
-                  mix mob.release --ios)
+                 (Android: mix mob.deploy --native --device <serial>,
+                  as the farm lane builds; release:ios: mix
+                  mob.regen_driver_tab --format c, mix mob.release --ios)
       artifact   the .ipa is a signed Payload/*.app zip          build:release:ios
       probe      worker/mac/probe.exs in the host: grant, relaunch,
                  attach, health, self-tests, health              error:worker
 
   A step that fails stops the cell (`fail` for a finding, `error` when the
-  worker itself could not run it, `skip` for an absent iPhone); a step that
-  raises is an `error` at the layer its own failure would have had.
+  worker itself could not run it, `skip` for an absent or busy phone); a
+  step that raises is an `error` at the layer its own failure would have had.
+  A physical cell records the device it ran on (`"device"`: id, name, model,
+  OS).
 
   The probe's facts become invariants (`invariants/2`): `p2` (the node came
   up, layer `boot`), one `p12:<plugin>` per activated plugin (layer
@@ -59,18 +66,50 @@ defmodule MobCi.Lane.Ios.Worker do
   @release_bundle_id "com.genericjam.io"
   @probe_script Path.expand("../../../../worker/mac/probe.exs", __DIR__)
   @selftest_timeout_ms 30_000
+  # One `adb shell` for what a physical cell records about its phone
+  # (`parse_android_props/2`).
+  @android_props "getprop ro.product.manufacturer; getprop ro.product.model; " <>
+                   "getprop ro.build.version.release; getprop ro.build.version.sdk"
 
   @doc "Free space (KB on `/`) below which a cell refuses to start."
   def min_free_kb, do: @min_free_kb
 
-  @doc "The bundle id a path builds with."
+  @doc "The bundle id an iOS path builds with."
   @spec bundle_id(Spec.path()) :: String.t()
   def bundle_id("release:ios"), do: @release_bundle_id
   def bundle_id(_deploy), do: @deploy_bundle_id
 
+  @doc """
+  The id the installed app goes by on the cell's device: the iOS bundle id,
+  or on Android the generated host's package (`com.example.ci_*`, mob_ci's
+  alone, so teardown's uninstall only removes what the cell installed).
+  """
+  @spec app_id(Spec.path(), map() | nil) :: String.t()
+  def app_id("deploy:android_physical", %{pkg: pkg}), do: pkg
+  def app_id(path, _host), do: bundle_id(path)
+
   @doc "Extra `config :mob_dev` entries for the host's mob.exs on `path`."
   @spec mob_exs(Spec.path()) :: keyword()
+  def mob_exs("deploy:android_physical"), do: []
   def mob_exs(path), do: [ios_bundle_id: bundle_id(path), ios_team_id: @team_id]
+
+  @doc "The platform `MobCi.Host.generate/4` generates the host for."
+  @spec host_platform(Spec.path()) :: :ios | :android
+  def host_platform(path), do: String.to_existing_atom(Spec.platform(path))
+
+  @doc "`agent-lease acquire` argv for a device of `path`: iOS by `--udid`, Android by `--serial`."
+  @spec lease_args(String.t(), Spec.path(), String.t()) :: [String.t()]
+  def lease_args(session, "deploy:android_physical", serial), do: ["acquire", session, "--serial", serial]
+  def lease_args(session, _ios, udid), do: ["acquire", session, "--udid", udid]
+
+  @doc """
+  The `mix` argv that builds and installs a deploy path on device `id`.
+  Android uses the farm lane's `MobCi.Build.deploy_args/1` (mob_dev picks
+  the phone's ABI from the serial).
+  """
+  @spec deploy_args(Spec.path(), String.t()) :: [String.t()]
+  def deploy_args("deploy:android_physical", serial), do: MobCi.Build.deploy_args(serial)
+  def deploy_args(_ios, udid), do: ["mob.deploy", "--native", "--ios", "--device", udid]
 
   @doc "Where cells' scratch dirs live by default: `$TMPDIR/mob_ci_ios`."
   def default_root, do: Path.join(System.tmp_dir!(), "mob_ci_ios")
@@ -82,33 +121,103 @@ defmodule MobCi.Lane.Ios.Worker do
 
   @doc """
   The booted, available iOS simulators in `xcrun simctl list devices booted -j`
-  output, as `%{"udid", "name", "runtime"}` with the runtime as `"27.0"`.
+  output, as `%{"udid", "name", "model", "runtime", "os"}` with the runtime as
+  `"27.0"`.
   """
   @spec parse_simulators(String.t()) :: [map()]
   def parse_simulators(json) do
     for {runtime_id, devices} <- JSON.decode!(json)["devices"] || %{},
         [_, major, minor] <- [Regex.run(~r/SimRuntime\.iOS-(\d+)-(\d+)$/, runtime_id)],
         %{"state" => "Booted"} = d <- devices,
-        d["isAvailable"] != false,
-        do: %{"udid" => d["udid"], "name" => d["name"], "runtime" => "#{major}.#{minor}"}
+        d["isAvailable"] != false do
+      runtime = "#{major}.#{minor}"
+      %{"udid" => d["udid"], "name" => d["name"], "model" => d["name"], "runtime" => runtime, "os" => "iOS #{runtime}"}
+    end
   end
 
   @doc """
   The physical devices in `xcrun devicectl list devices --json-output` output,
-  as `%{"udid", "name", "runtime", "attached"}` (attached: the tunnel is up).
+  as `%{"udid", "name", "model", "runtime", "os", "attached"}` (model: the
+  marketing name, e.g. "iPhone SE (3rd generation)"; attached: the tunnel is
+  up).
   """
   @spec parse_physical(String.t()) :: [map()]
   def parse_physical(json) do
     for %{"hardwareProperties" => %{"reality" => "physical"} = hw} = d <-
           get_in(JSON.decode!(json), ["result", "devices"]) || [] do
+      runtime = get_in(d, ["deviceProperties", "osVersionNumber"])
+
       %{
         "udid" => hw["udid"],
         "name" => get_in(d, ["deviceProperties", "name"]),
-        "runtime" => get_in(d, ["deviceProperties", "osVersionNumber"]),
+        "model" => hw["marketingName"] || hw["productType"],
+        "runtime" => runtime,
+        "os" => runtime && "iOS #{runtime}",
         # CoreDevice opens tunnels on demand: an idle wired iPhone reports
         # "disconnected"; only "unavailable" (or no state) means unreachable.
         "attached" => get_in(d, ["connectionProperties", "tunnelState"]) not in [nil, "unavailable"]
       }
+    end
+  end
+
+  @doc """
+  The physical Android phones in `adb devices -l` output: serials in state
+  `device` on a USB transport. Emulators, `host:port` network devices (the
+  NUC's redroids look like that) and unauthorized or offline phones are
+  not candidates.
+  """
+  @spec parse_adb_devices(String.t()) :: [String.t()]
+  def parse_adb_devices(out) do
+    for line <- String.split(out, "\n"),
+        [serial, "device" | fields] <- [String.split(line)],
+        Enum.any?(fields, &String.starts_with?(&1, "usb:")),
+        not String.starts_with?(serial, "emulator-"),
+        do: serial
+  end
+
+  @doc """
+  One Android phone from `getprop` output for `ro.product.manufacturer`,
+  `ro.product.model`, `ro.build.version.release` and `ro.build.version.sdk`
+  (one per line, in that order), as `%{"udid" => serial, "name", "model",
+  "runtime", "os", "sdk", "attached"}`.
+  """
+  @spec parse_android_props(String.t(), String.t()) :: map()
+  def parse_android_props(serial, out) do
+    lines = out |> String.split("\n") |> Enum.map(&String.trim/1)
+    [maker, model, release, sdk] = Enum.take(lines ++ List.duplicate("", 4), 4)
+    model = if model == "", do: serial, else: model
+
+    %{
+      "udid" => serial,
+      "name" => model,
+      "model" => if(maker == "", do: model, else: "#{maker} #{model}"),
+      "runtime" => release,
+      "os" => "Android #{release}",
+      "sdk" => sdk_level(sdk),
+      "attached" => true
+    }
+  end
+
+  defp sdk_level(sdk) do
+    case Integer.parse(sdk) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  @doc """
+  The Android phones a `deploy:android_physical` cell may lease, in the order
+  to try them: newest Android first, or exactly the phone `serial` names.
+  `{:skip, reason}` when there is none (`device_absent`).
+  """
+  @spec pick_android([map()], String.t() | nil) :: {:ok, [map()]} | {:skip, String.t()}
+  def pick_android([], nil), do: {:skip, "device_absent: no physical Android phone is attached"}
+  def pick_android(phones, nil), do: {:ok, Enum.sort_by(phones, &(&1["sdk"] || 0), :desc)}
+
+  def pick_android(phones, serial) do
+    case Enum.filter(phones, &(&1["udid"] == serial)) do
+      [] -> {:skip, "device_absent: #{serial} is not attached"}
+      one -> {:ok, one}
     end
   end
 
@@ -151,8 +260,8 @@ defmodule MobCi.Lane.Ios.Worker do
   @doc """
   What a build leaves outside the scratch dir under the app's own name:
 
-    * mob_dev stages the app's BEAMs in `~/.mob/cache/otp-ios-*/<app>` and
-      `~/.mob/runtime/ios-*/<app>` (~40 MB each);
+    * mob_dev stages the app's BEAMs in `~/.mob/cache/otp-<platform>-*/<app>`
+      and `~/.mob/runtime/<platform>-*/<app>` (~40 MB each);
     * `ios/release_device.sh` compiles in `BUILD_DIR=$(mktemp -d)` and never
       removes it, and macOS `mktemp -d` ignores `TMPDIR` (it uses the
       per-user `DARWIN_USER_TEMP_DIR`), so each release leaves a ~90 MB
@@ -172,8 +281,8 @@ defmodule MobCi.Lane.Ios.Worker do
         do: Enum.filter(Path.wildcard(Path.join(darwin_tmp, "tmp.*")), &File.dir?(Path.join(&1, bundle))),
         else: []
 
-    Path.wildcard(Path.join([mob_home, "cache", "otp-ios-*", app])) ++
-      Path.wildcard(Path.join([mob_home, "runtime", "ios-*", app])) ++ leaked
+    Path.wildcard(Path.join([mob_home, "cache", "otp-*", app])) ++
+      Path.wildcard(Path.join([mob_home, "runtime", "*", app])) ++ leaked
   end
 
   # ── pure ─────────────────────────────────────────────────────────────────────
@@ -307,10 +416,11 @@ defmodule MobCi.Lane.Ios.Worker do
       "cell_id" => spec.cell_id,
       "set" => spec.set,
       "plugins" => Enum.map(spec.plugins, &to_string/1),
-      "platform" => "ios",
+      "platform" => Spec.platform(spec.path),
       "path" => spec.path,
-      # The device the cell ran on, with its runtime (`"27.0"`): a simulator
-      # the worker picked, or the iPhone.
+      # The device the cell ran on (`"udid"` — an adb serial on Android —
+      # `"name"`, `"model"`, `"os"`, `"runtime"`): a simulator the worker
+      # picked, the iPhone, or an Android phone.
       "udid" => (state.device || %{})["udid"] || spec.udid,
       "device" => state.device,
       "min_runtime" => spec.min_runtime,
@@ -416,7 +526,7 @@ defmodule MobCi.Lane.Ios.Worker do
   end
 
   defp step(:generate, %{spec: spec} = state, deps) do
-    opts = [platform: :ios, root: state.scratch, mob_exs: mob_exs(spec.path), fresh: true]
+    opts = [platform: host_platform(spec.path), root: state.scratch, mob_exs: mob_exs(spec.path), fresh: true]
 
     case deps.generate.(Sets.parse!(spec.set), spec.plugins, state.resolved, opts) do
       {:ok, host} -> {:ok, %{state | host: host}, host.dir}
@@ -434,10 +544,17 @@ defmodule MobCi.Lane.Ios.Worker do
   defp step(:device, %{spec: %{path: "deploy:ios_device", udid: udid}} = state, deps) do
     case Enum.find(deps.physical_devices.(), &(&1["udid"] == udid)) do
       %{"attached" => true} = device ->
-        {:ok, %{state | candidates: [device]}, "#{device["name"]} (iOS #{device["runtime"]})"}
+        {:ok, %{state | candidates: [device]}, device_label(device)}
 
       _ ->
         {:skip, "device_absent: #{udid} is not attached"}
+    end
+  end
+
+  defp step(:device, %{spec: %{path: "deploy:android_physical", udid: serial}} = state, deps) do
+    case pick_android(deps.android_devices.(), serial) do
+      {:ok, phones} -> {:ok, %{state | candidates: phones}, Enum.map_join(phones, ", ", &device_label/1)}
+      {:skip, reason} -> {:skip, reason}
     end
   end
 
@@ -452,10 +569,11 @@ defmodule MobCi.Lane.Ios.Worker do
   end
 
   # Try the candidates in order (newest runtime first); the first free one is
-  # the cell's device.
+  # the cell's device. A phone (iPhone or Android) that is held elsewhere is
+  # `skip: device_absent`; a simulator that can't be leased is a boot error.
   defp step(:lease, %{spec: spec, candidates: candidates} = state, deps) do
     Enum.reduce_while(candidates, [], fn device, refused ->
-      case deps.lease.(session(spec), device["udid"]) do
+      case deps.lease.(lease_args(session(spec), spec.path, device["udid"])) do
         :ok -> {:halt, {:ok, %{state | leased: true, device: device}, device_label(device)}}
         {:error, why} -> {:cont, [{device, why} | refused]}
       end
@@ -467,9 +585,10 @@ defmodule MobCi.Lane.Ios.Worker do
       refused ->
         why = refused |> Enum.reverse() |> Enum.map_join("; ", fn {d, w} -> "#{device_label(d)}: #{w}" end)
 
-        if spec.path == "deploy:ios_device",
-          do: {:skip, "device_absent: #{spec.udid} is not leasable (#{why})"},
-          else: {:error, "boot", "no simulator could be leased: #{why}"}
+        case spec.path do
+          "deploy:ios_sim" -> {:error, "boot", "no simulator could be leased: #{why}"}
+          _phone -> {:skip, "device_absent: no attached phone is leasable (#{why})"}
+        end
     end
   end
 
@@ -487,7 +606,7 @@ defmodule MobCi.Lane.Ios.Worker do
   end
 
   defp step(:build, %{spec: spec, device: %{"udid" => udid}} = state, deps) do
-    case deps.mix.(["mob.deploy", "--native", "--ios", "--device", udid], state.host.dir) do
+    case deps.mix.(deploy_args(spec.path, udid), state.host.dir) do
       {_tail, 0} -> {:ok, state}
       {tail, code} -> {:fail, "build:#{spec.path}", "mix mob.deploy exited #{code}: #{tail}"}
     end
@@ -512,7 +631,7 @@ defmodule MobCi.Lane.Ios.Worker do
   defp step(:probe, %{spec: spec, device: %{"udid" => udid}} = state, deps) do
     out = Path.join(state.scratch, "probe.json")
 
-    case deps.probe.(state.host.dir, udid, out) do
+    case deps.probe.(state.host.dir, Spec.platform(spec.path), udid, out) do
       {:ok, facts} ->
         invariants = invariants(facts, spec.plugins)
         {:ok, %{state | invariants: invariants}, summary(invariants)}
@@ -522,7 +641,7 @@ defmodule MobCi.Lane.Ios.Worker do
     end
   end
 
-  defp device_label(d), do: "#{d["name"]} #{d["udid"]} (iOS #{d["runtime"]})"
+  defp device_label(d), do: "#{d["name"]} #{d["udid"]} (#{d["os"] || "iOS #{d["runtime"]}"})"
 
   defp summary(invariants),
     do: Enum.map_join(invariants, ", ", &"#{&1["id"]} #{&1["status"]}")
@@ -532,7 +651,10 @@ defmodule MobCi.Lane.Ios.Worker do
   defp teardown(%{spec: spec} = state, deps) do
     uninstall =
       if state.leased,
-        do: [{"uninstall", fn -> deps.uninstall.(spec.path, state.device["udid"], bundle_id(spec.path)) end}],
+        do: [
+          {"uninstall",
+           fn -> deps.uninstall.(spec.path, state.device["udid"], app_id(spec.path, state.host)) end}
+        ],
         else: []
 
     release =
@@ -596,15 +718,27 @@ defmodule MobCi.Lane.Ios.Worker do
           File.rm(out)
         end
       end,
-      lease: fn session, udid ->
-        case cmd("agent-lease", ["acquire", session, "--udid", udid]) do
+      android_devices: fn ->
+        {out, 0} = System.cmd("adb", ["devices", "-l"], stderr_to_stdout: true)
+
+        for serial <- parse_adb_devices(out) do
+          {props, _} = System.cmd("adb", ["-s", serial, "shell", @android_props], stderr_to_stdout: true)
+          parse_android_props(serial, props)
+        end
+      end,
+      lease: fn argv ->
+        case cmd("agent-lease", argv) do
           {_, 0} -> :ok
           {tail, code} -> {:error, "agent-lease exited #{code}: #{String.trim(tail)}"}
         end
       end,
       release: fn session -> cmd("agent-lease", ["release", session]) end,
-      uninstall: &uninstall/3,
-      probe: &probe/3,
+      uninstall: fn path, id, app ->
+        {exe, args} = uninstall_command(path, id, app)
+        if path == "deploy:ios_sim", do: System.cmd("xcrun", ["simctl", "terminate", id, app], stderr_to_stdout: true)
+        cmd(exe, args)
+      end,
+      probe: &probe/4,
       inspect_ipa: &inspect_ipa/1,
       rm_rf: fn path -> File.rm_rf!(path) end,
       mob_home: Path.expand("~/.mob"),
@@ -627,17 +761,16 @@ defmodule MobCi.Lane.Ios.Worker do
     {tee.tail, code}
   end
 
-  defp uninstall("deploy:ios_device", udid, bundle_id) do
-    cmd("xcrun", ["devicectl", "device", "uninstall", "app", "--device", udid, bundle_id])
-  end
+  @doc "The command that removes the cell's app from its device: `{exe, argv}`."
+  @spec uninstall_command(Spec.path(), String.t(), String.t()) :: {String.t(), [String.t()]}
+  def uninstall_command("deploy:ios_device", udid, bundle_id),
+    do: {"xcrun", ["devicectl", "device", "uninstall", "app", "--device", udid, bundle_id]}
 
-  defp uninstall(_sim, udid, bundle_id) do
-    _ = System.cmd("xcrun", ["simctl", "terminate", udid, bundle_id], stderr_to_stdout: true)
-    cmd("xcrun", ["simctl", "uninstall", udid, bundle_id])
-  end
+  def uninstall_command("deploy:android_physical", serial, pkg), do: {"adb", ["-s", serial, "uninstall", pkg]}
+  def uninstall_command("deploy:ios_sim", udid, bundle_id), do: {"xcrun", ["simctl", "uninstall", udid, bundle_id]}
 
-  defp probe(host_dir, udid, out) do
-    args = ["run", "--no-start", @probe_script, udid, out, Integer.to_string(@selftest_timeout_ms)]
+  defp probe(host_dir, platform, id, out) do
+    args = ["run", "--no-start", @probe_script, platform, id, out, Integer.to_string(@selftest_timeout_ms)]
 
     case cmd("mix", args, cd: host_dir, env: [{"MIX_ENV", "dev"}]) do
       {_tail, 0} ->

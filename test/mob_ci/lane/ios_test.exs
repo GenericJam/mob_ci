@@ -215,10 +215,18 @@ defmodule MobCi.Lane.IosTest do
     end
   end
 
-  test "--paths parses the iOS paths and refuses anything else" do
+  test "--paths parses one platform's Mac lane paths and refuses anything else" do
     assert Ios.parse_paths!(nil) == ["deploy:ios_sim", "deploy:ios_device", "release:ios"]
     assert Ios.parse_paths!("release:ios, deploy:ios_sim") == ["release:ios", "deploy:ios_sim"]
-    assert_raise Mix.Error, ~r/unknown iOS path\(s\) deploy:android/, fn -> Ios.parse_paths!("deploy:android") end
+    assert_raise Mix.Error, ~r/unknown ios Mac lane path\(s\) deploy:android/, fn -> Ios.parse_paths!("deploy:android") end
+
+    assert Ios.parse_paths!(nil, :android) == ["deploy:android_physical"]
+    # The farm's redroid paths are not the Mac's, and an iOS run takes no Android path.
+    assert_raise Mix.Error, ~r/unknown android Mac lane path\(s\) deploy \(expected: deploy:android_physical\)/, fn ->
+      Ios.parse_paths!("deploy:android_physical,deploy", :android)
+    end
+
+    assert_raise Mix.Error, ~r/deploy:android_physical/, fn -> Ios.parse_paths!("deploy:android_physical") end
   end
 
   describe "the results store" do
@@ -276,6 +284,59 @@ defmodule MobCi.Lane.IosTest do
       after
         MobCi.Store.close(store)
       end
+    end
+
+    test "a physical Android cell is stored as platform android, every row naming the phone it ran on", %{tmp_dir: dir} do
+      {:ok, store} = MobCi.Store.open(Path.join(dir, "results.sqlite"))
+
+      moto = %{
+        "udid" => "ZY22DP6HFL",
+        "name" => "moto g power (2021)",
+        "model" => "motorola moto g power (2021)",
+        "runtime" => "11",
+        "os" => "Android 11",
+        "sdk" => 30,
+        "attached" => true
+      }
+
+      try do
+        result = p12_fail(spec("deploy:android_physical")) |> Map.put("device", moto)
+        assert result["platform"] == "android"
+
+        # mob_camera passed alone on the same phone path; the lookup must use
+        # the result's platform (android), or it finds nothing.
+        {:ok, seed} = MobCi.Store.record_run(store, %{trigger: "seed", versions_row: "hex"})
+
+        MobCi.Store.record_cell(store, seed, %{
+          set: "singleton:mob_camera",
+          platform: :android,
+          path: "deploy:android_physical",
+          invariant: "p12:mob_camera",
+          outcome: :pass
+        })
+
+        cell = %{@cell | plugins: [:mob_camera, :mob_location]}
+        {:ok, run_id} = Ios.record(store, cell, [result], host: "kevin@mac")
+        rows = MobCi.Store.query(store, run_id: run_id)
+
+        assert Enum.all?(rows, &(&1.platform == "android" and &1.path == "deploy:android_physical"))
+        assert hd(rows).trigger == "ci.device --platform android"
+
+        device = %{"id" => "ZY22DP6HFL", "name" => "moto g power (2021)", "model" => "motorola moto g power (2021)", "os" => "Android 11"}
+        assert Enum.all?(rows, &(&1.detail["device"] == device))
+
+        # Passing alone on the phone: the failure in company is a conflict.
+        assert %{layer: "conflict:mob_camera,mob_location"} = Enum.find(rows, &(&1.invariant == "p12:mob_camera"))
+      after
+        MobCi.Store.close(store)
+      end
+    end
+
+    test "the store keeps a device's id, name, model and OS; a simulator's OS is its runtime" do
+      assert Ios.device_record(nil) == nil
+
+      assert Ios.device_record(%{"udid" => "MID", "name" => "iPhone 17", "runtime" => "27.0"}) ==
+               %{"id" => "MID", "name" => "iPhone 17", "model" => "iPhone 17", "os" => "iOS 27.0"}
     end
   end
 end

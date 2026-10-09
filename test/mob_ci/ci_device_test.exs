@@ -37,4 +37,11 @@ defmodule Mix.Tasks.Ci.DeviceTest do
       assert Device.resolve_set("mob_touch", :sloppy_joe) == [:mob_touch]
     end
   end
+
+  test "the physical Android path goes to the Mac lane; the farm's paths stay on the farm" do
+    assert Device.mac_lane_paths?("deploy:android_physical")
+    assert Device.mac_lane_paths?("deploy, deploy:android_physical")
+    refute Device.mac_lane_paths?("deploy,release")
+    refute Device.mac_lane_paths?(nil)
+  end
 end

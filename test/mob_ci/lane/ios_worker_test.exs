@@ -47,8 +47,8 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       physical_devices: fn ->
         [%{"udid" => "UDID-1", "name" => "Kevin's iPhone", "runtime" => "26.5.2", "attached" => true}]
       end,
-      lease: fn session, udid ->
-        send(me, {:lease, session, udid})
+      lease: fn argv ->
+        send(me, {:lease, argv})
         :ok
       end,
       release: fn session ->
@@ -59,7 +59,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
         send(me, {:uninstall, udid, bundle})
         {"", 0}
       end,
-      probe: fn _dir, _udid, _out -> {:ok, facts()} end,
+      probe: fn _dir, _platform, _udid, _out -> {:ok, facts()} end,
       inspect_ipa: fn ipa -> {:ok, %{"name" => Path.basename(ipa), "bytes" => 3, "sha256" => "x", "app" => "A.app"}} end,
       rm_rf: fn path ->
         send(me, {:rm_rf, path})
@@ -114,7 +114,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       assert r["reason"] =~ "4.0 GB free"
       assert step_names(r) == [{"disk", "error"}]
       refute_received {:generate, _}
-      refute_received {:lease, _, _}
+      refute_received {:lease, _}
     end
   end
 
@@ -185,7 +185,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
         deps(%{
           simulators: fn -> Worker.parse_simulators(@simctl) end,
           # The newest is held by another agent: the next newest is used.
-          lease: fn _session, udid ->
+          lease: fn ["acquire", _session, "--udid", udid] ->
             send(me, {:lease_try, udid})
             if udid == "NEW", do: {:error, "DEVICE_IN_USE"}, else: :ok
           end
@@ -194,7 +194,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       r = run(auto, root, d)
 
       assert r["outcome"] == "pass"
-      assert r["device"] == %{"udid" => "MID", "name" => "iPhone 17", "runtime" => "27.0"}
+      assert r["device"] == %{"udid" => "MID", "name" => "iPhone 17", "model" => "iPhone 17", "runtime" => "27.0", "os" => "iOS 27.0"}
       assert r["udid"] == "MID"
       assert_received {:lease_try, "NEW"}
       assert_received {:lease_try, "MID"}
@@ -206,10 +206,10 @@ defmodule MobCi.Lane.Ios.WorkerTest do
     test "the iPhone's identity and OS come from devicectl's JSON" do
       json = ~S"""
       {"result": {"devices": [
-        {"hardwareProperties": {"reality": "physical", "udid": "00008110-X"},
+        {"hardwareProperties": {"reality": "physical", "udid": "00008110-X", "marketingName": "iPhone SE (3rd generation)"},
          "deviceProperties": {"name": "Kevin's iPhone", "osVersionNumber": "26.5.2"},
          "connectionProperties": {"tunnelState": "disconnected"}},
-        {"hardwareProperties": {"reality": "physical", "udid": "OTHER"},
+        {"hardwareProperties": {"reality": "physical", "udid": "OTHER", "productType": "iPad17,4"},
          "deviceProperties": {"name": "iPad", "osVersionNumber": "27.0"},
          "connectionProperties": {"tunnelState": "unavailable"}},
         {"hardwareProperties": {"reality": "simulated", "udid": "SIM"},
@@ -219,8 +219,15 @@ defmodule MobCi.Lane.Ios.WorkerTest do
 
       assert Worker.parse_physical(json) == [
                # An idle wired iPhone's tunnel is "disconnected" until used: still attached.
-               %{"udid" => "00008110-X", "name" => "Kevin's iPhone", "runtime" => "26.5.2", "attached" => true},
-               %{"udid" => "OTHER", "name" => "iPad", "runtime" => "27.0", "attached" => false}
+               %{
+                 "udid" => "00008110-X",
+                 "name" => "Kevin's iPhone",
+                 "model" => "iPhone SE (3rd generation)",
+                 "runtime" => "26.5.2",
+                 "os" => "iOS 26.5.2",
+                 "attached" => true
+               },
+               %{"udid" => "OTHER", "name" => "iPad", "model" => "iPad17,4", "runtime" => "27.0", "os" => "iOS 27.0", "attached" => false}
              ]
     end
 
@@ -363,7 +370,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
              _, _ -> {"", 0}
            end
          }, "fail", "build:deploy:ios_sim"},
-        {"probe", %{probe: fn _, _, _ -> {:error, "probe exited 1"} end}, "error", "error:worker"}
+        {"probe", %{probe: fn _, _, _, _ -> {:error, "probe exited 1"} end}, "error", "error:worker"}
       ]
 
       for {step, override, outcome, layer} <- cases do
@@ -377,7 +384,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
 
     test "the node not coming up is p2 at boot; a self-test failure names the plugin; a health rise is health", %{tmp_dir: root} do
       down = facts(%{"alive" => false, "node" => nil, "connect_error" => ":timeout"})
-      r = run(spec("deploy:ios_sim"), root, deps(%{probe: fn _, _, _ -> {:ok, down} end}))
+      r = run(spec("deploy:ios_sim"), root, deps(%{probe: fn _, _, _, _ -> {:ok, down} end}))
       assert {r["outcome"], r["layer"]} == {"fail", "boot"}
       assert r["reason"] =~ "p2: node did not come up: :timeout"
 
@@ -388,18 +395,18 @@ defmodule MobCi.Lane.Ios.WorkerTest do
           ]
         })
 
-      r = run(spec("deploy:ios_sim"), root, deps(%{probe: fn _, _, _ -> {:ok, failing} end}))
+      r = run(spec("deploy:ios_sim"), root, deps(%{probe: fn _, _, _, _ -> {:ok, failing} end}))
       # In company the plugin is only provisionally to blame (the NUC compares
       # with its singleton cell).
       assert {r["outcome"], r["layer"]} == {"fail", "plugin:mob_camera?"}
 
       r =
-        run(spec("deploy:ios_sim", [:mob_camera]), root, deps(%{probe: fn _, _, _ -> {:ok, failing} end}))
+        run(spec("deploy:ios_sim", [:mob_camera]), root, deps(%{probe: fn _, _, _, _ -> {:ok, failing} end}))
 
       assert r["layer"] == "plugin:mob_camera"
 
       sick = facts(%{"findings" => [%{"kind" => "failure", "message" => "store :x lost rose 0 → 2"}]})
-      r = run(spec("deploy:ios_sim"), root, deps(%{probe: fn _, _, _ -> {:ok, sick} end}))
+      r = run(spec("deploy:ios_sim"), root, deps(%{probe: fn _, _, _, _ -> {:ok, sick} end}))
       assert {r["outcome"], r["layer"]} == {"fail", "health"}
     end
   end
@@ -410,15 +417,15 @@ defmodule MobCi.Lane.Ios.WorkerTest do
 
       assert r["outcome"] == "skip"
       assert r["reason"] =~ "device_absent"
-      refute_received {:lease, _, _}
+      refute_received {:lease, _}
       refute_received {:uninstall, _, _}
     end
 
     test "an iPhone another session holds is a skip: device_absent, and is not uninstalled", %{tmp_dir: root} do
-      r = run(spec("deploy:ios_device"), root, deps(%{lease: fn _, _ -> {:error, "DEVICE_IN_USE"} end}))
+      r = run(spec("deploy:ios_device"), root, deps(%{lease: fn _ -> {:error, "DEVICE_IN_USE"} end}))
 
       assert r["outcome"] == "skip"
-      assert r["reason"] =~ ~r/^device_absent: UDID-1 is not leasable \(.*DEVICE_IN_USE\)$/
+      assert r["reason"] =~ ~r/^device_absent: no attached phone is leasable \(.*UDID-1.*DEVICE_IN_USE\)$/
       refute_received {:uninstall, _, _}
       assert_received {:release, _}
     end
@@ -448,7 +455,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       assert_received {:mix, ["mob.regen_driver_tab", "--format", "c"]}
       assert_received {:mix, ["mob.release", "--ios"]}
       assert r["artifacts"]["ipa"]["name"] == "CiDefaultHex.ipa"
-      refute_received {:lease, _, _}
+      refute_received {:lease, _}
       refute File.exists?(Path.join(root, r["cell_id"]))
     end
 
@@ -473,6 +480,134 @@ defmodule MobCi.Lane.Ios.WorkerTest do
 
       assert {:error, "Payload/A.app is not signed" <> _} = Worker.inspect_ipa(unsigned)
       assert {:error, "not a zip" <> _} = Worker.inspect_ipa(Path.join(dir, "N.ipa"))
+    end
+  end
+
+  describe "a deploy:android_physical cell" do
+    # `adb devices -l` on the Mac on 2026-10-09, plus the shapes that must not
+    # be taken for a phone.
+    @adb_devices """
+    List of devices attached
+    ZY22DP6HFL             device usb:3-1.1 product:borneo_retail model:moto_g_power__2021_ device:borneo transport_id:42
+    ZY22K6BSJM             device usb:3-1.2 product:devonf_g model:moto_g_power_5G___2024 device:devonf transport_id:44
+    emulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 device:emu64a transport_id:52
+    127.0.0.1:5556         device product:redroid_x86_64_only model:redroid13_x86_64_only device:redroid_x86_64_only transport_id:1
+    ZY22UNAUTH             unauthorized usb:3-1.3 transport_id:45
+    ZY22OFFLIN             offline usb:3-1.4 transport_id:46
+
+    """
+
+    @moto_2021 Worker.parse_android_props("ZY22DP6HFL", "motorola\nmoto g power (2021)\n11\n30\n")
+    @moto_2024 Worker.parse_android_props("ZY22K6BSJM", "motorola\nmoto g power 5G - 2024\n15\n35\n")
+
+    defp android_spec(serial \\ nil, plugins \\ [:mob_nfc]) do
+      cell = %{set: "singleton:mob_nfc", plugins: plugins, resolved: @resolved}
+      {:ok, spec} = Spec.from_cell(cell, "deploy:android_physical", stamp: "T1", udid: serial)
+      spec
+    end
+
+    defp android_deps(overrides \\ %{}) do
+      me = self()
+
+      deps(
+        Map.merge(
+          %{
+            android_devices: fn -> [@moto_2021, @moto_2024] end,
+            generate: fn _set, _plugins, _resolved, opts ->
+              send(me, {:generate, opts})
+              dir = Path.join(opts[:root], "ci_singleton_mob_nfc_hex")
+              File.mkdir_p!(dir)
+              {:ok, %{dir: dir, app: :ci_singleton_mob_nfc_hex, pkg: "com.example.ci_singleton_mob_nfc_hex"}}
+            end,
+            probe: fn _dir, platform, serial, _out ->
+              send(me, {:probe, platform, serial})
+              {:ok, facts(%{"entries" => [%{"plugin" => "mob_nfc", "status" => "pass", "ms" => 40}]})}
+            end
+          },
+          overrides
+        )
+      )
+    end
+
+    test "only USB phones in state device are candidates: no emulator, no network redroid, no unauthorized" do
+      assert Worker.parse_adb_devices(@adb_devices) == ["ZY22DP6HFL", "ZY22K6BSJM"]
+      assert Worker.parse_adb_devices("List of devices attached\n\n") == []
+    end
+
+    test "a phone's model and Android version come from getprop" do
+      assert @moto_2021 == %{
+               "udid" => "ZY22DP6HFL",
+               "name" => "moto g power (2021)",
+               "model" => "motorola moto g power (2021)",
+               "runtime" => "11",
+               "os" => "Android 11",
+               "sdk" => 30,
+               "attached" => true
+             }
+
+      # A phone that answers nothing useful still has an identity.
+      assert %{"name" => "ZY22X", "model" => "ZY22X", "sdk" => nil} = Worker.parse_android_props("ZY22X", "")
+    end
+
+    test "the newest Android is tried first; a pinned serial gets exactly that phone; none is device_absent" do
+      assert {:ok, [%{"udid" => "ZY22K6BSJM"}, %{"udid" => "ZY22DP6HFL"}]} =
+               Worker.pick_android([@moto_2021, @moto_2024], nil)
+
+      assert {:ok, [%{"udid" => "ZY22DP6HFL"}]} = Worker.pick_android([@moto_2021, @moto_2024], "ZY22DP6HFL")
+      assert {:skip, "device_absent: no physical Android phone is attached"} = Worker.pick_android([], nil)
+      assert {:skip, "device_absent: ZY22NOPE is not attached"} = Worker.pick_android([@moto_2021], "ZY22NOPE")
+    end
+
+    test "leases by serial, builds as the farm does, probes as android, records the phone and uninstalls the package",
+         %{tmp_dir: root} do
+      me = self()
+
+      # The 2024 phone is held by another session: the 2021 one runs the cell.
+      lease = fn ["acquire", session, "--serial", serial] ->
+        send(me, {:lease_try, session, serial})
+        if serial == "ZY22K6BSJM", do: {:error, "DEVICE_IN_USE"}, else: :ok
+      end
+
+      r = run(android_spec(), root, android_deps(%{lease: lease}))
+
+      assert {r["outcome"], r["platform"], r["path"]} == {"pass", "android", "deploy:android_physical"}
+      assert r["device"]["udid"] == "ZY22DP6HFL"
+      assert r["device"]["model"] == "motorola moto g power (2021)"
+      assert r["device"]["os"] == "Android 11"
+
+      assert_received {:lease_try, "mob_ci_ios_singleton_mob_nfc-hex-deploy_android_physical-t1", "ZY22K6BSJM"}
+      assert_received {:lease_try, _, "ZY22DP6HFL"}
+      assert_received {:generate, opts}
+      assert opts[:platform] == :android
+      assert opts[:mob_exs] == []
+      assert_received {:mix, ["mob.deploy", "--native", "--device", "ZY22DP6HFL"]}
+      assert_received {:probe, "android", "ZY22DP6HFL"}
+      assert_received {:uninstall, "ZY22DP6HFL", "com.example.ci_singleton_mob_nfc_hex"}
+      assert [%{"id" => "p2", "status" => "pass"}, %{"id" => "p12:mob_nfc", "status" => "pass"} | _] = r["invariants"]
+    end
+
+    test "no phone attached, or none free, is skip: device_absent and builds nothing", %{tmp_dir: root} do
+      r = run(android_spec(), root, android_deps(%{android_devices: fn -> [] end}))
+      assert {r["outcome"], r["reason"]} == {"skip", "device_absent: no physical Android phone is attached"}
+      refute_received {:lease, _}
+      refute_received {:mix, ["mob.deploy" | _]}
+
+      r = run(android_spec(), root, android_deps(%{lease: fn _ -> {:error, "DEVICE_IN_USE"} end}))
+      assert r["outcome"] == "skip"
+      assert r["reason"] =~ ~r/^device_absent: no attached phone is leasable .*ZY22K6BSJM.*ZY22DP6HFL/
+      refute_received {:mix, ["mob.deploy" | _]}
+      refute_received {:uninstall, _, _}
+    end
+
+    test "the uninstall each path runs" do
+      assert Worker.uninstall_command("deploy:android_physical", "ZY22DP6HFL", "com.example.ci_x") ==
+               {"adb", ["-s", "ZY22DP6HFL", "uninstall", "com.example.ci_x"]}
+
+      assert Worker.uninstall_command("deploy:ios_device", "U", "com.genericjam.mobci") ==
+               {"xcrun", ["devicectl", "device", "uninstall", "app", "--device", "U", "com.genericjam.mobci"]}
+
+      assert Worker.uninstall_command("deploy:ios_sim", "S", "com.genericjam.mobci") ==
+               {"xcrun", ["simctl", "uninstall", "S", "com.genericjam.mobci"]}
     end
   end
 
