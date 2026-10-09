@@ -107,18 +107,21 @@ defmodule MobCi.Run do
   end
 
   @doc """
-  The paths of a run that lost their instance (layer `farm`): an
-  orchestration error `error_layer/1` puts at `:farm`, or catalog results
-  re-attributed to it by the post-path liveness check. `mix ci.device` exits
-  3 when this is non-empty, which the queue retries once.
+  The paths of a run that say nothing about the code because infrastructure
+  failed under them: layer `farm` (an orchestration error `error_layer/1`
+  puts at `:farm`, or catalog results re-attributed to it by the post-path
+  liveness check) or layer `toolchain` (the build's JVM crashed).
+  `mix ci.device` exits 3 when this is non-empty, which the queue retries once.
   """
-  @spec farm_lost([path_run()]) :: [String.t()]
-  def farm_lost(runs) do
-    for %{path: path, outcome: outcome} <- runs, farm?(outcome), do: path
+  @spec infra_failed([path_run()]) :: [String.t()]
+  def infra_failed(runs) do
+    for %{path: path, outcome: outcome} <- runs, infra?(outcome), do: path
   end
 
-  defp farm?({:error, reason}), do: error_layer(reason) == :farm
-  defp farm?({_verdict, results}), do: Enum.any?(results, &(&1.layer == :farm))
+  @infra_layers [:farm, :toolchain]
+
+  defp infra?({:error, reason}), do: error_layer(reason) in @infra_layers
+  defp infra?({_verdict, results}), do: Enum.any?(results, &(&1.layer in @infra_layers))
 
   @doc false
   # A path's outcome once the post-path check found its instance gone: an
@@ -144,8 +147,8 @@ defmodule MobCi.Run do
   defp lost(r, _why), do: r
 
   # Did the path go wrong in a way the instance's disappearance could explain?
-  # (An error already at `:farm` needs no second look.)
-  defp needs_liveness_check?({:error, reason}), do: error_layer(reason) != :farm
+  # (An error already at `:farm` or `:toolchain` needs no second look.)
+  defp needs_liveness_check?({:error, reason}), do: error_layer(reason) not in @infra_layers
   defp needs_liveness_check?({_verdict, results}), do: Enum.any?(results, &(&1.status in [:fail, :error]))
 
   # Probe results with a failure: is the instance still there? Run before the
@@ -398,14 +401,20 @@ defmodule MobCi.Run do
   `build:release:android`; farm admission, boot and app launch → `:boot`.
   A build, install or launch that failed because the device went away
   (`MobCi.Farm.lost_device?/1`), and any error after which the instance was
-  found gone (`{:instance_lost, why, reason}`), → `:farm`.
+  found gone (`{:instance_lost, why, reason}`), → `:farm`; a build whose JVM
+  crashed (`MobCi.Build.toolchain_crash?/1`) → `:toolchain`.
   """
   @spec error_layer(term()) :: Result.layer()
   def error_layer({:prepare_failed, dir, _reason}), do: {:build, dir}
   def error_layer({:instance_lost, _why, _reason}), do: :farm
 
-  def error_layer({:build_failed, path, reason}) when path in [:deploy, :release],
-    do: if(Farm.lost_device?(reason), do: :farm, else: Build.path_failure_layer(path, reason))
+  def error_layer({:build_failed, path, reason}) when path in [:deploy, :release] do
+    cond do
+      Farm.lost_device?(reason) -> :farm
+      Build.toolchain_crash?(reason) -> :toolchain
+      true -> Build.path_failure_layer(path, reason)
+    end
+  end
 
   def error_layer({:install_failed, path, reason}),
     do: if(Farm.lost_device?(reason), do: :farm, else: {:build, Build.path_label(path)})

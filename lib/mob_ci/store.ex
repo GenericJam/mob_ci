@@ -409,8 +409,8 @@ defmodule MobCi.Store do
   """
   @spec singleton_selftest(t(), atom() | String.t(), keyword()) :: outcome() | nil
   def singleton_selftest(store, plugin, opts) do
-    # Every row of the key, oldest first: the newest that isn't a `farm`
-    # cell's (an instance lost mid-probe says nothing about the plugin).
+    # Every row of the key, oldest first: the newest that isn't an `infra?/1`
+    # cell's (a lost instance or a crashed toolchain says nothing about the plugin).
     filters = [
       set: "singleton:#{plugin}",
       invariant: "p12:#{plugin}",
@@ -419,7 +419,7 @@ defmodule MobCi.Store do
       path: Keyword.fetch!(opts, :path)
     ]
 
-    case store |> query(filters) |> Enum.reject(&farm?/1) |> List.last() do
+    case store |> query(filters) |> Enum.reject(&infra?/1) |> List.last() do
       %{outcome: outcome} -> outcome
       nil -> nil
     end
@@ -496,15 +496,16 @@ defmodule MobCi.Store do
     reported = Keyword.get(opts, :reported)
 
     singleton_selftests =
-      Enum.filter(summaries, &(String.starts_with?(&1.set, "singleton:") and not farm?(&1) and MapSet.member?(selftests, cell_key(&1))))
+      Enum.filter(summaries, &(String.starts_with?(&1.set, "singleton:") and not infra?(&1) and MapSet.member?(selftests, cell_key(&1))))
 
     whole = newest.(summaries, grid_key) ++ newest.(real, grid_key) ++ newest.(singleton_selftests, grid_key)
 
-    # A farm cell (the instance was lost) says nothing about the code, so it
-    # is never the baseline a later regression check compares against.
+    # An infra cell (the instance was lost, the toolchain crashed) says
+    # nothing about the code, so it is never the baseline a later regression
+    # check compares against.
     baseline =
       real
-      |> Enum.filter(&(&1.outcome != :skip and not farm?(&1) and (is_nil(reported) or &1.id <= reported)))
+      |> Enum.filter(&(&1.outcome != :skip and not infra?(&1) and (is_nil(reported) or &1.id <= reported)))
       |> newest.(grid_key)
 
     evidence = Enum.filter(summaries, &evidence_set?(&1.set))
@@ -515,11 +516,12 @@ defmodule MobCi.Store do
   end
 
   @doc """
-  Is this summary row a `farm` cell — its instance (redroid container, adb
-  device) was lost mid-path, so it says nothing about the code under test?
+  Is this summary row an infrastructure cell — layer `farm` (its redroid
+  container or adb device was lost mid-path) or `toolchain` (the build's JVM
+  crashed) — so it says nothing about the code under test?
   """
-  @spec farm?(map()) :: boolean()
-  def farm?(row), do: Map.get(row, :layer) in ["farm", :farm]
+  @spec infra?(map()) :: boolean()
+  def infra?(row), do: Map.get(row, :layer) in ["farm", :farm, "toolchain", :toolchain]
 
   @doc "Is `set` one `COMPATIBILITY.md` reads (`default`, `all`, `singleton:<p>`)?"
   @spec evidence_set?(String.t()) :: boolean()

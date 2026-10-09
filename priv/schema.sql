@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS job_cells (
   paths        TEXT,                   -- --paths, NULL = the lane's default
   status       TEXT NOT NULL CHECK (status IN ('queued', 'running', 'done', 'duplicate', 'expired')),
   duplicate_of INTEGER,                -- the queued cell that already covers this one
-  exit_code    INTEGER,                -- 0 pass, 1 fail, 2 error, 3 farm (retried once), 124 timeout
+  exit_code    INTEGER,                -- 0 pass, 1 fail, 2 error, 3 farm/toolchain (retried once), 124 timeout
   started_at   TEXT,
   finished_at  TEXT,
   log_path     TEXT

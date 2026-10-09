@@ -6,7 +6,7 @@ mob_ci results store by `mix ci.report --publish`; do not edit. Verified
 version combinations are in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 `✓ pass` · `✗ fail @ layer` · `! error @ layer` (the run could not
-finish: build, boot, farm) · `– skip` · `·` never ran. Layers are
+finish: build, boot, farm, toolchain) · `– skip` · `·` never ran. Layers are
 described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
 
 ## hex

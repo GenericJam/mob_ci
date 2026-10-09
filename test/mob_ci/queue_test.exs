@@ -299,7 +299,7 @@ defmodule MobCi.QueueTest do
 
     test "a cell that lost its instance (exit 3) is retried once, before the rest of its job; both attempts stay", %{store: store} do
       {:ok, id, [default, all]} = Queue.enqueue(store, job(sets: ["default", "all"]), now: @t0)
-      drain_scripted(store, "android", %{"default" => [Queue.farm_exit(), 0]})
+      drain_scripted(store, "android", %{"default" => [Queue.infra_exit(), 0]})
 
       assert ran() == [{"master", "default", "android"}, {"master", "default", "android"}, {"master", "all", "android"}]
 
@@ -335,7 +335,7 @@ defmodule MobCi.QueueTest do
 
       # the lost attempt: neither job may complete on it
       cell = Queue.claim(store, "android", @t0)
-      assert Queue.finish(store, cell.id, Queue.farm_exit(), "/x.log", @t0) == []
+      assert Queue.finish(store, cell.id, Queue.infra_exit(), "/x.log", @t0) == []
       assert [%{duplicate_of: retry}] = Queue.cells(store, second)
       assert retry != cell.id
 

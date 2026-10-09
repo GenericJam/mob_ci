@@ -359,14 +359,15 @@ defmodule Mix.Tasks.Ci.Device do
           2
       end
 
-    # A path that lost its instance says nothing about the code: exit 3 so the
-    # trigger queue reruns the cell once on a fresh instance.
-    case Run.farm_lost(runs) do
+    # A path that infrastructure failed under (instance lost, toolchain
+    # crashed) says nothing about the code: exit 3 so the trigger queue reruns
+    # the cell once on a fresh instance.
+    case Run.infra_failed(runs) do
       [] ->
         if code != 0, do: exit({:shutdown, code})
 
-      lost ->
-        Mix.shell().error("mob_ci device run: FARM — instance lost on #{Enum.join(lost, ", ")} (layer farm)")
+      failed ->
+        Mix.shell().error("mob_ci device run: INFRA — the farm or the toolchain failed on #{Enum.join(failed, ", ")} (layer farm/toolchain)")
         exit({:shutdown, 3})
     end
   end

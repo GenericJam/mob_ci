@@ -377,3 +377,57 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   511999 DEAD` and admission went from 3/5 to 2/5. The same cell stopped with
   `systemctl --user stop` (SIGTERM) released its instance within a second
   (`SIGTERM received - shutting down`, no `ci-redroid1` left).
+
+## F15 — mob_dev's "stale lock" cleanup crashed every concurrent Gradle JVM (SIGSEGV in ld-linux) — resolved
+
+- **Issue:** [MOB-468](https://linear.app/mobframework/issue/MOB-468).
+- **Found:** 2026-10-09: cells 23, 25 (`singleton:mob_touch`,
+  `singleton:mob_vision` on master, `bundleRelease`) and 105
+  (`singleton:mob_scene3d`, `assembleDebug`) died with the Gradle wrapper JVM
+  at `SIGSEGV pc=0x2400`, frame `C [ld-linux-x86-64.so.2+0x10f2]`
+  (Temurin-21.0.11+10), stored as `build:release:android` / `build:deploy:android`.
+- **What the hs_err files say** (copies in `~/mob_ci_logs/mob-468/` on the
+  NUC): every crash comes as a pair, 2 s apart. The Gradle daemon dies first,
+  in native-platform JNI code (`PosixFileFunctions.stat`,
+  `PosixProcessFunctions.getPid`) jumping to a tiny address (0x2246, 0x20a6);
+  then the wrapper's VM thread dies in `exit()` → `_dl_fini` (libc+0x47a76 →
+  ld.so+0x5578 → +0x10f2), running the destructors of the same library. Both
+  map `~/.gradle/native/68d5…/linux-amd64/libnative-platform.so`, inode
+  21265349, whose mtime was *today*: the mapped file had been rewritten in
+  place, under running JVMs.
+- **Cause:** mob_dev's `clear_stale_gradle_locks/0`, run before every
+  `assembleDebug`, deleted `~/.gradle/native/**/*.lock`. native-platform's
+  `NativeLibraryLocator` holds that lock only while it extracts, and its one
+  byte says the extraction finished; with the file gone, the next Gradle JVM
+  (any project's: a wrapper client is enough) truncates and rewrites the `.so`
+  over the same inode, and every JVM that has it mapped crashes at its next
+  call into it, or at exit. A plain `./gradlew --no-daemon help` does not touch
+  the file; a `mix mob.deploy` (or a cell's deploy path) beside a running
+  build does. The NUC runs such builds side by side: hand runs and agents'
+  deploys beside the queue's lane. Which build rewrote the file at 10:40 and
+  12:29 is not recorded (wrapper clients leave no log); no other mob_ci cell
+  was running then.
+- **Reproduced on the NUC** (`/tmp/jvmcrash-repro.sh`, android lane paused):
+  build A `./gradlew --no-daemon assembleDebug --rerun-tasks` in one host; 20 s
+  in, three times: delete `~/.gradle/native/**/*.lock`, run `./gradlew
+  --no-daemon help` in another host. A crashed **3/3**, same frame
+  (`SIGSEGV pc=0x2400`, `ld-linux-x86-64.so.2+0x10f2`). Without the deletion,
+  the same loop: **0/3**.
+- **Ruled out:** the JDK (Temurin 21.0.11 from mise, CDS sharing on; nothing
+  Temurin-specific in the stacks), `LD_PRELOAD` (unset, no
+  `/etc/ld.so.preload`), glibc (Pop!_OS 24.04, glibc 2.39; the faulting code
+  is ld.so running a corrupted library's destructors), memory pressure
+  (3.4–4.3 GB available at each crash, no OOM kill in the kernel log; load
+  average 6–9 on 4 cores widens the window, it isn't the cause). `--no-daemon` (mob_dev 0.7.20+) is
+  not the cause; it only means every build starts two fresh JVMs that map the
+  library, where a warm daemon would have mapped it once.
+- **Fix (mob_dev):** keep the native-platform locks (GenericJam/mob_dev#134).
+  The wrapper, daemon-registry and cache locks mob_dev still deletes are real
+  OS locks, and deleting one another Gradle holds breaks its exclusion
+  (MOB-469).
+- **Fix (mob_ci):** a JVM fatal error in a build's output (`A fatal error has
+  been detected by the Java Runtime Environment`, or an `hs_err_pid<N>.log`
+  path; read from the whole output, not mob_ci's 800-char tail, and kept as
+  `{:jvm_crash, lines}`) is layer `toolchain`, an infra layer like
+  `farm`: exit 3, one retry, shown in the report, never a regression, a
+  baseline or the P12 singleton result.

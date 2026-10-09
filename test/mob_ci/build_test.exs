@@ -196,6 +196,34 @@ defmodule MobCi.BuildTest do
     assert {:error, {:native_build, "zig build for x86_64 exited 1\n"}} = Build.classify_failure("zig build for x86_64 exited 1\n")
   end
 
+  test "a JVM crash anywhere in the output is a jvm_crash, even when the tail lost it (MOB-468)" do
+    # the daemon dies first: its banner is near the top, then Gradle's failure
+    # report and mob_dev's trailer push it far past the kept tail
+    crash = """
+      Running Gradle assembleDebug...
+    #
+    # A fatal error has been detected by the Java Runtime Environment:
+    #
+    #  SIGSEGV (0xb) at pc=0x00000000000020a6, pid=417109, tid=417136
+    # Problematic frame:
+    # C  [ld-linux-x86-64.so.2+0x10f2]
+    # An error report file with more information is saved as:
+    # /home/kevin/hosts/android/hs_err_pid417109.log
+    """
+
+    out = crash <> String.duplicate("FAILURE: Build failed with an exception. The daemon disappeared.\n", 40)
+
+    assert {:error, {:jvm_crash, lines}} = Build.classify_failure(out)
+    assert "# A fatal error has been detected by the Java Runtime Environment:" in lines
+    assert "# C  [ld-linux-x86-64.so.2+0x10f2]" in lines
+    assert "# /home/kevin/hosts/android/hs_err_pid417109.log" in lines
+    refute Enum.any?(lines, &(&1 =~ "daemon disappeared"))
+
+    # the release path keeps the shape, and both paths attribute it to the toolchain
+    assert {:error, {:jvm_crash, ^lines} = reason} = Build.classify_release_failure(out)
+    for path <- [:deploy, :release], do: assert(MobCi.Run.error_layer({:build_failed, path, reason}) == :toolchain)
+  end
+
   test "parse_permissions reads aapt's uses-permission lines (P6 actual side)" do
     aapt = """
     package: name='com.example.app'
