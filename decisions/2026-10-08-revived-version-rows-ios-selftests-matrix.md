@@ -8,11 +8,14 @@
 
 mob_ci stalled on 2026-06-23 at milestone 3, pinned to mob_dev 0.6.5. On
 2026-10-08 the NUC's core checkouts were reset to origin/master (mob 0.9.14,
-mob_dev 0.7.16, mob_new 0.6.7), and mob_ci compiled without a single undefined
-function and ran `mix ci.device` on the live farm: static gate clean, a
-ci-redroid booted, the harness with its five fixture plugins built and
-deployed in about four minutes, P1 and P2 passed. The code is usable; the
-design (`2026-06-19-mob-ci-design.md`) stands.
+mob_dev 0.7.16, mob_new 0.6.7); mob_ci itself compiled against that mob_dev
+without an undefined function, and `mix ci.device` ran P1–P11 green on the
+live farm (cold about four minutes, warm 68 s). Correction the same day: the
+harness host (`fixtures/_harness`, `Build.deps_block`) pins Hex mob_dev 0.6.5
+and mob 0.7.5, so that green run exercised the June versions on the device,
+not master. MOB-412 moves the harness to the current versions and records the
+real baseline. The orchestration code is usable; the design
+(`2026-06-19-mob-ci-design.md`) stands.
 
 Since June the ecosystem grew to 26 plugins, every one of which has
 ubuntu-only CI that never compiles its native code; MOB-372, MOB-373 and
