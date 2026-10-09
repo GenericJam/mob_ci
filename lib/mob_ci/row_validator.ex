@@ -157,17 +157,17 @@ defmodule MobCi.RowValidator do
   end
 
   @doc """
-  Delete the validator projects of git pins (a `master` or `rc:` sha of mob_dev
-  or mob) not used for `days`: each is ~40 MB, and master moves several times
-  a day. All-Hex projects stay: there are few, and the `hex` row uses the
-  newest every night. Runs after each new build.
+  Delete the validator projects not used for `days` (~40 MB each: master
+  moves several times a day, and every Hex release of mob or mob_dev makes a
+  new one). A pin in use is touched on every gate, so the nightly keeps the
+  current `hex` and `master` projects; a pin needed again after pruning is
+  rebuilt (about two minutes). Runs after each new build.
   """
   @spec prune(Path.t(), non_neg_integer()) :: [Path.t()]
   def prune(cache, days) do
     cutoff = System.os_time(:second) - days * 86_400
 
     for dir <- Path.wildcard(Path.join([cache, "validators", "mob_dev-*"])),
-        String.contains?(Path.basename(dir), "git-"),
         last_used(dir) < cutoff do
       File.rm_rf!(dir)
       dir

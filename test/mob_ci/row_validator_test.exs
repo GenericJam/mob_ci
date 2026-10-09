@@ -95,18 +95,18 @@ defmodule MobCi.RowValidatorTest do
     assert msg =~ "mob_dev 333333333333 (git"
   end
 
-  test "prune drops master-sha projects unused for a week, never hex ones or recent ones", %{root: root} do
+  test "prune drops projects unused for a week and keeps the ones in use", %{root: root} do
     v = Path.join(root, "validators")
     old = System.os_time(:second) - 8 * 86_400
 
-    for {name, mtime} <- [{"mob_dev-git-old", old}, {"mob_dev-git-new", nil}, {"mob_dev-hex-0.7.10", old}] do
+    for {name, mtime} <- [{"mob_dev-git-old", old}, {"mob_dev-git-new", nil}, {"mob_dev-hex-0.7.10", old}, {"mob_dev-hex-0.7.19", nil}] do
       File.mkdir_p!(Path.join(v, name))
       ready = Path.join([v, name, ".mob_ci_ready"])
       File.write!(ready, "x\n")
       if mtime, do: File.touch!(ready, mtime)
     end
 
-    assert RowValidator.prune(root, 7) == [Path.join(v, "mob_dev-git-old")]
-    assert File.ls!(v) |> Enum.sort() == ["mob_dev-git-new", "mob_dev-hex-0.7.10"]
+    assert RowValidator.prune(root, 7) |> Enum.sort() == [Path.join(v, "mob_dev-git-old"), Path.join(v, "mob_dev-hex-0.7.10")]
+    assert File.ls!(v) |> Enum.sort() == ["mob_dev-git-new", "mob_dev-hex-0.7.19"]
   end
 end

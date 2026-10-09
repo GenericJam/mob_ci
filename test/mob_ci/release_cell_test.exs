@@ -74,6 +74,8 @@ defmodule MobCi.ReleaseCellTest do
       assert {:error, _, {:build, "deploy:android"}} = Sweep.stored_outcome({:error, {:native_build, "gradle"}})
       assert {:ok, []} = Sweep.stored_outcome({:pass, []})
       assert {:fail, [_]} = Sweep.stored_outcome({:error, [Result.error(:p2, "", "")]})
+      # the row's validator project couldn't be built: Elixir, as ci.device records it
+      assert {:error, _, :elixir} = Sweep.stored_outcome({:error, {:row_validator, "mob_dev 0.7.19 (hex): mix deps exited 1"}})
     end
   end
 
