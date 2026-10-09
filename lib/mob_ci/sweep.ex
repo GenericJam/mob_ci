@@ -214,7 +214,7 @@ defmodule MobCi.Sweep do
 
     case Build.deploy(harness.dir, inst.serial) do
       {:conflict, msgs} ->
-        {:fail, [MobCi.Result.fail(:p1, "build outcome", "rejected: #{Enum.join(msgs, "; ")}")]}
+        {:fail, [MobCi.Result.fail(:p1, "build outcome", "rejected: #{Enum.join(msgs, "; ")}") |> MobCi.Result.at(:static)]}
 
       {:error, reason} ->
         {:error, reason}
@@ -236,6 +236,7 @@ defmodule MobCi.Sweep do
         ctx = %Context{
           set: subset,
           host: :harness,
+          host_dir: harness.dir,
           node: live.node,
           repo: Module.concat([Macro.camelize(to_string(harness.app)), Repo]),
           build: %{status: :ok, apk: nil, permissions: perms, conflicts: []},

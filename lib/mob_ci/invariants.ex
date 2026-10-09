@@ -142,7 +142,13 @@ defmodule MobCi.Invariants do
   # ── P4 — every declared screen pushes and renders ────────────────────────────
   def p4(%Context{node: nil}), do: Result.error(:p4, title(:p4), "no node leased") |> Result.at(:boot)
 
-  def p4(%Context{set: set, node: node, screen_caps: caps}) do
+  def p4(%Context{node: node} = ctx) when not is_nil(node) do
+    if Probe.node_up?(node),
+      do: p4_screens(ctx),
+      else: Result.error(:p4, title(:p4), "node unreachable") |> Result.at(:boot)
+  end
+
+  defp p4_screens(%Context{set: set, node: node, screen_caps: caps}) do
     owners = Plugins.screen_owners(set)
 
     Plugins.expected_screen_modules(set)
@@ -166,7 +172,9 @@ defmodule MobCi.Invariants do
   # :hardware_degraded (no camera/GPS/biometric on a headless emulator), in which
   # case a graceful non-render is an expected skip. A genuine BEAM crash would
   # have taken the node down and surfaces in P2/P10 regardless.
-  defp degrade_or_fail(screen, caps, detail) do
+  @doc false
+  @spec degrade_or_fail(module(), %{module() => atom()}, String.t()) :: Result.t()
+  def degrade_or_fail(screen, caps, detail) do
     case Map.get(caps, screen) do
       :hardware_degraded -> Result.skip(:p4_item, "#{screen}", "degraded (expected, headless): #{detail}")
       _ -> Result.fail(:p4_item, "#{screen}", detail)
@@ -202,6 +210,9 @@ defmodule MobCi.Invariants do
       ctx.showcase_screen == nil ->
         Result.error(:p5, title(:p5), "no showcase screen built (harness didn't emit one)")
         |> Result.at({:build, ctx.host_dir})
+
+      not Probe.node_up?(ctx.node) ->
+        Result.error(:p5, title(:p5), "node unreachable") |> Result.at(:boot)
 
       true ->
         case Probe.push_and_read(ctx.node, ctx.showcase_screen) do
@@ -301,6 +312,9 @@ defmodule MobCi.Invariants do
       node == nil or repo == nil ->
         Result.error(:p8, title(:p8), "no node/repo to check tables against") |> Result.at(:boot)
 
+      not Probe.node_up?(node) ->
+        Result.error(:p8, title(:p8), "node unreachable") |> Result.at(:boot)
+
       true ->
         subjects
         |> Enum.map(fn {name, table} ->
@@ -325,6 +339,9 @@ defmodule MobCi.Invariants do
 
       node == nil ->
         Result.error(:p9, title(:p9), "no node leased") |> Result.at(:boot)
+
+      not Probe.node_up?(node) ->
+        Result.error(:p9, title(:p9), "node unreachable") |> Result.at(:boot)
 
       true ->
         workers

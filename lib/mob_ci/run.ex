@@ -143,7 +143,7 @@ defmodule MobCi.Run do
         results =
           step(:probe, fn -> Invariants.run(ctx, [:pure, :build, :device]) |> Enum.reject(&(&1.id == :p11)) end)
 
-        step(:release, fn -> Farm.release(live) end)
+        step(:release_live, fn -> Farm.release(live) end)
         p11 = Invariants.p11(ctx)
         finalize(set, results ++ [p11], artifacts, opts)
 

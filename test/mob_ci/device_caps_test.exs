@@ -70,28 +70,13 @@ defmodule MobCi.DeviceCapsTest do
 
   describe "P4 honors screen_caps" do
     test "a non-rendering :hardware_degraded screen is a skip, not a fail" do
-      # No node → push_and_read errors; with a degraded cap the item should skip.
-      ctx = %Context{
-        set: [:mob_camera],
-        host: :sloppy_joe,
-        node: :"nonexistent@127.0.0.1",
-        screen_caps: %{MobCamera.DemoScreen => :hardware_degraded}
-      }
-
-      assert %Result{status: status} = Invariants.p4(ctx)
-      # rollup of one skipped item → skip (not fail/error from the dead node)
-      assert status == :skip
+      caps = %{MobCamera.DemoScreen => :hardware_degraded}
+      assert %Result{status: :skip} = Invariants.degrade_or_fail(MobCamera.DemoScreen, caps, "push/render failed")
     end
 
-    test "a non-rendering :emulator_ok screen stays a fail" do
-      ctx = %Context{
-        set: [:mob_touch],
-        host: :sloppy_joe,
-        node: :"nonexistent@127.0.0.1",
-        screen_caps: %{MobTouch.DemoScreen => :emulator_ok}
-      }
-
-      assert %Result{status: :fail} = Invariants.p4(ctx)
+    test "a non-rendering :emulator_ok (or unclassified) screen stays a fail" do
+      assert %Result{status: :fail} = Invariants.degrade_or_fail(MobTouch.DemoScreen, %{MobTouch.DemoScreen => :emulator_ok}, "x")
+      assert %Result{status: :fail} = Invariants.degrade_or_fail(MobTouch.DemoScreen, %{}, "x")
     end
   end
 end

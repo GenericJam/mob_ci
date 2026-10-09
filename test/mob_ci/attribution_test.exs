@@ -113,23 +113,19 @@ defmodule MobCi.AttributionTest do
       assert %{status: :error, layer: :boot} = Invariants.p3(c)
     end
 
-    test "P4 attributes a screen that fails to render to the plugin that declares it" do
-      r = Invariants.p4(ctx(node: @dead))
-      assert r.status == :fail
-      # both failing screens belong to mob_ci_notes → one plugin, not a conflict
-      assert r.layer == {:plugin, :mob_ci_notes}
+    test "P4 against a dead node is a boot error, never blamed on the screen's plugin" do
+      assert %{status: :error, layer: :boot} = Invariants.p4(ctx(node: @dead))
     end
 
-    test "P4 keeps a hardware_degraded skip unattributed" do
-      caps = Map.new(Plugins.expected_screen_modules(Plugins.sample_set()), &{&1, :hardware_degraded})
-      r = Invariants.p4(ctx(node: @dead, screen_caps: caps))
-      assert {:skip, nil} = {r.status, r.layer}
+    test "P4 attributes per-screen outcomes to the declaring plugin (owner projection)" do
+      owners = Plugins.screen_owners(Plugins.sample_set())
+      assert owners[MobCiNotes.ListScreen] == :mob_ci_notes
+      assert Enum.uniq(Map.values(owners)) == [:mob_ci_notes]
+      assert Result.attribute([Result.at(Result.fail(:i, "", ""), {:plugin, :mob_ci_notes})]) == {:plugin, :mob_ci_notes}
     end
 
-    test "P5 with one component plugin blames that plugin; P7 unreadable manifest is boot" do
-      assert %{status: :fail, layer: {:plugin, :mob_ci_gauge}} =
-               Invariants.p5(ctx(node: @dead, showcase_screen: MobCiHarness.CiShowcase))
-
+    test "P5 and P7 against a dead node are boot errors" do
+      assert %{status: :error, layer: :boot} = Invariants.p5(ctx(node: @dead, showcase_screen: MobCiHarness.CiShowcase))
       assert %{status: :error, layer: :boot} = Invariants.p7(ctx(node: @dead))
     end
 
@@ -141,10 +137,11 @@ defmodule MobCi.AttributionTest do
       assert r.detail =~ "mob_scene3d"
     end
 
-    test "P8/P9 items are attributed to the tier-3/tier-4 plugin" do
+    test "P8/P9 against a dead node are boot errors (plugin attribution needs a live node)" do
       c = ctx(node: @dead, repo: MobCiHarness.Repo, migration_tables: Context.default_migration_tables(), worker_names: Context.default_worker_names())
-      assert %{layer: {:plugin, :mob_ci_notes}} = Invariants.p8(c)
-      assert %{status: :fail, layer: {:plugin, :mob_ci_pulse}} = Invariants.p9(c)
+      # dead node → boot, not the tier-3/tier-4 plugin
+      assert %{status: :error, layer: :boot} = Invariants.p8(c)
+      assert %{status: :error, layer: :boot} = Invariants.p9(c)
     end
 
     test "P10/P11 are app health" do
