@@ -30,6 +30,9 @@ defmodule MobCi.Sets do
   @pairwise_path Path.join(@sets_dir, "pairwise.exs")
   @demo_path Path.join(@sets_dir, "demo.exs")
   @exclusions_path Path.join(@sets_dir, "exclusions.exs")
+  # Files under priv/sets/ that are not regression sets: the array, the demo
+  # list (both have their own names) and the exclusions config.
+  @not_sets ["pairwise", "demo", "exclusions"]
 
   @type spec ::
           :blank
@@ -114,7 +117,7 @@ defmodule MobCi.Sets do
   end
 
   def parse(name) when is_binary(name) do
-    if Regex.match?(~r/^[a-z0-9_-]+$/, name) and File.regular?(file_path(name)) do
+    if Regex.match?(~r/^[a-z0-9_-]+$/, name) and name not in @not_sets and File.regular?(file_path(name)) do
       {:ok, {:file, name}}
     else
       {:error,
@@ -391,7 +394,7 @@ defmodule MobCi.Sets do
     |> Path.join("*.exs")
     |> Path.wildcard()
     |> Enum.map(&Path.basename(&1, ".exs"))
-    |> Enum.reject(&(&1 in ["pairwise", "demo"]))
+    |> Enum.reject(&(&1 in @not_sets))
     |> Enum.sort()
   end
 end

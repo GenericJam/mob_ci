@@ -18,6 +18,8 @@ mix ci.sweep --static --set all --versions hex
 mix ci.sets                                  # every named set
 mix ci.device --platform ios --set default --versions hex   # the Mac mini, over ssh
 mix ci.report                                # latest grid per versions row, from the store
+priv/ci-run.sh rc mob_camera@<sha>           # queue an rc row (static gate now, cells via the queue)
+priv/ci-run.sh queue                         # the trigger queue: what is queued / ran
 ```
 
 ## Version rows and sets (`--set` × `--versions`)
@@ -142,6 +144,26 @@ Mac by hand: `mix ci.ios_cell --set default --versions hex --path deploy:ios_sim
 Setup on the Mac: `worker/mac/README.md`. Rationale:
 `decisions/2026-10-08-ios-lane-mac-worker.md`.
 
+## Triggers and the queue
+
+Device work reaches the farm and the Mac through one durable queue in the
+results store (`MobCi.Queue`, `mix ci.queue`), drained by one worker per
+lane (`android`, `ios`), one cell at a time, the two lanes side by side.
+On the NUC, systemd user timers feed it through `priv/ci-run.sh`:
+
+| trigger | when | what it queues |
+|---|---|---|
+| nightly | 22:00, cells not started by 07:00 expire | every nightly set on `master`, the same minus the pairwise rows on `hex`; Android + iOS |
+| poll | every 10 min, `git ls-remote` over every repo | a moved default branch: static gate now, then `default` + `singleton:<plugin>` (core: `blank` + `default`) + `all` on `master` |
+| pre-push (optional) | the Mac's hook, `worker/mac/enqueue-push.sh` | once the sha is on the remote: the poll job sooner, or `rc:<repo>@<sha>` for a branch |
+| rc | `priv/ci-run.sh rc <repo>@<sha>` | the repo's sets on `rc:<repo>@<sha>` |
+
+A cell already queued is never queued twice; each run in the store records
+the trigger and job that caused it (`runs.trigger`, `runs.job_id`); a
+finished job runs `mix ci.report --publish` once. Install with
+`priv/install-triggers.sh --enable`; details `priv/triggers.md`, budget
+`docs/budgets.md`, rationale `decisions/2026-10-09-trigger-queue.md`.
+
 ## Tests
 
 `mix test` (no device, no network, no ssh; `:integration` excluded). The
@@ -154,4 +176,7 @@ mix test test/mob_ci/host_test.exs --include integration --only integration
 ```
 
 There is no GitHub Actions workflow in this repo: the orchestrator runs on
-the NUC (`priv/ci-run.sh`, `priv/triggers.md`).
+the NUC (`priv/ci-run.sh`, `priv/triggers.md`). The queue, poller and
+trigger tests stub `git ls-remote` and the cell runner;
+`install_triggers_test.exs` runs `priv/install-triggers.sh` twice against a
+throwaway repo copy and `$HOME` with stub `systemctl` / `loginctl`.

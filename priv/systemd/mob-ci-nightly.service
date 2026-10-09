@@ -1,0 +1,11 @@
+[Unit]
+Description=mob_ci nightly: queue every nightly set on hex and master, Android and iOS
+Documentation=file:%h/code/mob_ci/decisions/2026-10-09-trigger-queue.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/code/mob_ci
+# Only enqueues (seconds) and starts the lane workers; the cells run in
+# mob-ci-drain@{android,ios}.service, which expire what hasn't started by 07:00.
+ExecStart=%h/code/mob_ci/priv/ci-run.sh nightly
+TimeoutStartSec=600

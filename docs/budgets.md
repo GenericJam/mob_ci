@@ -114,3 +114,34 @@ in the MOB-412 Linear comment / `~/mob_ci_logs/sweep2.log` for whether
 is Android 13, while MOB-378 was filed against an Android 15 emulator where
 the streaming installer relabels — so a clean sweep here rules it out for
 the farm's Android version, not for Android 15.
+
+## The nightly (MOB-416)
+
+Measured on the NUC 2026-10-09 from the first two queued poll jobs
+(`priv/ci-run.sh queue show 1` / `show 2`; cells run one at a time per
+lane, the lanes side by side; wall time per cell from claim to exit,
+including host generation):
+
+| cell | lane | wall | notes |
+|---|---|---|---|
+| `default` × `master`, cold | android | 507 s | both paths: deploy 234 s, release 170 s |
+| `singleton:<p>` × `master`, cold | android | 481–504 s | six plugins |
+| `all` × `master`, cold | android | 1000 s | 21 plugins: deploy 399 s, release 361 s |
+| `default` × `master`, warm (same shas 1 h later) | android | 160 s | |
+| `default` × `hex`, warm (MOB-414 above) | android | 138–141 s | |
+| any set but `all`, `master` | ios | 181–210 s | sim 101–117 s; iPhone path a 23–26 s `device_absent` skip; `release:ios` fails at signing after ~40 s |
+| `all` × `master` | ios | 276 s | |
+
+The nightly (`decisions/2026-10-09-trigger-queue.md`) is 37 sets: every set
+on `master`, the same minus the 10 pairwise rows on `hex`, Android and iOS,
+pairwise rows on the deploy path only. `MobCi.Triggers.estimate_minutes/1`
+budgets a `master` cell cold (510 s, `all` twice that, a deploy-only
+pairwise row 480 s), a `hex` cell warm (180 s), an iOS cell at 360 s (its
+three paths working; the Mac rebuilds every host) and 150 s for
+`deploy:ios_sim` alone: **Android 402 min, iOS 361 min** against the
+540-minute window (22:00–07:00). After a Hex release, when every `hex` cell
+is cold too, Android needs ~556 min and the last `master` pairwise rows
+expire at 07:00. Disk: one reused host per (set, row) under the running
+checkout's `fixtures/_hosts/`, 1.7 GB for a built singleton or `default`
+(both paths), 2.6 GB for `all`: about 64 of them, ~115 GB of the 335 GB
+free; iOS hosts are deleted after every cell.

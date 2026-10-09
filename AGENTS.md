@@ -18,6 +18,11 @@ being added) before changing anything. Findings go in `FINDINGS.md`.
   origin/master; never commit there, and keep `.tool-versions` local.
 - The farm is shared with sloppy_joe staging: lease only through
   `priv/ci-farm.sh`, respect the admit ceiling, and always release.
+- Device cells go through the trigger queue (`priv/ci-run.sh queue enqueue
+  --versions R --sets a,b [--platforms android]`, or `rc <repo>@<sha>`), so
+  they run one at a time per lane beside the nightly and the poller. To keep
+  a lane quiet for hand runs, `priv/ci-run.sh pause <lane>` (its running
+  cell is requeued) and `priv/ci-run.sh resume <lane>` afterwards.
 - Every failure is attributed to a layer. A result that cannot say which
   layer failed is a bug in mob_ci.
 - Sets are deterministic and committed under `priv/sets/`; results are data

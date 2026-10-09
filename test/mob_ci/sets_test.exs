@@ -262,5 +262,10 @@ defmodule MobCi.SetsTest do
 
     assert "demo" in names
     for name <- names, do: assert({:ok, _} = Sets.parse(name))
+
+    # priv/sets/exclusions.exs is config, not a regression set: it must not
+    # cost the nightly a cell (it resolved to an empty set, a second `blank`).
+    assert "exclusions" not in names
+    assert {:error, _} = Sets.parse("exclusions")
   end
 end

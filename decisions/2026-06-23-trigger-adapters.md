@@ -1,7 +1,9 @@
 # trigger adapters — Layer 5, thin and swappable
 
 - Date: 2026-06-23
-- Status: accepted
+- Status: accepted; amended 2026-10-09 by `2026-10-09-trigger-queue.md`
+  (the nightly sweep timer is replaced by the queue's nightly, poll and lane
+  units)
 
 ## Context
 

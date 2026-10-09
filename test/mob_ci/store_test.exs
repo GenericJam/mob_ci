@@ -81,6 +81,54 @@ defmodule MobCi.StoreTest do
     Store.close(again)
   end
 
+  test "a schema-1 store gains runs.job_id and the queue tables, keeping its runs" do
+    dir = Path.join(System.tmp_dir!(), "mob_ci_store_v1_#{System.unique_integer([:positive])}")
+    path = Path.join(dir, "results.sqlite")
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+
+    # The shipped schema 1 `runs` table, as a 2026-10-08 store has it.
+    {:ok, conn} = Exqlite.Sqlite3.open(path)
+
+    :ok =
+      Exqlite.Sqlite3.execute(conn, """
+      CREATE TABLE runs (id INTEGER PRIMARY KEY AUTOINCREMENT, started_at TEXT NOT NULL, trigger TEXT NOT NULL,
+        versions_row TEXT NOT NULL, host TEXT NOT NULL, mob_ci_sha TEXT);
+      INSERT INTO runs (started_at, trigger, versions_row, host) VALUES ('2026-10-08T00:00:00Z', 'ci.device', 'hex', 'nuc');
+      PRAGMA user_version = 1;
+      """)
+
+    Exqlite.Sqlite3.close(conn)
+
+    store = Store.open!(path)
+    assert Store.user_version(store) == 2
+    assert [[1, nil]] = Store.rows!(store, "SELECT id, job_id FROM runs", [])
+    assert {:ok, run} = Store.record_run(store, %{trigger: "nightly", versions_row: "hex", job_id: 7})
+    assert [[7]] = Store.rows!(store, "SELECT job_id FROM runs WHERE id = ?1", [run])
+
+    for table <- ~w(jobs job_cells heads pushes),
+        do: assert([[1]] = Store.rows!(store, "SELECT count(*) FROM sqlite_master WHERE name = ?1", [table]))
+
+    Store.close(store)
+  end
+
+  describe "run_context/2 (what a queue worker's environment records)" do
+    test "MOB_CI_TRIGGER replaces the task's trigger; MOB_CI_JOB_ID sets the job" do
+      meta = %{trigger: "ci.device", versions_row: "hex"}
+
+      assert Store.run_context(meta, %{"MOB_CI_TRIGGER" => "nightly", "MOB_CI_JOB_ID" => "42"}) ==
+               %{trigger: "nightly", versions_row: "hex", job_id: 42}
+    end
+
+    test "no, empty or malformed variables leave the meta alone; an explicit job_id wins" do
+      meta = %{trigger: "ci.device", versions_row: "hex"}
+      assert Store.run_context(meta, %{}) == meta
+      assert Store.run_context(meta, %{"MOB_CI_TRIGGER" => "", "MOB_CI_JOB_ID" => "x"}) == meta
+      assert Store.run_context(meta, %{"MOB_CI_JOB_ID" => "0"}) == meta
+      assert Store.run_context(Map.put(meta, :job_id, 3), %{"MOB_CI_JOB_ID" => "9"}).job_id == 3
+    end
+  end
+
   test "default_path honours MOB_CI_STORE" do
     # Read-only check of the resolution; no store is opened at either path.
     assert Store.default_path() == Path.expand(System.get_env("MOB_CI_STORE"))

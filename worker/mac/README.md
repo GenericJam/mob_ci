@@ -143,3 +143,25 @@ mix ci.ios_cell --set default --versions hex --path release:ios --out /tmp/resul
 ```
 
 Each cell prints `MOB_CI_RESULT <json>`; exit 0 pass/skip, 1 fail, 2 error.
+
+## Pre-push notices to the NUC (optional)
+
+`worker/mac/enqueue-push.sh` tells the NUC's trigger queue about a push from
+a mob-family repo, so its cells start without waiting for the 10-minute
+poller, and a branch push runs as `rc:<repo>@<sha>` (the poller only
+watches default branches). It backgrounds `ssh nuc code/mob_ci/priv/ci-run.sh
+push <repo> <sha> <ref>` with a 5 s connect timeout and always exits 0, so it
+never slows or blocks a push; the NUC runs nothing until the sha is on the
+remote. Log: `~/mob_ci_logs/enqueue-push.log`. `MOB_CI_ENQUEUE=0` turns it
+off; `MOB_CI_NUC` / `MOB_CI_NUC_REPO` override the ssh host (`nuc`) and the
+NUC checkout (`code/mob_ci`).
+
+Install: keep this checkout at `~/code/mob_ci` (or adjust the path) and add
+one line inside the `while read …` loop of the repo's `.githooks/pre-push`:
+
+```bash
+    "$HOME/code/mob_ci/worker/mac/enqueue-push.sh" "$local_sha" "$remote_ref" </dev/null || true
+```
+
+Run by hand, it also reads git's pre-push lines on stdin
+(`<local ref> <local sha> <remote ref> <remote sha>`).

@@ -1,0 +1,14 @@
+[Unit]
+Description=mob_ci git-remote poller: new default-branch shas → static gate + queued master cells
+Documentation=file:%h/code/mob_ci/decisions/2026-10-09-trigger-queue.md
+# No network ordering (a user manager has no network-online.target): a repo
+# that can't be reached keeps its stored sha and is retried next cycle.
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/code/mob_ci
+# git ls-remote over every repo (seconds), the static gate for a change (about
+# a minute per set), then starts the lane workers.
+ExecStart=%h/code/mob_ci/priv/ci-run.sh poll
+TimeoutStartSec=1800
+Nice=5

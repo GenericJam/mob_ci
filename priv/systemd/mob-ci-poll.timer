@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll the mob ecosystem's git remotes every 10 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+# A oneshot that is still running is not started again; a slow cycle just
+# delays the next one.
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
