@@ -1,6 +1,7 @@
 defmodule MobCi.Lane.IosKeychainTest do
-  # worker/mac/ci_keychain.sh and worker/mac/bin/codesign, run by bash with
-  # `security` and `codesign` stubbed: no keychain or Mac needed.
+  # worker/mac/mob_ci_ios_cell.sh with its ci_keychain.sh and bin/codesign,
+  # run by bash with `security`, `codesign` and `mix` stubbed: no keychain,
+  # Mac or Elixir build needed.
   use ExUnit.Case, async: true
 
   @moduletag :tmp_dir
@@ -36,6 +37,16 @@ defmodule MobCi.Lane.IosKeychainTest do
     File.write!(kc, "")
     File.mkdir_p!(Path.dirname(pw_file))
     File.write!(pw_file, @password)
+
+    # `mix` as the cell script finds it ($HOME/.local/bin): deps.get and
+    # compile succeed; `mix ci.ios_cell` signs the way mob_dev does,
+    # `codesign` by name with the inherited environment.
+    stub!(Path.join(home, ".local/bin"), "mix", """
+    #!/bin/sh
+    [ "$1" = ci.ios_cell ] || exit 0
+    codesign --force --sign "#{@identity}" app.app
+    echo "MOB_CI_CODESIGN_KEYCHAIN=${MOB_CI_CODESIGN_KEYCHAIN:-}"
+    """)
 
     %{stubs: stubs, home: home, kc: kc, pw_file: pw_file, log: tmp}
   end
@@ -109,18 +120,8 @@ defmodule MobCi.Lane.IosKeychainTest do
     assert Enum.take(read_lines(ctx.log, "codesign.args"), 3) == ["real", "--keychain", kc]
   end
 
-  # Sources the helper as mob_ci_ios_cell.sh does (under `set -euo pipefail`),
-  # then signs the way mob_dev does: `codesign` by name.
   defp run(ctx, env \\ []) do
-    script = """
-    set -euo pipefail
-    . worker/mac/ci_keychain.sh
-    mob_ci_signing_keychain "$PWD/worker/mac/bin"
-    codesign --force --sign "#{@identity}" app.app
-    echo "MOB_CI_CODESIGN_KEYCHAIN=${MOB_CI_CODESIGN_KEYCHAIN:-}"
-    """
-
-    System.cmd("bash", ["-c", script],
+    System.cmd("bash", ["worker/mac/mob_ci_ios_cell.sh", "--spec-b64", "e30="],
       cd: File.cwd!(),
       stderr_to_stdout: true,
       env:
@@ -137,6 +138,7 @@ defmodule MobCi.Lane.IosKeychainTest do
   end
 
   defp stub!(dir, name, body) do
+    File.mkdir_p!(dir)
     path = Path.join(dir, name)
     File.write!(path, body)
     File.chmod!(path, 0o755)

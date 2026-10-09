@@ -99,6 +99,9 @@ Never the `claude` account.
    ```
 
    `MOB_CI_KEYCHAIN` and `MOB_CI_KEYCHAIN_PASSWORD_FILE` point elsewhere.
+   The first version of this step kept the login password in
+   `~/.config/mob_ci/keychain-password`; nothing reads it any more, so if it
+   exists, delete it: `/bin/rm -P ~/.config/mob_ci/keychain-password`.
 
    **Rotate** (a new password, or renewed certificates): delete the keychain
    and run the setup again. **Revoke** (the Mac or the file is compromised,
