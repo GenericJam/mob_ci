@@ -189,8 +189,8 @@ defmodule MobCi.Farm do
   unpacks its OTP tree on first launch, wiping `files/otp` — so: launch once,
   wait for `files/otp/.installed_version`, stop the app, then write the
   managed cookie as root (a release APK is not debuggable, `run-as` is
-  refused) with the app's owner and SELinux label. `launch/2` then starts it
-  for real.
+  refused; redroid's adb shell is uid shell, its `su` is root) with the app's
+  owner and SELinux label. `launch/2` then starts it for real.
   """
   @spec provision_release(Instance.t(), keyword()) :: :ok | {:error, term()}
   def provision_release(%Instance{} = inst, opts) do
@@ -202,7 +202,7 @@ defmodule MobCi.Farm do
     with {_out, 0} <- sh_status(["launch", to_string(inst.index), inst.suffix, to_string(inst.dist_port), pkg]),
          :ok <- await_extracted(inst.serial, pkg, System.monotonic_time(:millisecond) + timeout),
          {_out, 0} <- cmd("adb", ["-s", inst.serial, "shell", "am", "force-stop", pkg]),
-         {_out, 0} <- cmd("adb", ["-s", inst.serial, "shell", write_cookie_script(pkg, app, cookie)]) do
+         {_out, 0} <- cmd("adb", ["-s", inst.serial, "shell", as_root(write_cookie_script(pkg, app, cookie))]) do
       :ok
     else
       {:error, _} = err -> err
@@ -213,7 +213,7 @@ defmodule MobCi.Farm do
   defp await_extracted(serial, pkg, deadline) do
     marker = "/data/data/#{pkg}/files/otp/.installed_version"
 
-    case cmd("adb", ["-s", serial, "shell", "test -f #{marker} && echo present"]) do
+    case cmd("adb", ["-s", serial, "shell", as_root("test -f #{marker} && echo present")]) do
       {out, 0} when is_binary(out) ->
         if out =~ "present", do: :ok, else: retry_extracted(serial, pkg, deadline)
 
@@ -250,6 +250,17 @@ defmodule MobCi.Farm do
     "mkdir -p #{dir} && printf %s #{cookie} > #{file} && " <>
       "chown $(stat -c %u:%g /data/data/#{pkg}) #{dir} #{file} && chmod 600 #{file} && " <>
       "chcon $(stat -c %C /data/data/#{pkg}/files) #{dir} #{file}"
+  end
+
+  @doc """
+  `script` run as root through the device's `su` (redroid ships
+  `/system/xbin/su`; `adb shell` itself is uid shell and can't read another
+  app's data dir). The scripts mob_ci builds hold no single quote.
+  """
+  @spec as_root(String.t()) :: String.t()
+  def as_root(script) do
+    if String.contains?(script, "'"), do: raise(ArgumentError, "as_root: script must not contain a single quote")
+    "su 0 sh -c '#{script}'"
   end
 
   defp cmd(exe, args) do

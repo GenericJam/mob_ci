@@ -110,6 +110,13 @@ defmodule MobCi.ReleaseCellTest do
 
       assert_raise ArgumentError, fn -> Farm.write_cookie_script("p", :a, "x; rm -rf /") end
     end
+
+    test "device scripts run as root through su (adb shell is uid shell), never with an embedded quote" do
+      assert Farm.as_root("test -f /data/data/p/files/otp/.installed_version && echo present") ==
+               "su 0 sh -c 'test -f /data/data/p/files/otp/.installed_version && echo present'"
+
+      assert_raise ArgumentError, fn -> Farm.as_root("echo 'x'") end
+    end
   end
 
   describe "a run's verdict over its paths" do
