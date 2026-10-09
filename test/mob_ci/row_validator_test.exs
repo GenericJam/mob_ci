@@ -46,8 +46,8 @@ defmodule MobCi.RowValidatorTest do
     hex = RowValidator.source(hex("0.7.18"))
     master = RowValidator.source(git(String.duplicate("a", 40), "/cache/src/mob_dev/aaaa"))
 
-    assert hex.dep == {:mob_dev, "== 0.7.18"}
-    assert master.dep == {:mob_dev, path: "/cache/src/mob_dev/aaaa", override: true}
+    assert hex.deps == [{:mob_dev, "== 0.7.18"}]
+    assert master.deps == [{:mob_dev, path: "/cache/src/mob_dev/aaaa", override: true}]
     assert RowValidator.project_dir(hex, "/c") == "/c/validators/mob_dev-hex-0.7.18"
     assert RowValidator.project_dir(master, "/c") == "/c/validators/mob_dev-git-#{String.duplicate("a", 40)}"
     assert RowValidator.mix_exs(hex) =~ ~s({:mob_dev, "== 0.7.18"})
@@ -55,6 +55,20 @@ defmodule MobCi.RowValidatorTest do
 
     # another Hex release is another project
     assert RowValidator.project_dir(RowValidator.source(hex("0.7.17")), "/c") != RowValidator.project_dir(hex, "/c")
+  end
+
+  test "the row's mob is pinned beside mob_dev, as the host pins it, and keys the project" do
+    mob_git = %{version: "0.9.17", sha: String.duplicate("b", 40), source: {:git, "https://github.com/GenericJam/mob"}, dir: "/cache/src/mob/bbbb"}
+    master = git(String.duplicate("a", 40), "/cache/src/mob_dev/aaaa") |> put_in([:repos, :mob], mob_git)
+    hex_row = hex("0.7.19") |> put_in([:repos, :mob], %{version: "0.9.16", sha: nil, source: :hex, dir: nil})
+
+    assert [{:mob, path: "/cache/src/mob/bbbb", override: true}, {:mob_dev, path: "/cache/src/mob_dev/aaaa", override: true}] =
+             RowValidator.source(master).deps
+
+    assert RowValidator.source(hex_row).deps == [{:mob, "== 0.9.16"}, {:mob_dev, "== 0.7.19"}]
+    assert RowValidator.source(hex_row).key == "hex-0.7.19-mob-hex-0.9.16"
+    assert RowValidator.source(master).key =~ "-mob-git-#{String.duplicate("b", 40)}"
+    assert RowValidator.mix_exs(hex_row) =~ ~s({:mob, "== 0.9.16"}, {:mob_dev, "== 0.7.19"})
   end
 
   test "conflicts/3 runs cross_validate in the row's mob_dev, per pin, and reuses the built project", %{root: root} do

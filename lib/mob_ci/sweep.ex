@@ -159,12 +159,15 @@ defmodule MobCi.Sweep do
 
   # The fixture harness activates via Build.activate/3 (mob.exs + P5 showcase);
   # a generated host via MobCi.Host.activate/2 (mob.exs with trust) and has no
-  # showcase screen.
+  # showcase screen. A generated host was built by the row's mob_dev, so P1's
+  # static half asks that mob_dev too (MobCi.RowValidator); the harness keeps
+  # mob_ci's own.
   defp prepare_host(nil, pool, _opts) do
     with {:ok, h} <- Build.prepare_sweep_harness(pool: pool) do
       {:ok,
        Map.merge(h, %{
          activate: fn dir, subset, app -> Build.activate(dir, subset, app) end,
+         static: fn _subset -> {:ok, nil} end,
          showcase: true,
          set: nil,
          versions: nil
@@ -178,6 +181,7 @@ defmodule MobCi.Sweep do
       {:ok,
        Map.merge(h, %{
          activate: fn _dir, subset, _app -> MobCi.Host.activate(h, subset, cell.resolved) end,
+         static: fn subset -> MobCi.RowValidator.conflicts(Plugins.activated(subset), cell.resolved) end,
          showcase: false
        })}
     end
@@ -212,19 +216,23 @@ defmodule MobCi.Sweep do
   defp run_one(harness, inst, subset) do
     harness.activate.(harness.dir, subset, harness.app)
 
-    case Build.deploy(harness.dir, inst.serial) do
-      {:conflict, msgs} ->
-        {:fail, [MobCi.Result.fail(:p1, "build outcome", "rejected: #{Enum.join(msgs, "; ")}") |> MobCi.Result.at(:static)]}
+    with {:ok, static_conflicts} <- harness.static.(subset) do
+      case Build.deploy(harness.dir, inst.serial) do
+        {:conflict, msgs} ->
+          {:fail, [MobCi.Result.fail(:p1, "build outcome", "rejected: #{Enum.join(msgs, "; ")}") |> MobCi.Result.at(:static)]}
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
 
-      :ok ->
-        probe_subset(harness, inst, subset)
+        :ok ->
+          probe_subset(harness, inst, subset, static_conflicts)
+      end
+    else
+      {:error, msg} -> {:error, {:row_validator, msg}}
     end
   end
 
-  defp probe_subset(harness, inst, subset) do
+  defp probe_subset(harness, inst, subset, static_conflicts) do
     perms =
       with {:ok, apk} <- Build.locate_apk(harness.dir),
            {:ok, p} <- Build.read_permissions(apk),
@@ -249,7 +257,8 @@ defmodule MobCi.Sweep do
           migration_tables: Context.default_migration_tables(),
           worker_names: Context.default_worker_names(),
           screen_caps: MobCi.DeviceCaps.screen_caps(subset),
-          showcase_screen: if(harness.showcase, do: Build.showcase_module(harness.app))
+          showcase_screen: if(harness.showcase, do: Build.showcase_module(harness.app)),
+          static_conflicts: static_conflicts
         }
 
         results =

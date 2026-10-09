@@ -26,7 +26,7 @@ defmodule MobCi.RowValidator do
   alias MobCi.Versions
   alias MobCi.Versions.Remote
 
-  @type source :: %{key: String.t(), dep: Versions.dep(), label: String.t()}
+  @type source :: %{key: String.t(), deps: [Versions.dep()], label: String.t()}
 
   @ready ".mob_ci_ready"
   # A master sha's validator project unused this long is deleted (prune/2).
@@ -41,35 +41,49 @@ defmodule MobCi.RowValidator do
   """
 
   @doc """
-  Where a resolved row's mob_dev comes from: a Hex release (`{:mob_dev, "==
-  x.y.z"}`) or the row's checkout of a sha (`path:`), with the cache key and a
-  label for the console.
+  Where a resolved row's mob_dev comes from — a Hex release (`{:mob_dev, "==
+  x.y.z"}`) or the row's checkout of a sha (`path:`) — plus the row's mob,
+  pinned the way the generated host pins it (`MobCi.Versions.dep/2`), so a
+  mob_dev sha that needs an unreleased mob resolves here as it does there.
+  Returns the deps, the cache key (both pins) and a console label.
   """
   @spec source(Versions.resolved()) :: source()
-  def source(%{repos: %{mob_dev: %{source: :hex, version: v}}}),
-    do: %{key: "hex-#{v}", dep: {:mob_dev, "== #{v}"}, label: "mob_dev #{v} (hex)"}
+  def source(%{repos: repos}) do
+    {dev_key, dev_dep, label} =
+      case Map.fetch!(repos, :mob_dev) do
+        %{source: :hex, version: v} ->
+          {"hex-#{v}", {:mob_dev, "== #{v}"}, "mob_dev #{v} (hex)"}
 
-  def source(%{repos: %{mob_dev: %{source: {:git, _}, sha: sha, dir: dir}}}),
-    do: %{
-      key: "git-#{sha}",
-      dep: {:mob_dev, path: dir, override: true},
-      label: "mob_dev #{String.slice(sha, 0, 12)} (git #{dir})"
-    }
+        %{source: {:git, _}, sha: sha, dir: dir} ->
+          {"git-#{sha}", {:mob_dev, path: dir, override: true}, "mob_dev #{String.slice(sha, 0, 12)} (git #{dir})"}
+      end
+
+    case Map.get(repos, :mob) do
+      nil ->
+        %{key: dev_key, deps: [dev_dep], label: label}
+
+      %{source: :hex, version: v} = pin ->
+        %{key: "#{dev_key}-mob-hex-#{v}", deps: [Versions.dep(:mob, pin), dev_dep], label: label}
+
+      %{source: {:git, _}, sha: sha} = pin ->
+        %{key: "#{dev_key}-mob-git-#{sha}", deps: [Versions.dep(:mob, pin), dev_dep], label: label}
+    end
+  end
 
   @doc "The validator project for `source` under `cache` (default `MobCi.Versions.cache_dir/0`)."
   @spec project_dir(source(), Path.t()) :: Path.t()
   def project_dir(%{key: key}, cache \\ Versions.cache_dir()),
     do: Path.join([cache, "validators", "mob_dev-" <> key])
 
-  @doc "The validator project's `mix.exs`: nothing but the row's mob_dev."
+  @doc "The validator project's `mix.exs`: nothing but the row's mob_dev (and mob)."
   @spec mix_exs(source()) :: String.t()
-  def mix_exs(%{dep: dep}) do
+  def mix_exs(%{deps: deps}) do
     """
     defmodule MobCiRowValidator.MixProject do
       use Mix.Project
 
       def project do
-        [app: :mob_ci_row_validator, version: "0.0.0", elixir: "~> 1.17", deps: [#{Versions.render_dep(dep)}]]
+        [app: :mob_ci_row_validator, version: "0.0.0", elixir: "~> 1.17", deps: [#{Enum.map_join(deps, ", ", &Versions.render_dep/1)}]]
       end
     end
     """
@@ -87,7 +101,8 @@ defmodule MobCi.RowValidator do
     dir = project_dir(source, cache)
 
     with :ok <- ensure_project(dir, source, cache) do
-      tmp = Path.join(System.tmp_dir!(), "mob_ci_validate_#{System.unique_integer([:positive])}")
+      # Unique across OS processes: both lanes may run a gate at once.
+      tmp = Path.join(System.tmp_dir!(), "mob_ci_validate_#{System.pid()}_#{System.unique_integer([:positive])}")
       File.mkdir_p!(tmp)
       input = Path.join(tmp, "in.term")
       output = Path.join(tmp, "out.term")
@@ -142,16 +157,17 @@ defmodule MobCi.RowValidator do
   end
 
   @doc """
-  Delete the validator projects of `master` shas not used for `days` (each
-  is ~40 MB, and master moves several times a day). Hex projects stay: there
-  are few, and the `hex` row uses the newest every night. Runs after each
-  new build.
+  Delete the validator projects of git pins (a `master` or `rc:` sha of mob_dev
+  or mob) not used for `days`: each is ~40 MB, and master moves several times
+  a day. All-Hex projects stay: there are few, and the `hex` row uses the
+  newest every night. Runs after each new build.
   """
   @spec prune(Path.t(), non_neg_integer()) :: [Path.t()]
   def prune(cache, days) do
     cutoff = System.os_time(:second) - days * 86_400
 
-    for dir <- Path.wildcard(Path.join([cache, "validators", "mob_dev-git-*"])),
+    for dir <- Path.wildcard(Path.join([cache, "validators", "mob_dev-*"])),
+        String.contains?(Path.basename(dir), "git-"),
         last_used(dir) < cutoff do
       File.rm_rf!(dir)
       dir

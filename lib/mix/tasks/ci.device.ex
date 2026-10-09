@@ -171,8 +171,14 @@ defmodule Mix.Tasks.Ci.Device do
         {:ok, conflicts} ->
           finish_static(run_static(cell.plugins, conflicts, RowValidator.source(cell.resolved).label), opts, cell_info(cell))
 
-        {:error, {_layer, msg}} ->
-          Mix.shell().error("\nStatic gate: ERROR — #{msg}")
+        {:error, {layer, msg}} ->
+          # Recorded, so the matrix doesn't keep showing an older pin's verdict.
+          info = cell_info(cell)
+          {store, run_id} = open_run(opts, info.versions_row)
+          meta = %{set: info.set, platform: :all, path: "static", versions: info.versions, duration_ms: nil, log_path: nil}
+          Store.record_results(store, run_id, meta, {:error, msg, to_string(layer)})
+          Store.close(store)
+          Mix.shell().error("\nStatic gate: ERROR @ #{layer} — #{msg}")
           exit({:shutdown, 2})
       end
     else
