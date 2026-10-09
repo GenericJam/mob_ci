@@ -7,7 +7,8 @@ what the NUC runs:
 | file | role |
 |---|---|
 | `sync.sh` | shipped inline by the NUC each run: clones/fetches the worker's own checkouts under `~/.cache/mob_ci/worker/` (mob_ci at the NUC's sha, mob_dev at its default branch) |
-| `mob_ci_ios_cell.sh` | the entry point per cell: puts the toolchain on PATH, builds mob_ci, runs `mix ci.ios_cell --spec-b64 <spec>` |
+| `mob_ci_ios_cell.sh` | the entry point per cell: puts the toolchain on PATH, unlocks the CI keychain (`ci_keychain.sh`), builds mob_ci, runs `mix ci.ios_cell --spec-b64 <spec>` |
+| `ci_keychain.sh`, `bin/codesign` | signing over ssh: unlock `mob_ci.keychain-db` for the session and put a `codesign` first on PATH that adds `--keychain` to it (step 5) |
 | `probe.exs` | run by the worker inside the generated host (`mix run --no-start`): grants, relaunches, attaches, reads health, runs the self-tests |
 
 There is no launchd job: the worker only runs while the NUC holds an ssh
@@ -16,8 +17,7 @@ session, and it builds one host at a time.
 ## One-time setup (Kevin)
 
 The worker runs as **`kevin`**, the account that owns Xcode, the signing
-keychain (`Apple Distribution: Kevin Edey (Q89CW299G8)` with "Always Allow"
-for codesign), the provisioning profiles, `agent-lease` and `~/.mob/cache`.
+identities, the provisioning profiles, `agent-lease` and `~/.mob/cache`.
 Never the `claude` account.
 
 1. **Remote Login on**:
@@ -50,21 +50,69 @@ Never the `claude` account.
    wildcard development profile covers; no app uses that id, so teardown's
    uninstall only ever removes what a cell installed.
 
-5. **Signing over ssh.** An ssh session cannot use a login keychain that the
-   GUI session unlocked: `codesign` fails with `errSecInternalComponent`, so
-   the iPhone and release paths fail at `build:<path>` (the simulator path
-   needs no signing). To let them sign, put the login password in a
-   kevin-only file; `mob_ci_ios_cell.sh` unlocks the keychain with it at the
-   start of each cell:
+5. **Signing over ssh: the CI keychain.** An ssh session cannot use the
+   login keychain, which only the GUI session has unlocked: `codesign` takes
+   the identity from the first keychain on the search list that holds it and
+   fails with `errSecInternalComponent`. So the two signing identities are
+   copied into a dedicated keychain with a random password of its own, and no
+   login password is stored anywhere:
+
+   - `Apple Development: genericjam@gmail.com (HAWF754E8H)`: the iPhone
+     build (`mix mob.deploy --native --ios --device`; mob_dev picks the one
+     `Apple Development` identity `security find-identity` lists);
+   - `Apple Distribution: Kevin Edey (Q89CW299G8)`: `mix mob.release --ios`.
+
+   `mob_ci_ios_cell.sh` (via `ci_keychain.sh`) unlocks it at the start of
+   each cell, the password on stdin, and puts `worker/mac/bin` first on PATH.
+   That `codesign` runs `/usr/bin/codesign --keychain <CI keychain> …`, so
+   every signature mob_dev makes (it calls `codesign` by name, any version)
+   comes from the CI keychain, while the search list and Kevin's GUI session
+   stay as they are. Without the keychain or its password file the cell
+   still runs: the simulator path needs no signing, the iPhone and release
+   paths fail at `build:<path>`.
+
+   Setup, from a GUI session (the export asks once per private key to allow
+   it, with the login password):
 
    ```sh
+   umask 077; d=$(mktemp -d)
+   openssl rand -base64 32 | tr -d '\n' > "$d/pass"
+   # The login keychain holds exactly these two identities; check with
+   # `security find-identity`, and delete any other from mob_ci afterwards.
+   security export -k login.keychain-db -t identities -f pkcs12 \
+     -P "$(cat "$d/pass")" -o "$d/ids.p12"
+
    mkdir -p ~/.config/mob_ci && chmod 700 ~/.config/mob_ci
-   printf '%s' 'LOGIN-PASSWORD' > ~/.config/mob_ci/keychain-password
-   chmod 600 ~/.config/mob_ci/keychain-password
+   pw=~/.config/mob_ci/ci-keychain-password
+   openssl rand -base64 32 | tr -d '\n' > "$pw"; chmod 600 "$pw"
+   kc=~/Library/Keychains/mob_ci.keychain-db
+   security create-keychain -p "$(cat "$pw")" "$kc"
+   security set-keychain-settings "$kc"        # no auto-lock, no lock on sleep
+   security unlock-keychain -p "$(cat "$pw")" "$kc"
+   security import "$d/ids.p12" -k "$kc" -f pkcs12 -P "$(cat "$d/pass")" -T /usr/bin/codesign
+   security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$(cat "$pw")" "$kc" >/dev/null
+   # Append to the user search list, keeping what is there.
+   security list-keychains -d user -s $(security list-keychains -d user | tr -d '"') "$kc"
+   /bin/rm -P "$d/ids.p12" "$d/pass"; rmdir "$d"
+
+   security find-identity -v -p codesigning "$kc"   # the two identities
    ```
 
-   (`MOB_CI_KEYCHAIN_PASSWORD_FILE` points elsewhere.) The alternative is a
-   dedicated, password-less CI keychain holding the two signing identities.
+   `MOB_CI_KEYCHAIN` and `MOB_CI_KEYCHAIN_PASSWORD_FILE` point elsewhere.
+   The first version of this step kept the login password in
+   `~/.config/mob_ci/keychain-password`; nothing reads it any more, so if it
+   exists, delete it: `/bin/rm -P ~/.config/mob_ci/keychain-password`.
+
+   **Rotate** (a new password, or renewed certificates): delete the keychain
+   and run the setup again. **Revoke** (the Mac or the file is compromised,
+   or CI should stop signing): delete it, the password file, and its search
+   list entry, and revoke the certificates at developer.apple.com if the
+   private keys may have leaked:
+
+   ```sh
+   security delete-keychain ~/Library/Keychains/mob_ci.keychain-db  # also drops it from the search list
+   /bin/rm -P ~/.config/mob_ci/ci-keychain-password
+   ```
 
 6. **Devices**: at least one booted simulator on an iOS 27+ runtime (the lane
    leases the newest one free; `simctl privacy grant photos` is ignored on
