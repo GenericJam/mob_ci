@@ -46,7 +46,9 @@ defmodule MobCi.Lane.Ios.Worker do
   Teardown runs whatever happened, including a step that raised: it
   uninstalls the app from a device it leased, releases the lease and deletes
   the app state and the scratch dir. The result records free disk before and
-  after.
+  after. Run under a run dir (`:run_dir`, `MobCi.Lane.Ios.Reaper`), the
+  cell keeps a manifest of what teardown needs, so a worker killed before
+  its teardown is undone the same way (`teardown_manifest/2`).
 
   All I/O goes through `deps` (see `default_deps/0`), so the step logic is
   tested without a Mac, a device or Xcode.
@@ -376,7 +378,9 @@ defmodule MobCi.Lane.Ios.Worker do
 
   @doc """
   Run the cell. Options: `:root` (scratch root, default `default_root/0`),
-  `:deps` (map overriding `default_deps/0` entries).
+  `:run_dir` (the run's dir, `MobCi.Lane.Ios.Reaper`: the cell keeps its
+  teardown manifest in `<run_dir>/cells/` while it runs, see
+  `manifest_path/2`), `:deps` (map overriding `default_deps/0` entries).
   """
   @spec run(Spec.t(), keyword()) :: map()
   def run(%Spec{} = spec, opts \\ []) do
@@ -385,11 +389,13 @@ defmodule MobCi.Lane.Ios.Worker do
     tmp = Path.join(scratch, "tmp")
     started = System.monotonic_time(:millisecond)
     old_tmpdir = System.get_env("TMPDIR")
+    run_dir = Keyword.get(opts, :run_dir)
 
     state = %{
       spec: spec,
       scratch: scratch,
       tmp: tmp,
+      manifest: run_dir && manifest_path(run_dir, spec.cell_id),
       host: nil,
       resolved: nil,
       leased: false,
@@ -403,9 +409,10 @@ defmodule MobCi.Lane.Ios.Worker do
     }
 
     deps.log.("cell #{spec.cell_id}: #{spec.path} set=#{spec.set} row=#{spec.versions.row}")
+    write_manifest(state)
     state = run_steps(steps(spec.path), state, deps)
     teardown = teardown(state, deps)
-
+    if state.manifest, do: File.rm(state.manifest)
     restore_env("TMPDIR", old_tmpdir)
     steps = Enum.reverse(state.steps)
     {outcome, layer, reason} = verdict(steps, state.invariants)
@@ -461,6 +468,7 @@ defmodule MobCi.Lane.Ios.Worker do
     # A failed acquire may still have started the session's daemon: teardown
     # releases whenever a lease was attempted, so mark it before the call.
     state = if name == :lease, do: %{state | lease_tried: true}, else: state
+    if name == :lease, do: write_manifest(state)
 
     {status, state, layer, detail} =
       try do
@@ -483,6 +491,7 @@ defmodule MobCi.Lane.Ios.Worker do
 
     entry = %{"name" => Atom.to_string(name), "status" => status, "layer" => layer, "ms" => ms, "detail" => detail}
     state = %{state | steps: [entry | state.steps]}
+    write_manifest(state)
 
     if status == "ok", do: run_steps(rest, state, deps), else: state
   end
@@ -647,6 +656,74 @@ defmodule MobCi.Lane.Ios.Worker do
     do: Enum.map_join(invariants, ", ", &"#{&1["id"]} #{&1["status"]}")
 
   # ── teardown ─────────────────────────────────────────────────────────────────
+
+  @doc """
+  Where a cell running under `run_dir` keeps its teardown manifest: what
+  `teardown_manifest/2` needs to undo the cell if its worker dies before its
+  own teardown (the spec, the scratch dir, whether a lease was attempted or
+  held, the device and the host). Written before the first step, rewritten
+  after each, and removed once the worker's teardown has run.
+  """
+  @spec manifest_path(Path.t(), String.t()) :: Path.t()
+  def manifest_path(run_dir, cell_id), do: Path.join([run_dir, "cells", "#{cell_id}.json"])
+
+  defp write_manifest(%{manifest: nil}), do: :ok
+
+  defp write_manifest(%{manifest: path} = state) do
+    body =
+      JSON.encode!(%{
+        "schema" => 1,
+        "spec" => JSON.decode!(Spec.to_json(state.spec)),
+        "scratch" => state.scratch,
+        "lease_tried" => state.lease_tried,
+        "leased" => state.leased,
+        "device" => state.device,
+        "host" => state.host && Map.new(Map.take(state.host, [:dir, :app, :pkg]), fn {k, v} -> {k, to_string(v)} end)
+      })
+
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path <> ".tmp", body)
+    File.rename!(path <> ".tmp", path)
+  end
+
+  @doc """
+  Undo the cell a manifest (`manifest_path/2`) describes, with the same
+  teardown a cell runs when it ends, then remove the manifest. Used when the
+  worker died before its own teardown (`MobCi.Lane.Ios.Reaper`). An
+  unreadable manifest is removed and reported. Returns the teardown entries.
+  """
+  @spec teardown_manifest(Path.t(), map()) :: {:ok, [map()]} | {:error, String.t()}
+  def teardown_manifest(path, deps \\ %{}) do
+    deps = Map.merge(default_deps(), deps)
+
+    result =
+      with {:ok, body} <- File.read(path),
+           {:ok, %{"schema" => 1} = m} <- JSON.decode(body),
+           {:ok, spec} <- Spec.from_json(JSON.encode!(m["spec"])),
+           # Teardown deletes the scratch dir: only the cell's own.
+           scratch when is_binary(scratch) <- m["scratch"],
+           true <- Path.basename(scratch) == spec.cell_id || {:error, "scratch #{scratch} is not the cell's"} do
+        host = m["host"] && %{dir: m["host"]["dir"], app: m["host"]["app"], pkg: m["host"]["pkg"]}
+
+        state = %{
+          spec: spec,
+          scratch: scratch,
+          host: host,
+          device: m["device"],
+          leased: m["leased"] == true,
+          lease_tried: m["lease_tried"] == true
+        }
+
+        deps.log.("cell #{spec.cell_id}: tearing down after its worker died")
+        {:ok, teardown(state, deps)}
+      else
+        {:error, why} when is_binary(why) -> {:error, "#{path}: #{why}"}
+        other -> {:error, "#{path}: unreadable manifest (#{inspect(other, limit: 5)})"}
+      end
+
+    File.rm(path)
+    result
+  end
 
   defp teardown(%{spec: spec} = state, deps) do
     uninstall =

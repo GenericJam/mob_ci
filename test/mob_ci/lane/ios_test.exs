@@ -40,6 +40,24 @@ defmodule MobCi.Lane.IosTest do
       assert Enum.take(argv, -2) == ["kevin@10.0.0.71", "true"]
     end
 
+    test "the transport keeps writing heartbeats to the session's stdin, and logs its output and exit code",
+         %{tmp_dir: dir} do
+      fake_ssh = Path.join(dir, "ssh")
+      # Stands in for ssh + the Mac's guard: needs three heartbeats to finish.
+      File.write!(fake_ssh, ~S"""
+      #!/bin/sh
+      echo "args: $*"
+      for i in 1 2 3; do read -r line && echo "got $line"; done
+      exit 7
+      """)
+
+      File.chmod!(fake_ssh, 0o755)
+      log = Path.join(dir, "cell.log")
+
+      assert 7 == Ios.ssh(["-o", "BatchMode=yes", "mac", "cmd"], log, exe: fake_ssh, heartbeat_ms: 20)
+      assert File.read!(log) == "args: -o BatchMode=yes mac cmd\ngot hb\ngot hb\ngot hb\n"
+    end
+
     test "sync ships the script inline and checks out exactly the given sha" do
       cmd = Ios.sync_command(@sha, "echo synced\n")
       assert [_, "echo", b64, "|", "base64", "-d", "|", "bash", "-s", "--", sha] = ["" | String.split(cmd, " ")]

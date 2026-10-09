@@ -27,6 +27,16 @@ defmodule Mix.Tasks.Ci.IosCell do
   `DIR/<cell_id>.json`. `--root DIR` moves the scratch dirs (default
   `$TMPDIR/mob_ci_ios`).
 
+  Before its first cell the task reaps what dead runs left on this Mac
+  (`MobCi.Lane.Ios.Reaper.reap/2`: their leases, processes, scratch and
+  staged app state). It runs as part of a run (`MobCi.Lane.Ios.Reaper`):
+  the one `worker/mac/guard.sh` started, or one it registers for a hand run.
+
+      # what worker/mac/guard.sh runs when its worker ends, however it ended
+      mix ci.ios_cell --teardown <run dir>
+
+  stops the run's processes and tears down every cell it left unfinished.
+
   Exit status: 0 when every cell passed or skipped, 1 when one failed, 2 when
   one errored (the cell could not run).
   """
@@ -34,7 +44,7 @@ defmodule Mix.Tasks.Ci.IosCell do
 
   alias MobCi.Cell
   alias MobCi.Lane.Ios
-  alias MobCi.Lane.Ios.{Spec, Worker}
+  alias MobCi.Lane.Ios.{Reaper, Spec, Worker}
 
   @switches [
     spec: :string,
@@ -47,7 +57,8 @@ defmodule Mix.Tasks.Ci.IosCell do
     serial: :string,
     min_runtime: :string,
     out: :string,
-    root: :string
+    root: :string,
+    teardown: :string
   ]
 
   @impl Mix.Task
@@ -57,8 +68,20 @@ defmodule Mix.Tasks.Ci.IosCell do
     if rest != [] or invalid != [],
       do: Mix.raise("unexpected arguments: #{inspect(rest ++ Enum.map(invalid, &elem(&1, 0)))}")
 
-    results = Enum.map(specs!(opts), &run_one(&1, opts))
-    exit_with(results)
+    if dir = opts[:teardown] do
+      Reaper.teardown_run(Path.expand(dir))
+    else
+      specs = specs!(opts)
+      {run_id, run_dir} = Reaper.register()
+      deps = Reaper.default_deps()
+      deps = if opts[:root], do: %{deps | scratch_root: Path.expand(opts[:root])}, else: deps
+      Reaper.reap(run_id, deps)
+
+      results = Enum.map(specs, &run_one(&1, Keyword.put(opts, :run_dir, run_dir)))
+      # A hand run's dir is its own; the guard removes the one it made.
+      if String.starts_with?(run_id, "hand-"), do: File.rm_rf(run_dir)
+      exit_with(results)
+    end
   end
 
   defp specs!(opts) do
@@ -94,7 +117,7 @@ defmodule Mix.Tasks.Ci.IosCell do
   end
 
   defp run_one(spec, opts) do
-    result = Worker.run(spec, Keyword.take(opts, [:root]))
+    result = Worker.run(spec, Keyword.take(opts, [:root, :run_dir]))
     json = JSON.encode!(result)
 
     if dir = opts[:out] do

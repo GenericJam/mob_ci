@@ -7,12 +7,16 @@ what the NUC runs:
 | file | role |
 |---|---|
 | `sync.sh` | shipped inline by the NUC each run: clones/fetches the worker's own checkouts under `~/.cache/mob_ci/worker/` (mob_ci at the NUC's sha, mob_dev at its default branch) |
-| `mob_ci_ios_cell.sh` | the entry point per cell: puts the toolchain on PATH, unlocks the CI keychain (`ci_keychain.sh`), builds mob_ci, runs `mix ci.ios_cell --spec-b64 <spec>` |
+| `mob_ci_ios_cell.sh` | the entry point per cell: hands the cell to `guard.sh`, then (as the guard's worker) puts the toolchain on PATH, unlocks the CI keychain (`ci_keychain.sh`), builds mob_ci, runs `mix ci.ios_cell --spec-b64 <spec>` |
+| `guard.sh` | runs the cell detached from the ssh session, streams its log back, and runs its teardown however the session ends (heartbeat lost, stdin closed, SIGHUP/SIGTERM) |
 | `ci_keychain.sh`, `bin/codesign` | signing over ssh: unlock `mob_ci.keychain-db` for the session and put a `codesign` first on PATH that adds `--keychain` to it (step 5) |
 | `probe.exs` | run by the worker inside the generated host (`mix run --no-start`): grants, relaunches, attaches, reads health, runs the self-tests |
 
-There is no launchd job: the worker only runs while the NUC holds an ssh
-session, and it builds one host at a time.
+There is no launchd job: a cell runs only because the NUC started it over
+ssh, and the Mac builds one host at a time. The cell is not tied to that
+session, though: if the NUC side goes away (killed, the link drops,
+`ci-run.sh pause ios`), the cell is stopped and torn down within a minute
+(see "What a cell does to this Mac").
 
 ## One-time setup (Kevin)
 
@@ -135,6 +139,20 @@ Never the `claude` account.
 - Leases its device through `agent-lease` (session `mob_ci_ios_<cell_id>`),
   installs `com.genericjam.mobci`, and uninstalls it and releases the lease
   in teardown.
+- Runs under `guard.sh`, detached from the ssh session, with
+  `MOB_CI_RUN=<run>` in every process's environment. The NUC sends a
+  heartbeat every 10 s; when it stops for 60 s
+  (`MOB_CI_HEARTBEAT_TIMEOUT_S`), the session's stdin closes, or the guard
+  gets SIGHUP/SIGTERM, the guard stops the cell and runs the same teardown as
+  a finished cell: stop the run's processes (tagged, and their
+  descendants; never the adb server or epmd), then uninstall, release,
+  delete. Its log: `~/mob_ci_logs/mac-worker/<run>.log` (kept 7 days); the
+  run's state: `~/.cache/mob_ci/runs/<run>/` while it runs.
+- Reaps first: before its own cell, each run tears down runs whose guard
+  died (SIGKILL, a reboot), stops processes tagged with a dead run, releases
+  `mob_ci_ios_*` leases no live cell owns, prunes their
+  `~/.agent-device/agents/` state dirs, and deletes cell scratch and `ci_*`
+  app state no live cell owns, idle for 30 minutes (`MOB_CI_REAP_AFTER_S`).
 - Persistent footprint: `~/.cache/mob_ci/worker/` (mob_ci + mob_dev
   checkouts and mob_ci's own `_build`, ~100 MB) and `~/.cache/mob_ci/hex/`.
 
@@ -147,6 +165,9 @@ mix ci.ios_cell --set default --versions hex --path release:ios --out /tmp/resul
 ```
 
 Each cell prints `MOB_CI_RESULT <json>`; exit 0 pass/skip, 1 fail, 2 error.
+A hand run registers a run of its own, so a later cell's reaper cleans up
+after it if it is killed; `worker/mac/mob_ci_ios_cell.sh <args>` from a
+terminal runs it under the guard (Ctrl-C stops it and tears it down).
 
 ## Pre-push notices to the NUC (optional)
 

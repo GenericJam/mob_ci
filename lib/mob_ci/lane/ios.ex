@@ -30,18 +30,26 @@ defmodule MobCi.Lane.Ios do
   set the static gate rejects is an `error` at `static` for every path,
   without an ssh hop.
 
+  The cell sessions carry a heartbeat (`ssh/3`): on the Mac,
+  `worker/mac/guard.sh` runs the cell detached from the session and tears it
+  down when the heartbeat stops or the session closes, so stopping this side
+  (a killed drain, `ci-run.sh pause`, a dropped link) never leaves a lease,
+  a build or scratch behind there.
+
   The transport is `opts[:ssh]` (`(argv, log_path) -> exit_code`), so
   everything here is tested without ssh.
   """
 
   alias MobCi.{Cell, Invariants, Plugins, Result, Store}
-  alias MobCi.Lane.Ios.{Spec, Tee}
+  alias MobCi.Lane.Ios.Spec
 
   @marker "MOB_CI_RESULT "
   @default_host "kevin@10.0.0.71"
   @worker_root "$HOME/.cache/mob_ci/worker"
   @sync_script Path.expand("../../../worker/mac/sync.sh", __DIR__)
   @external_resource @sync_script
+  # The Mac's guard tears a cell down after 60 s without one (worker/mac/guard.sh).
+  @heartbeat_ms 10_000
 
   # Kevin's iPhone SE. Simulators are picked on the Mac (newest runtime at or
   # above the spec's min_runtime that can be leased) unless one is named.
@@ -503,17 +511,57 @@ defmodule MobCi.Lane.Ios do
     String.trim(sha)
   end
 
-  @doc false
-  # The real transport: ssh with its output streamed to stdout and the log.
-  def ssh(argv, log_path) do
+  @doc """
+  The real transport: ssh with its output streamed to stdout and the log,
+  and a heartbeat line written to its stdin every `heartbeat_ms` (default
+  10 s). The Mac's `worker/mac/guard.sh` stops the cell and runs its
+  teardown when they stop coming or stdin closes, i.e. when this process,
+  its BEAM or the link goes away. Options: `:exe` (default `ssh`),
+  `:heartbeat_ms`.
+  """
+  @spec ssh([String.t()], Path.t(), keyword()) :: integer()
+  def ssh(argv, log_path, opts \\ []) do
+    exe = Keyword.get_lazy(opts, :exe, fn -> System.find_executable("ssh") || raise "ssh is not on PATH" end)
+    every = Keyword.get(opts, :heartbeat_ms, @heartbeat_ms)
     File.mkdir_p!(Path.dirname(log_path))
     file = File.open!(log_path, [:write, :binary])
+    port = Port.open({:spawn_executable, exe}, [:binary, :exit_status, :stderr_to_stdout, :use_stdio, args: argv])
+    timer = :timer.send_interval(every, {:heartbeat, port})
 
     try do
-      {_tee, code} = System.cmd("ssh", argv, into: %Tee{file: file}, stderr_to_stdout: true)
-      code
+      pump(port, file)
     after
+      {:ok, ref} = timer
+      :timer.cancel(ref)
       File.close(file)
+
+      receive do
+        {:heartbeat, ^port} -> :ok
+      after
+        0 -> :ok
+      end
+    end
+  end
+
+  defp pump(port, file) do
+    receive do
+      {^port, {:data, chunk}} ->
+        IO.binwrite(chunk)
+        IO.binwrite(file, chunk)
+        pump(port, file)
+
+      {:heartbeat, ^port} ->
+        # The port may have just exited; its exit_status is still to come.
+        try do
+          Port.command(port, "hb\n")
+        rescue
+          ArgumentError -> :ok
+        end
+
+        pump(port, file)
+
+      {^port, {:exit_status, code}} ->
+        code
     end
   end
 

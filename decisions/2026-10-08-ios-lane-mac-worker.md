@@ -41,7 +41,8 @@ cannot half-close. The session's output streams to
 <json>`, is the result, also written beside the log. A session that ends
 without one is an `error` at `error:ssh` with the exit code and log tail.
 
-No launchd job: the worker exists only while the NUC holds a session.
+No launchd job: a cell runs only because a NUC session started it. It is not
+tied to that session, though; see "When the NUC side goes away" below.
 
 ### The worker: a step list with one teardown
 
@@ -85,6 +86,58 @@ mob_dev's release script leaks its build dir that way (FINDINGS F11,
 MOB-425), so teardown also removes `$(getconf DARWIN_USER_TEMP_DIR)/tmp.*`
 dirs holding the cell's own `Ci<App>.app`. `ci_*` app names belong to mob_ci
 alone, which is what makes these deletions safe on a shared Mac.
+
+### When the NUC side goes away (MOB-466, 2026-10-09)
+
+The first version ran the worker inside the ssh session. A NUC side that
+went away mid-cell (the drain unit stopped, `ci-run.sh pause ios`, the link
+dropped) took the worker with it, by SIGPIPE on its closed stdout, before
+teardown ran: the agent-lease claim stayed held (blocking every other
+agent), zig/gradle kept building, and the scratch dir and staged BEAMs
+stayed.
+
+Now `mob_ci_ios_cell.sh` hands the cell to `worker/mac/guard.sh`, which
+starts a guard in a session of its own (`setsid`, through perl) with its
+output in `~/mob_ci_logs/mac-worker/<run>.log`, and streams that log back to
+the ssh session. The NUC's transport (`MobCi.Lane.Ios.ssh/3`) writes a
+heartbeat line to the session's stdin every 10 s. The guard stops the cell
+when its stdin closes or the session's side gets SIGHUP, SIGTERM or SIGPIPE
+(the NUC process or ssh died), when it gets SIGHUP/SIGTERM itself, or when
+no heartbeat came for 60 s (a link that dropped without closing). Then, and
+when the worker ends on its own, it runs the same teardown,
+`mix ci.ios_cell --teardown <run dir>` (`MobCi.Lane.Ios.Reaper.teardown_run/2`):
+
+- stop the run's processes: every process whose environment carries
+  `MOB_CI_RUN=<run>`, which the guard gives the worker and every child
+  inherits, and all their descendants (macOS shows `ps -E` no environment
+  for Apple's own binaries: `/bin/sh`, xcodebuild, clang). A process group
+  would not do: the BEAM gives each port program (mix, zig, gradle,
+  xcodebuild) a session of its own. One snapshot of the process table,
+  SIGTERM to all, SIGKILL after 10 s. Never `pkill` by name, and never the
+  adb server or epmd, which a cell may have started but every agent shares;
+- undo every cell whose manifest is left in `<run dir>/cells/`: the worker
+  writes one before its first step and after each (spec, scratch, lease
+  attempted/held, device, host) and removes it after its own teardown, so
+  a killed cell is undone exactly as a finished one (uninstall, release,
+  app state, scratch);
+- stop what is still tagged, the lease's agent-device daemon last, so the
+  release could still talk to it.
+
+Gradle runs without its long-lived daemon (`-Dorg.gradle.daemon=false`): a
+cell's daemon would outlive the cell, and another agent's build could pick
+it up before teardown stopped it.
+
+A guard can still die without teardown (SIGKILL, a reboot). So every cell
+first reaps (`Reaper.reap/2`): a run whose guard is gone, or has not stamped
+`<run dir>/alive` for 2 minutes, is torn down as above; a process tagged
+with a run that is not live is stopped; `mob_ci_ios_*` agent-lease sessions
+(state dirs under `~/.agent-device/agents/`, claims in `agent-device device
+status`) that no live cell owns are released and their state dirs pruned;
+cell scratch dirs, `ci_*` staged BEAMs and leaked `tmp.*/Ci*.app` dirs no
+live cell owns are deleted. The ones not tied to a dead run must also be
+idle for 30 minutes (`MOB_CI_REAP_AFTER_S`). A hand run of `mix
+ci.ios_cell` registers a run of its own, so it is protected and reaped the
+same way.
 
 ### Bundle ids and signing
 
