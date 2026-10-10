@@ -11,12 +11,12 @@ described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
 
 ## hex
 
-Latest run 2026-10-09T21:04:31Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.22 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8; mob 0.9.16 · mob_dev 0.7.19 · mob_new 0.6.7; mob 0.9.16 · mob_dev 0.7.18 · mob_new 0.6.7; mob 0.9.15 · mob_dev 0.7.17 · mob_new 0.6.7.
+Latest run 2026-10-10T00:12:57Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.22 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8; mob 0.9.16 · mob_dev 0.7.19 · mob_new 0.6.7; mob 0.9.16 · mob_dev 0.7.18 · mob_new 0.6.7; mob 0.9.15 · mob_dev 0.7.17 · mob_new 0.6.7.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
-| `all` | ✓ pass | ✓ pass | ✓ pass | · | ! error @ `build:deploy:ios_device` | · | · |
+| `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_background` | · | ✓ pass | ✓ pass | · | · | · | · |
 | `singleton:mob_biometric` | · | · | · | · | ✓ pass | ✓ pass | · |
 | `singleton:mob_bluetooth` | · | · | · | · | ✓ pass | ✓ pass | · |
@@ -29,12 +29,13 @@ Latest run 2026-10-09T21:04:31Z. Core versions in this grid: mob 0.9.17 · mob_d
 | `singleton:mob_screencast` | · | ✓ pass | ✓ pass | · | · | · | · |
 | `singleton:mob_sensors` | · | ✓ pass | ✓ pass | · | · | ✓ pass | · |
 | `singleton:mob_speech` | · | · | · | · | ✓ pass | ✓ pass | · |
+| `singleton:mob_whisper` | · | · | · | ✓ pass | ✓ pass | · | ✓ pass |
 
-38 pass, 0 fail, 1 error, 0 skip.
+44 pass, 0 fail, 0 error, 0 skip.
 
 ## master
 
-Latest run 2026-10-09T23:58:18Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-10T00:06:37Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
