@@ -34,13 +34,13 @@ Latest run 2026-10-09T21:04:31Z. Core versions in this grid: mob 0.9.17 · mob_d
 
 ## master
 
-Latest run 2026-10-09T23:23:39Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-09T23:58:18Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
-| `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:release:ios` |
+| `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `selftest_pilots` | · | ✓ pass | ✓ pass | · | · | · |
 | `singleton:mob_audio_capture` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_biometric` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
@@ -55,9 +55,9 @@ Latest run 2026-10-09T23:23:39Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_speech` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_touch` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
 | `singleton:mob_vision` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ! error @ `build:release:ios` |
-| `singleton:mob_whisper` | · | ✓ pass | ✓ pass | · | · | · |
+| `singleton:mob_whisper` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 
-75 pass, 0 fail, 11 error, 10 skip.
+80 pass, 0 fail, 10 error, 10 skip.
 
 ## rc:mob_dev@39005a35298fbced4194dfc9a9b000a8ea9b0351
 
