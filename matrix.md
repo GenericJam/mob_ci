@@ -49,16 +49,16 @@ Latest run 2026-10-11T05:45:05Z. Core versions in this grid: mob 0.9.17 · mob_d
 
 ## master
 
-Latest run 2026-10-11T04:46:07Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-11T08:34:12Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `demo` | · | · | · | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `pairwise:1` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:10` | · | ! error @ `farm` | · | ! error @ `error:disk` | · | · |
+| `pairwise:10` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
 | `pairwise:2` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
 | `pairwise:3` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
 | `pairwise:4` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
@@ -78,7 +78,7 @@ Latest run 2026-10-11T04:46:07Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_location` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_midi` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_mishka` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `singleton:mob_nfc` | ✓ pass | ✓ pass | ! error @ `boot` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_nfc` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_notify` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_photos` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
@@ -93,7 +93,7 @@ Latest run 2026-10-11T04:46:07Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_whisper` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 
-80 pass, 0 fail, 99 error, 0 skip.
+84 pass, 0 fail, 97 error, 0 skip.
 
 ## rc:mob_dev@39005a35298fbced4194dfc9a9b000a8ea9b0351
 
