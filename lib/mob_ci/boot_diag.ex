@@ -118,14 +118,14 @@ defmodule MobCi.BootDiag do
   @doc """
   Keep the diagnosis with the path's log `log` (the cell's `log_path`):
   append `render/2` to it and write the full logcat dump beside it as
-  `<log without .log>.logcat.txt`. Returns the rendered block; with no
-  log, only renders.
+  `<log without .log>.logcat.log` (a `*.log`, so the publish's 30-day log
+  prune takes it too). Returns the rendered block; with no log, only renders.
   """
   @spec write(t(), Path.t() | nil) :: String.t()
   def write(%__MODULE__{} = d, nil), do: render(d)
 
   def write(%__MODULE__{} = d, log) do
-    dump = Path.rootname(log) <> ".logcat.txt"
+    dump = Path.rootname(log) <> ".logcat.log"
     text = render(d, Path.basename(dump))
     File.mkdir_p!(Path.dirname(log))
     File.write!(dump, d.logcat)

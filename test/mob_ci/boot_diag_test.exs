@@ -163,9 +163,9 @@ defmodule MobCi.BootDiagTest do
     body = File.read!(log)
     assert String.starts_with?(body, "BUILD SUCCESSFUL\n")
     assert body =~ "cause: the app is running (pid 2701)"
-    assert body =~ "full dump: deploy.logcat.txt"
+    assert body =~ "full dump: deploy.logcat.log"
     assert text =~ "Start proc 2701:"
-    assert File.read!(Path.join(dir, "deploy.logcat.txt")) =~ "unrelated chatter"
+    assert File.read!(Path.join(dir, "deploy.logcat.log")) =~ "unrelated chatter"
   end
 
   test "the store keeps a boot error's cause and logcat tail under detail.boot" do
