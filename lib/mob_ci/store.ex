@@ -516,12 +516,22 @@ defmodule MobCi.Store do
   end
 
   @doc """
-  Is this summary row an infrastructure cell — layer `farm` (its redroid
-  container or adb device was lost mid-path) or `toolchain` (the build's JVM
-  crashed) — so it says nothing about the code under test?
+  Is this summary row an infrastructure cell, so it says nothing about the
+  code under test? Layer `farm` (its redroid container or adb device was lost
+  mid-path), `toolchain` (the build's JVM crashed) or `error:<what>`, the Mac
+  worker's own problems: `error:disk` (under 5 GB free on `/`, the cell
+  refused to start), `error:ssh` (the NUC lost the worker's session),
+  `error:worker` (it could not prepare the cell). `MobCi.LaneHealth` alerts
+  when a lane's cells keep ending here.
   """
   @spec infra?(map()) :: boolean()
-  def infra?(row), do: Map.get(row, :layer) in ["farm", :farm, "toolchain", :toolchain]
+  def infra?(row) do
+    case Map.get(row, :layer) do
+      layer when layer in ["farm", :farm, "toolchain", :toolchain] -> true
+      "error:" <> _ -> true
+      _ -> false
+    end
+  end
 
   @doc "Is `set` one `COMPATIBILITY.md` reads (`default`, `all`, `singleton:<p>`)?"
   @spec evidence_set?(String.t()) :: boolean()

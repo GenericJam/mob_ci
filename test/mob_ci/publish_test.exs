@@ -93,7 +93,7 @@ defmodule MobCi.PublishTest do
       assert Matrix.regressions([Enum.max_by(all, & &1.id)], all) == []
     end
 
-    for layer <- ["farm", "toolchain"] do
+    for layer <- ["farm", "toolchain", "error:disk", "error:ssh"] do
       test "an infra cell (layer #{layer}) never regresses and is never the previous outcome", %{store: store} do
         layer = unquote(layer)
         # pass → infra: the code said nothing
@@ -193,7 +193,8 @@ defmodule MobCi.PublishTest do
       record!(store, "hex", [{"default", "deploy:android", :pass}])
 
       assert {:ok, report} = publish(store, dir, [])
-      assert File.read!(Path.join(dir, "out/matrix.md")) == Matrix.matrix_md(summaries(store))
+      health = MobCi.LaneHealth.check(store, summaries(store))
+      assert File.read!(Path.join(dir, "out/matrix.md")) == Matrix.matrix_md(summaries(store), health)
       assert File.read!(Path.join(dir, "out/COMPATIBILITY.md")) == Matrix.compatibility_md(summaries(store))
       assert_received {:pushed, %{"matrix.md" => _, "COMPATIBILITY.md" => _, "README.md" => readme}}
       assert readme =~ "never by\nhand"
@@ -413,7 +414,7 @@ defmodule MobCi.PublishTest do
       assert [%{set: "pairwise:3"}] = Matrix.regressions([Enum.max_by(all, & &1.id)], all)
     end
 
-    for layer <- ["farm", "toolchain"] do
+    for layer <- ["farm", "toolchain", "error:disk"] do
       test "a #{layer} cell is never the kept baseline: the pass before it survives pruning", %{store: store} do
         record!(store, "hex", [{"pairwise:3", "deploy:android", :pass}], at: "2026-10-01T00:00:00Z")
         record!(store, "hex", [{"pairwise:3", "deploy:android", :error}], at: "2026-10-02T00:00:00Z", layer: unquote(layer))

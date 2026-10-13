@@ -112,8 +112,9 @@ defmodule MobCi.MatrixTest do
   end
 
   describe "matrix.md" do
-    test "renders the seeded store byte-for-byte (golden)", %{summaries: s} do
-      golden("matrix.md", Matrix.matrix_md(s))
+    test "renders the seeded store byte-for-byte (golden)", %{store: store, summaries: s} do
+      health = MobCi.LaneHealth.check(store, s, now: ~U[2026-10-09 00:00:00Z], paused?: fn _ -> false end)
+      golden("matrix.md", Matrix.matrix_md(s, health))
     end
 
     test "the grid is the newest non-replay cell; fixture hosts, sampled passes and private paths stay out", %{summaries: s} do

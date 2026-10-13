@@ -5,11 +5,11 @@ defmodule MobCi.Matrix do
   store always renders byte-identical files and a diff of the published branch
   is a diff of results.
 
-    * `matrix_md/1` — `matrix.md`: the latest grid per version row (`hex`,
-      `master`, the five newest `rc:` rows), set × build path, each cell its
-      outcome and the layer of a failure, plus the sampled sets
-      (`random:<seed>`, sweep subsets) whose latest cell failed, with the cell
-      id `mix ci.replay` takes.
+    * `matrix_md/2` — `matrix.md`: the lanes' health (`MobCi.LaneHealth`),
+      then the latest grid per version row (`hex`, `master`, the five newest
+      `rc:` rows), set × build path, each cell its outcome and the layer of a
+      failure, plus the sampled sets (`random:<seed>`, sweep subsets) whose
+      latest cell failed, with the cell id `mix ci.replay` takes.
     * `compatibility_md/1` — `COMPATIBILITY.md`: version tuples (mob,
       mob_dev, mob_new, every plugin's pin) on which both `default` and `all`
       passed on every build path (`paths/0`), newest first; the candidates
@@ -73,9 +73,12 @@ defmodule MobCi.Matrix do
 
   # ── matrix.md ────────────────────────────────────────────────────────────────
 
-  @doc "`matrix.md` for the store's summary rows."
-  @spec matrix_md([map()]) :: String.t()
-  def matrix_md(summaries) do
+  @doc """
+  `matrix.md` for the store's summary rows, headed by the lanes' health
+  (`MobCi.LaneHealth.check/3`; none given, no health block).
+  """
+  @spec matrix_md([map()], [MobCi.LaneHealth.t()]) :: String.t()
+  def matrix_md(summaries, health \\ []) do
     latest = latest(summaries)
     rows = rows(latest)
 
@@ -86,17 +89,21 @@ defmodule MobCi.Matrix do
 
     Enum.join(
       [
+        "# mob_ci matrix\n",
+        MobCi.LaneHealth.matrix_block(health),
         """
-        # mob_ci matrix
-
         The latest result of every cell mob_ci has run, per version row: one
         line per plugin set, one column per build path. Generated from the
         mob_ci results store by `mix ci.report --publish`; do not edit. Verified
         version combinations are in [COMPATIBILITY.md](COMPATIBILITY.md).
 
         `✓ pass` · `✗ fail @ layer` · `! error @ layer` (the run could not
-        finish: build, boot, farm, toolchain) · `– skip` · `·` never ran. Layers are
-        described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
+        finish: build, boot, or an infrastructure layer: `farm`, `toolchain`,
+        the Mac worker's `error:disk` / `error:ssh` / `error:worker`) · `– skip`
+        · `·` never ran. A lane is down when its last cells of a path all
+        stopped at an infrastructure layer, or a nightly ran none of its cells
+        there. Layers are described in mob_ci's
+        `decisions/2026-06-19-mob-ci-design.md`.
         """
         | blocks
       ],
@@ -426,10 +433,12 @@ defmodule MobCi.Matrix do
   `pass → fail`, `pass → error` and `pass → skip → fail` regress; `fail →
   fail`, `error → fail`, a first-ever failure and `skip → fail` with no pass
   before it don't (nothing that worked broke; a skip proved nothing either
-  way). A cell at an infrastructure layer (`farm`: its instance was lost
-  mid-path; `toolchain`: the build's JVM crashed) is neither a regression nor
-  a previous outcome: `pass → farm → fail` regresses, `pass → toolchain`
-  doesn't. Sorted by row order, set, path.
+  way). A cell at an infrastructure layer (`Store.infra?/1`: `farm`, its
+  instance was lost mid-path; `toolchain`, the build's JVM crashed;
+  `error:disk` / `error:ssh` / `error:worker`, the Mac worker's own problems)
+  is neither a regression nor a previous outcome: `pass → farm → fail`
+  regresses, `pass → error:disk` doesn't (`MobCi.LaneHealth` reports a lane
+  stuck there). Sorted by row order, set, path.
   """
   @spec regressions([map()], [map()]) :: [map()]
   def regressions(window, history) do

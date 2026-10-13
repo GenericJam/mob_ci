@@ -71,7 +71,9 @@ Android cell's artifacts), report logs `job-<id>-report.log`.
   queues `blank` + `default` + `all` (core repo) or `default` +
   `singleton:<plugin>` + `all` (plugin) on `master`. Last-seen shas are the
   store's `heads` table: `mix ci.poll --heads`, `mix ci.poll --reset
-  <repo>@<sha>`.
+  <repo>@<sha>`. Each cycle then reaps the farm and checks lane health
+  (`mix ci.report --lanes`): a lane whose worker never finishes a job never
+  publishes, so the lane-health alert can't wait for a publish.
 - **Lane workers** (`priv/systemd/mob-ci-drain@.service`, instances
   `android` and `ios`) → `ci-run.sh drain <lane>`: started by the modes
   above, exit when the lane is empty.

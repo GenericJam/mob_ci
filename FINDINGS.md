@@ -440,3 +440,27 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   `singleton:mob_touch`, `mob_vision`, `mob_sensors`, `mob_scene3d`, deploy
   and release all pass, no `hs_err` written. Scripts and hs_err copies:
   `~/mob_ci_logs/mob-468/`.
+
+## F16 — the iOS lane was dead for three nightlies and nobody was told (mob_ci's own)
+
+- **Issue:** [MOB-472](https://linear.app/mobframework/issue/MOB-472).
+- **Found:** 2026-10-12. From 2026-10-10 06:20Z nearly every iOS cell
+  (`deploy:ios_sim`, `deploy:ios_device`, `release:ios`, hex and master)
+  errored in ~4 ms at `error:disk`: the Mac worker's guard refuses a cell
+  under 5 GB free on `/`, and the Mac mini had 3.6–4.1 GB. A few cells passed
+  on 2026-10-12 between 04:01 and 04:29Z, then the disk filled again. 628
+  `error:disk` summary cells by 2026-10-13 05:00Z; the nightlies "succeeded".
+- **Why nobody knew:** the posts said it, quietly: job 32 "failures by
+  layer: error:disk ×97", job 34 ×181, job 36 ×166, with `pass → error @
+  error:disk` listed as regressions (job 34's on hex, so a quiet `@kevin`,
+  no push). Nothing said the lane was dead, nothing pushed, and from job 36
+  on, with no pass left to regress from, not even a regression line.
+- **Fix (mob_ci):** `MobCi.LaneHealth`. A lane path whose last 5 cells all
+  stopped at `farm`, `toolchain` or `error:*`, or a lane that ran none of the
+  cells a finished nightly scheduled on it, is one `@kevin!` push with the
+  layer, the cause line, since when and the fix; the same state is posted
+  once, a recovery posts a quiet all-clear; checked after every publish and
+  every poll cycle; `matrix.md` opens with each lane's health. `error:*`
+  layers are infrastructure (`Store.infra?/1`): never a regression or a
+  baseline.
+- **Not fixed here:** the Mac mini's disk. The alert says what to clear.
