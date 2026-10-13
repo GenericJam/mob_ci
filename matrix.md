@@ -1,13 +1,22 @@
 # mob_ci matrix
 
+## Lane health
+
+- **Android lane (redroid farm, NUC)**: up
+- **iOS lane (Mac mini)**: up
+
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
 mob_ci results store by `mix ci.report --publish`; do not edit. Verified
 version combinations are in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 `✓ pass` · `✗ fail @ layer` · `! error @ layer` (the run could not
-finish: build, boot, farm, toolchain) · `– skip` · `·` never ran. Layers are
-described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
+finish: build, boot, or an infrastructure layer: `farm`, `toolchain`,
+the Mac worker's `error:disk` / `error:ssh` / `error:worker`) · `– skip`
+· `·` never ran. A lane is down when its last cells of a path all
+stopped at an infrastructure layer, or a nightly ran none of its cells
+there. Layers are described in mob_ci's
+`decisions/2026-06-19-mob-ci-design.md`.
 
 ## hex
 
@@ -49,13 +58,13 @@ Latest run 2026-10-13T06:42:15Z. Core versions in this grid: mob 0.9.17 · mob_d
 
 ## master
 
-Latest run 2026-10-13T06:44:47Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-13T06:59:49Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `all` | ✓ pass | ! error @ `boot` | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `all` | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `pairwise:1` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
 | `pairwise:10` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
@@ -73,7 +82,7 @@ Latest run 2026-10-13T06:44:47Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_background` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_biometric` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `singleton:mob_camera` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_camera` | ✓ pass | ! error @ `farm` | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_location` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_midi` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
@@ -93,7 +102,7 @@ Latest run 2026-10-13T06:44:47Z. Core versions in this grid: mob 0.9.17 (git 5d8
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_whisper` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 
-83 pass, 0 fail, 98 error, 0 skip.
+88 pass, 0 fail, 93 error, 0 skip.
 
 ## rc:mob_dev@39005a35298fbced4194dfc9a9b000a8ea9b0351
 
