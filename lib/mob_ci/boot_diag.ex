@@ -30,7 +30,8 @@ defmodule MobCi.BootDiag do
 
   The error reason carries the struct (`{:node_never_registered, node,
   diag}`, `{:otp_not_extracted, pkg, diag}`); it inspects as
-  `#BootDiag<cause>`, so log lines and the store's `detail.error` stay
+  `%MobCi.BootDiag{cause: "…"}` (valid Elixir, so `MobCi.LaneHealth` can
+  still pull the strings out of a stored `detail.error`), so log lines and the store's `detail.error` stay
   short. The cause quotes the app's own log lines, so layer attribution
   must not read it: `strip/1` is what `MobCi.Farm.lost_device?/1` sees. A
   device that really went away is caught by the post-path liveness check.
@@ -377,6 +378,6 @@ defmodule MobCi.BootDiag do
   end
 
   defimpl Inspect do
-    def inspect(%{cause: cause}, _opts), do: "#BootDiag<#{cause}>"
+    def inspect(%{cause: cause}, _opts), do: "%MobCi.BootDiag{cause: #{Kernel.inspect(cause)}}"
   end
 end

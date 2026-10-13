@@ -134,7 +134,7 @@ cause: a Java or native crash, the BEAM stopping during boot, what
 `Mob.Dist` said last (no EPMD through `adb reverse`, `Node.start` failed,
 started but never connected), the process dying, or a running app that never
 reached `Mob.Dist`, each with the node's registration in the host EPMD. The
-cause rides in the error (`#BootDiag<…>` in the log line and the store's
+cause rides in the error (`%MobCi.BootDiag{cause: "…"}` in the log line and the store's
 `detail.error`); the store keeps it with the logcat tail under
 `detail.boot`; the path's log gets a `── mob_ci boot diagnostics ──` block
 and the full dump lands beside it (`deploy.logcat.log`,

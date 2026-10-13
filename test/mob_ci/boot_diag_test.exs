@@ -198,7 +198,9 @@ defmodule MobCi.BootDiagTest do
 
       assert BootDiag.find(reason) == d
       assert BootDiag.find({:launch_failed, {:node_never_registered, @node}}) == nil
-      assert inspect(reason) =~ "#BootDiag<the app is running (pid 2701)"
+      assert inspect(reason) =~ ~s{%MobCi.BootDiag{cause: "the app is running (pid 2701)}
+      # still Elixir: LaneHealth parses a stored detail.error to pull out its strings
+      assert {:ok, _} = Code.string_to_quoted(inspect(reason))
       refute inspect(reason) =~ "Start proc"
     end
   end
@@ -259,7 +261,7 @@ defmodule MobCi.BootDiagTest do
       :ok = Store.record_results(store, run_id, meta, {:error, {:launch_failed, {:node_never_registered, @node, d}}, :boot})
 
       [cell] = Store.query(store, run_id: run_id)
-      assert cell.detail["error"] =~ "#BootDiag<the app is running (pid 2701)"
+      assert cell.detail["error"] =~ ~s{%MobCi.BootDiag{cause: "the app is running (pid 2701)}
       assert cell.detail["boot"]["cause"] == d.cause
       assert cell.detail["boot"]["pid"] == "2701"
       assert Enum.any?(cell.detail["boot"]["logcat"], &(&1 =~ "bad bytes"))
