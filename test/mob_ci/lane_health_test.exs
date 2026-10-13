@@ -282,6 +282,15 @@ defmodule MobCi.LaneHealthTest do
       assert text =~ "ran none of its 2 cells in the hex nightly"
       assert Enum.map(lane(health, "ios").idle, & &1.versions_row) == ["hex"]
     end
+
+    test "a cell running on the lane is the lane working, until it has been running too long", %{store: store} do
+      android_runs!(store, nightly!(store, "master"))
+      Queue.claim(store, "ios", ~U[2026-10-13 12:50:00Z])
+
+      assert {:unchanged, _} = notify(store, now: ~U[2026-10-13 13:30:00Z])
+      assert {{:posted, text}, _} = notify(store, now: ~U[2026-10-13 15:00:00Z])
+      assert text =~ "ran none of its 2 cells in the master nightly"
+    end
   end
 
   describe "in the publish" do
@@ -312,6 +321,25 @@ defmodule MobCi.LaneHealthTest do
       assert_received {:posted, "mob_ci: " <> _}
       assert_received {:posted, "@kevin! " <> _}
       assert Mix.Tasks.Ci.Report.publish_summary(report) =~ "lanes: android up · ios down since 2026-10-10 06:20Z"
+    end
+
+    test "refresh re-renders and pushes the matrix with the current health, without posting", %{store: store, dir: dir} do
+      for d <- 10..14, do: ios_disk!(store, "2026-10-#{d}T06:20:48Z")
+      test_pid = self()
+
+      assert {:ok, {:ok, :pushed}} =
+               Publish.refresh(store,
+                 out_dir: Path.join(dir, "out"),
+                 pusher: fn files ->
+                   send(test_pid, {:pushed, files})
+                   {:ok, :pushed}
+                 end,
+                 paused?: fn _ -> false end
+               )
+
+      assert_received {:pushed, %{"matrix.md" => md, "COMPATIBILITY.md" => _}}
+      assert md =~ "- **iOS lane (Mac mini)**: down since 2026-10-10 06:20Z, `error:disk`"
+      assert File.read!(Path.join(dir, "out/matrix.md")) == md
     end
   end
 end

@@ -58,16 +58,7 @@ defmodule MobCi.Publish do
   @spec run(Store.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def run(store, opts \\ []) do
     out = Keyword.get_lazy(opts, :out_dir, &File.cwd!/0)
-    summaries = Store.query(store, invariant: nil)
-
-    # A broken health check must not stop the matrix; the lanes step reports it.
-    health =
-      case safely(fn -> LaneHealth.check(store, summaries, opts) end) do
-        {:error, _} -> []
-        health -> health
-      end
-
-    files = %{"matrix.md" => Matrix.matrix_md(summaries, health), "COMPATIBILITY.md" => Matrix.compatibility_md(summaries)}
+    files = render(store, opts)
 
     with :ok <- write_files(out, files) do
       pushed = if Keyword.get(opts, :push, true), do: safely(fn -> push(opts, files) end), else: :skipped
@@ -100,6 +91,36 @@ defmodule MobCi.Publish do
       |> Keyword.put_new(:url, url("matrix.md"))
 
     with_lock(marker <> ".lock", fn -> LaneHealth.notify(store, opts) end)
+  end
+
+  @doc """
+  Render, write and push `matrix.md` and `COMPATIBILITY.md` only (no post,
+  no prune): what `mix ci.report --lanes` does after it posted a lane
+  change, so the linked matrix shows it even when no job completes to
+  publish. Options: `:out_dir`, `:repo`, `:push`, `:pusher`, and
+  `MobCi.LaneHealth.check/3`'s. Returns `{:ok, pushed}` (`:skipped` when
+  `push: false`) or `{:error, reason}` when a file could not be written.
+  """
+  @spec refresh(Store.t(), keyword()) :: {:ok, term()} | {:error, term()}
+  def refresh(store, opts \\ []) do
+    files = render(store, opts)
+
+    with :ok <- write_files(Keyword.get_lazy(opts, :out_dir, &File.cwd!/0), files) do
+      {:ok, if(Keyword.get(opts, :push, true), do: safely(fn -> push(opts, files) end), else: :skipped)}
+    end
+  end
+
+  defp render(store, opts) do
+    summaries = Store.query(store, invariant: nil)
+
+    # A broken health check must not stop the matrix; the lanes step reports it.
+    health =
+      case safely(fn -> LaneHealth.check(store, summaries, opts) end) do
+        {:error, _} -> []
+        health -> health
+      end
+
+    %{"matrix.md" => Matrix.matrix_md(summaries, health), "COMPATIBILITY.md" => Matrix.compatibility_md(summaries)}
   end
 
   defp safely(fun) do

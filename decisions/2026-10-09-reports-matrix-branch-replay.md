@@ -146,9 +146,13 @@ rather than the code, and its cells are no regressions.
   `not_after`) scheduled cells on the lane (duplicates of another job's
   cells don't count) and none recorded a result. "Over" includes past
   `not_after` because a lane whose worker never runs never expires its
-  cells either, so the job never completes and never publishes.
+  cells either, so the job never completes and never publishes. A lane
+  with a cell running (started in the last two hours; a cell runs at most
+  90 min, so an older `running` row is a dead worker's) is not idle: a cell
+  claimed just before the cutoff is the lane working.
 - **Posting**: the publish (after every job), and `mix ci.report --lanes`
-  run by every poll cycle (every 10 min; the case above publishes nothing),
+  run by `ci-run.sh poll` (the 10-minute timer; the case above publishes
+  nothing, so after a post `--lanes` also re-renders and pushes the matrix),
   compare each lane's problems (`["dead", path]`, `["idle", row]`; not the
   layer, so a dead path flapping between `error:disk` and `error:ssh` is
   one problem) with what was last posted (`lane_health.json` beside the

@@ -165,7 +165,7 @@ into a failure, so a dead lane only showed up as quiet error counts (from
 2026-10-10 06:20Z nearly every iOS cell refused at `error:disk`, ~90 a
 night for three nightlies, and nothing pushed or said the lane was dead;
 MOB-472, FINDINGS F16). The publish, and
-`mix ci.report --lanes` after every poll cycle, now check each lane
+`mix ci.report --lanes` in every `ci-run.sh poll` (the 10-minute timer), now check each lane
 (`android`: the farm; `ios`: the Mac mini, including
 `deploy:android_physical`): a path whose last 5 cells (`--lane-window N`,
 `$MOB_CI_LANE_WINDOW`) all stopped at `farm`, `toolchain` or `error:*`, or a

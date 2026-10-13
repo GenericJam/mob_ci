@@ -47,8 +47,10 @@ defmodule Mix.Tasks.Ci.Report do
   line, since when and what to do; the same state is posted once
   (`lane_health.json` beside the store) and a recovery posts a quiet
   all-clear. `matrix.md` opens with each lane's health. `--lanes` runs only
-  that check (the poll timer does, every 10 minutes, so a lane that never
-  finishes a job is still noticed).
+  that check, and after a post re-renders and pushes `matrix.md` /
+  `COMPATIBILITY.md` (no summary post, no prune); `priv/ci-run.sh poll` (the
+  10-minute timer) runs it, so a lane that never finishes a job is still
+  noticed.
 
   Exit status: 0 whenever both files were written, including when there was
   nothing new to post or the push / post / prune failed (printed as
@@ -138,7 +140,17 @@ defmodule Mix.Tasks.Ci.Report do
     store = Store.open!(path)
 
     try do
-      Mix.shell().info(lanes_line(Publish.lanes(store, post: Keyword.get(opts, :post, true), window: opts[:lane_window])))
+      {result, _} = lanes = Publish.lanes(store, post: Keyword.get(opts, :post, true), window: opts[:lane_window])
+      Mix.shell().info(lanes_line(lanes))
+
+      # A posted change links to matrix.md: make it show the change too, since
+      # a lane that never finishes a job never publishes.
+      if match?({:posted, _}, result) do
+        case Publish.refresh(store, out_dir: opts[:out] || File.cwd!(), push: Keyword.get(opts, :push, true), window: opts[:lane_window]) do
+          {:ok, pushed} -> Mix.shell().info(pushed_line(pushed))
+          {:error, reason} -> Mix.shell().error("WARNING could not write the reports: #{inspect(reason)}")
+        end
+      end
     after
       Store.close(store)
     end

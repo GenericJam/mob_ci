@@ -460,7 +460,7 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   cells a finished nightly scheduled on it, is one `@kevin!` push with the
   layer, the cause line, since when and the fix; the same state is posted
   once, a recovery posts a quiet all-clear; checked after every publish and
-  every poll cycle; `matrix.md` opens with each lane's health. `error:*`
+  by every `ci-run.sh poll` (10-minute timer); `matrix.md` opens with each lane's health. `error:*`
   layers are infrastructure (`Store.infra?/1`): never a regression or a
   baseline.
 - **Not fixed here:** the Mac mini's disk. The alert says what to clear.

@@ -149,10 +149,16 @@ defmodule MobCi.LaneHealth do
     |> Map.new(fn {lane, dead} -> {lane, Enum.sort_by(dead, &Report.path_rank(&1.path))} end)
   end
 
+  # A cell runs at most 90 min (`MobCi.Queue`'s cell timeout); one `running`
+  # for longer is a dead worker's leftover, not a working lane.
+  @running_fresh_s 2 * 3600
+
   @doc """
   The idle nightlies, by lane: per (lane, row), the newest nightly job that
   is over (`done`, or past its `not_after` at `now`) and scheduled cells on
-  the lane, when none of them recorded a summary row.
+  the lane, when none of them recorded a summary row, and the lane has no
+  cell running (started within the last two hours: a cell claimed just before
+  the cutoff is the lane working).
   """
   @spec idle_jobs(Store.t(), DateTime.t()) :: %{String.t() => [idle()]}
   def idle_jobs(store, now) do
@@ -170,23 +176,33 @@ defmodule MobCi.LaneHealth do
         end
       end)
 
+    running =
+      store
+      |> Store.rows!(
+        "SELECT DISTINCT platform FROM job_cells WHERE status = 'running' AND started_at > ?1",
+        [now |> DateTime.add(-@running_fresh_s, :second) |> iso()]
+      )
+      |> MapSet.new(&hd/1)
+
     store
     |> Store.rows!(
       "SELECT j.id, j.versions_row, j.enqueued_at, c.platform, COUNT(*) FROM jobs j JOIN job_cells c ON c.job_id = j.id " <>
         "WHERE j.trigger = 'nightly' AND c.status <> 'duplicate' " <>
         "AND (j.status = 'done' OR (j.not_after IS NOT NULL AND j.not_after <= ?1)) " <>
         "GROUP BY j.id, c.platform",
-      [now |> DateTime.truncate(:second) |> DateTime.to_iso8601()]
+      [iso(now)]
     )
     |> Enum.map(fn [id, row, enqueued, lane, n] ->
       %{lane: lane, job_id: id, versions_row: row, enqueued_at: enqueued, scheduled: n}
     end)
     |> Enum.group_by(&{&1.lane, &1.versions_row})
     |> Enum.map(fn {_, jobs} -> Enum.max_by(jobs, & &1.job_id) end)
-    |> Enum.filter(&(Map.get(ran, {&1.job_id, &1.lane}, 0) == 0))
+    |> Enum.filter(&(Map.get(ran, {&1.job_id, &1.lane}, 0) == 0 and not MapSet.member?(running, &1.lane)))
     |> Enum.sort_by(& &1.job_id)
     |> Enum.group_by(& &1.lane)
   end
+
+  defp iso(dt), do: dt |> DateTime.truncate(:second) |> DateTime.to_iso8601()
 
   defp paused?(%Store{path: path}, lane), do: File.exists?(Path.join([Path.dirname(path), "locks", "pause-#{lane}"]))
 
