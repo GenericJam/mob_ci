@@ -152,7 +152,8 @@ rather than the code, and its cells are no regressions.
   claimed just before the cutoff is the lane working.
 - **Posting**: the publish (after every job), and `mix ci.report --lanes`
   run by `ci-run.sh poll` (the 10-minute timer; the case above publishes
-  nothing, so after a post `--lanes` also re-renders and pushes the matrix),
+  nothing, so after a post, and while a lane has a problem, `--lanes` also
+  re-renders and pushes the matrix; an unchanged tree isn't committed),
   compare each lane's problems (`["dead", path]`, `["idle", row]`; not the
   layer, so a dead path flapping between `error:disk` and `error:ssh` is
   one problem) with what was last posted (`lane_health.json` beside the

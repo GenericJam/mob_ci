@@ -23,7 +23,7 @@ defmodule Mix.Tasks.Ci.Report do
       mix ci.report --publish --out DIR   # write them elsewhere (default: cwd)
       mix ci.report --prune               # only the store / log retention
       mix ci.report --lanes               # only the lane-health check and its post
-      mix ci.report --lanes --no-post     # show what it would post
+      mix ci.report --lanes --no-post --no-push --out /tmp/x   # a dry run: show, post nothing, push nothing
       mix ci.report --publish --lane-window 8   # a path is dead after 8 infra cells
                                           # (default $MOB_CI_LANE_WINDOW or 5)
 
@@ -47,10 +47,11 @@ defmodule Mix.Tasks.Ci.Report do
   line, since when and what to do; the same state is posted once
   (`lane_health.json` beside the store) and a recovery posts a quiet
   all-clear. `matrix.md` opens with each lane's health. `--lanes` runs only
-  that check, and after a post re-renders and pushes `matrix.md` /
-  `COMPATIBILITY.md` (no summary post, no prune); `priv/ci-run.sh poll` (the
-  10-minute timer) runs it, so a lane that never finishes a job is still
-  noticed.
+  that check, and after a post, or while a lane has a problem, re-renders
+  and pushes `matrix.md` / `COMPATIBILITY.md` (`--out`, `--no-push`; no
+  summary post, no prune; an unchanged tree isn't committed);
+  `priv/ci-run.sh poll` (the 10-minute timer) runs it, so a lane that never
+  finishes a job is still noticed.
 
   Exit status: 0 whenever both files were written, including when there was
   nothing new to post or the push / post / prune failed (printed as
@@ -140,12 +141,14 @@ defmodule Mix.Tasks.Ci.Report do
     store = Store.open!(path)
 
     try do
-      {result, _} = lanes = Publish.lanes(store, post: Keyword.get(opts, :post, true), window: opts[:lane_window])
+      {result, health} = lanes = Publish.lanes(store, post: Keyword.get(opts, :post, true), window: opts[:lane_window])
       Mix.shell().info(lanes_line(lanes))
 
-      # A posted change links to matrix.md: make it show the change too, since
-      # a lane that never finishes a job never publishes.
-      if match?({:posted, _}, result) do
+      # The post links to matrix.md, and a lane that never finishes a job never
+      # publishes: re-render and push after a post and on every check while a
+      # lane has a problem (an unchanged tree isn't committed), so a failed
+      # push is retried. After a recovery the lane's jobs publish again.
+      if match?({:posted, _}, result) or Enum.any?(health, &(LaneHealth.problems(&1) != [])) do
         case Publish.refresh(store, out_dir: opts[:out] || File.cwd!(), push: Keyword.get(opts, :push, true), window: opts[:lane_window]) do
           {:ok, pushed} -> Mix.shell().info(pushed_line(pushed))
           {:error, reason} -> Mix.shell().error("WARNING could not write the reports: #{inspect(reason)}")
