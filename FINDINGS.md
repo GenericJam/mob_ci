@@ -275,7 +275,10 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   direct run of the script honours `TMPDIR` and removes its own.
 - **Workaround in mob_ci (removed 2026-10-13):** the iOS worker's teardown and
   the reaper deleted `$(getconf DARWIN_USER_TEMP_DIR)/tmp.*` dirs holding a
-  cell's `Ci<App>.app`. A row pinning mob_dev below 0.7.24 leaks again.
+  cell's `Ci<App>.app`. An `rc:mob_dev@<sha>` before 6efa92b, or a
+  `mix ci.replay` (without `--current`) of a cell recorded on mob_dev
+  ≤ 0.7.23, leaks again; dirs leaked before the fix need a one-time manual
+  sweep.
 
 ## F12 — a wired iPhone's node is unreachable: no USB IP from ARP on macOS 27, node named after an off-LAN WiFi IP
 
