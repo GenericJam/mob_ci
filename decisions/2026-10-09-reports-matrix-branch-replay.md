@@ -117,6 +117,60 @@ file can't be written or the store file doesn't exist (a wrong `--store`
 must not render an empty matrix and push it over the published one). The
 triggers log a non-zero exit and keep draining.
 
+### Addendum (MOB-472, 2026-10-12): a dead lane alerts Kevin
+
+From 2026-10-10 06:20Z nearly every iOS cell errored in ~4 ms at
+`error:disk` (the Mac worker's 5 GB free-disk guard; 3.6–4.1 GB free):
+~90 iOS errors a nightly, three nightlies "succeeded". The posts counted
+them (`error:disk ×181`) and listed the first `pass → error @ error:disk`
+of each cell as a regression (on hex, a quiet `@kevin`), then, with no pass
+left, only the count; nothing pushed or said the lane was dead (FINDINGS
+F16). A machine that stops cells needs its own alarm, about the lane
+rather than the code, and its cells are no regressions.
+
+- **Infrastructure layers** (`Store.infra?/1`): `farm`, `toolchain`, and
+  every `error:*` layer (the Mac worker's `error:disk`, `error:ssh`,
+  `error:worker`). None is a regression or a regression baseline, nor the
+  P12 singleton result, so `pass → error:disk` no longer regresses.
+- **Lanes**: the queue's two, by path: `android` (`deploy:android`,
+  `release:android`) and `ios` (the Mac worker's paths, including the
+  Motos' `deploy:android_physical`).
+- **Dead path**: its last N summary cells (N = 5; `--lane-window`,
+  `$MOB_CI_LANE_WINDOW`), any row and trigger, all at an infrastructure
+  layer. The last N cells rather than "every cell of the job", because a
+  nightly that ran 20 cells fine and the next 19 into a full disk is dead
+  now, and a one-cell rc job lost to one farm hiccup is not; N cells in a row
+  with no pass, failure or skip between them is the machine, not chance.
+  A plugin failure, a build error, `boot` or a skip is the lane working.
+- **Idle lane**: the newest nightly of a row that is over (done, or past
+  `not_after`) scheduled cells on the lane (duplicates of another job's
+  cells don't count) and none recorded a result. "Over" includes past
+  `not_after` because a lane whose worker never runs never expires its
+  cells either, so the job never completes and never publishes. A lane
+  with a cell running (started in the last two hours; a cell runs at most
+  90 min, so an older `running` row is a dead worker's) is not idle: a cell
+  claimed just before the cutoff is the lane working.
+- **Posting**: the publish (after every job), and `mix ci.report --lanes`
+  run by `ci-run.sh poll` (the 10-minute timer; the case above publishes
+  nothing, so after a post, and while a lane has a problem, `--lanes` also
+  re-renders and pushes the matrix; an unchanged tree isn't committed),
+  compare each lane's problems (`["dead", path]`, `["idle", row]`; not the
+  layer, so a dead path flapping between `error:disk` and `error:ssh` is
+  one problem) with what was last posted (`lane_health.json` beside the
+  store, under the publish lock). A new problem is a post with `@kevin!` (a
+  push): the lane, since when, per layer the paths, the cause line (the
+  cell's stored error, every string of the inspected reason, a lost-device
+  or JVM-crash line first, else the last line naming a failure; else the
+  worker's `step … error` line in its log) and a fix hint. Fewer problems
+  is a quiet partial-recovery line; none is a quiet all-clear. The state
+  file is written right after a post went out (a crash between the two
+  would post again), so `--no-post` or a failed post posts again at the
+  next check. An entry of another shape in the file is dropped, not fatal.
+- **matrix.md** opens with a `## Lane health` block: each lane `up`, or
+  `down since <time>, <layer> on <paths>` / `ran none of its N cells in
+  the <row> nightly`. It no longer depends on the store alone: an idle
+  lane depends on the clock (a nightly past `not_after`).
+
 ### Replay and regression sets
 
 `mix ci.replay <cell id>` (any row of the cell names it) runs the

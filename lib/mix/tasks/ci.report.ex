@@ -22,6 +22,10 @@ defmodule Mix.Tasks.Ci.Report do
       mix ci.report --publish --no-push   # write the files, don't push them
       mix ci.report --publish --out DIR   # write them elsewhere (default: cwd)
       mix ci.report --prune               # only the store / log retention
+      mix ci.report --lanes               # only the lane-health check and its post
+      mix ci.report --lanes --no-post --no-push --out /tmp/x   # a dry run: show, post nothing, push nothing
+      mix ci.report --publish --lane-window 8   # a path is dead after 8 infra cells
+                                          # (default $MOB_CI_LANE_WINDOW or 5)
 
   `--publish` (`MobCi.Publish`) renders `matrix.md` (latest grid per version
   row) and `COMPATIBILITY.md` (verified version combinations, plugin ×
@@ -35,6 +39,20 @@ defmodule Mix.Tasks.Ci.Report do
   platform, path) and the passing evidence `COMPATIBILITY.md` needs) and
   `*.log` files older than 30 days under `~/mob_ci_logs`.
 
+  Between those, it checks lane health (`MobCi.LaneHealth`): when the last N
+  cells (`--lane-window`) of a lane's path all stopped at an infrastructure
+  layer (`farm`, `toolchain`, `error:disk`, `error:ssh`, `error:worker`), or
+  the lane ran none of the cells a finished nightly scheduled on it, one
+  `@kevin!` post (a push to his phone) says which lane, the layer, the cause
+  line, since when and what to do; the same state is posted once
+  (`lane_health.json` beside the store) and a recovery posts a quiet
+  all-clear. `matrix.md` opens with each lane's health. `--lanes` runs only
+  that check, and after a post, or while a lane has a problem, re-renders
+  and pushes `matrix.md` / `COMPATIBILITY.md` (`--out`, `--no-push`; no
+  summary post, no prune; an unchanged tree isn't committed);
+  `priv/ci-run.sh poll` (the 10-minute timer) runs it, so a lane that never
+  finishes a job is still noticed.
+
   Exit status: 0 whenever both files were written, including when there was
   nothing new to post or the push / post / prune failed (printed as
   warnings: the next publish catches up); 1 when a file could not be
@@ -45,7 +63,7 @@ defmodule Mix.Tasks.Ci.Report do
   """
   use Mix.Task
 
-  alias MobCi.{Publish, Report, Store}
+  alias MobCi.{LaneHealth, Publish, Report, Store}
 
   @switches [
     store: :string,
@@ -56,7 +74,9 @@ defmodule Mix.Tasks.Ci.Report do
     post: :boolean,
     push: :boolean,
     out: :string,
-    prune: :boolean
+    prune: :boolean,
+    lanes: :boolean,
+    lane_window: :integer
   ]
 
   @impl Mix.Task
@@ -66,6 +86,7 @@ defmodule Mix.Tasks.Ci.Report do
 
     cond do
       opts[:publish] -> publish(path, opts)
+      opts[:lanes] -> lanes(path, opts)
       opts[:prune] -> prune(path)
       true -> print(path, opts)
     end
@@ -100,7 +121,8 @@ defmodule Mix.Tasks.Ci.Report do
       case Publish.run(store,
              out_dir: opts[:out] || File.cwd!(),
              push: Keyword.get(opts, :push, true),
-             post: Keyword.get(opts, :post, true)
+             post: Keyword.get(opts, :post, true),
+             window: opts[:lane_window]
            ) do
         {:ok, report} ->
           Mix.shell().info(publish_summary(report))
@@ -114,13 +136,48 @@ defmodule Mix.Tasks.Ci.Report do
     end
   end
 
+  defp lanes(path, opts) do
+    unless File.exists?(path), do: Mix.raise("no results store at #{path}")
+    store = Store.open!(path)
+
+    try do
+      {result, health} = lanes = Publish.lanes(store, post: Keyword.get(opts, :post, true), window: opts[:lane_window])
+      Mix.shell().info(lanes_line(lanes))
+
+      # The post links to matrix.md, and a lane that never finishes a job never
+      # publishes: re-render and push after a post and on every check while a
+      # lane has a problem (an unchanged tree isn't committed), so a failed
+      # push is retried. After a recovery the lane's jobs publish again.
+      if match?({:posted, _}, result) or Enum.any?(health, &(LaneHealth.problems(&1) != [])) do
+        case Publish.refresh(store, out_dir: opts[:out] || File.cwd!(), push: Keyword.get(opts, :push, true), window: opts[:lane_window]) do
+          {:ok, pushed} -> Mix.shell().info(pushed_line(pushed))
+          {:error, reason} -> Mix.shell().error("WARNING could not write the reports: #{inspect(reason)}")
+        end
+      end
+    after
+      Store.close(store)
+    end
+  end
+
   @doc false
   def publish_summary(report) do
     lines =
       ["wrote #{Enum.join(report.written, ", ")}"] ++
-        [pushed_line(report.pushed), posted_line(report.posted), pruned_line(report.pruned)]
+        [pushed_line(report.pushed), posted_line(report.posted), lanes_line(report.lanes), pruned_line(report.pruned)]
 
     Enum.join(lines, "\n")
+  end
+
+  defp lanes_line({:error, e}), do: "WARNING lane-health step failed: #{Exception.message(e)}"
+
+  defp lanes_line({result, health}) do
+    "lanes: #{LaneHealth.summary(health)}\n" <>
+      case result do
+        :unchanged -> "lanes: nothing new to post"
+        {:held, text} -> "lanes: would post (--no-post):\n" <> indent(text)
+        {:posted, text} -> "lanes: posted to #mob:\n" <> indent(text)
+        {:failed, text, reason} -> "WARNING lane post failed (#{inspect(reason)}); the next check posts again:\n" <> indent(text)
+      end
   end
 
   defp pushed_line(:skipped), do: "push: skipped (--no-push)"

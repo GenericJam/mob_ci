@@ -19,16 +19,22 @@ defmodule MobCi.Publish do
      out, so `--no-post` or a failed post folds those cells into the next
      one. Read marker → post → write marker runs under a lock file beside
      the store, so two lanes publishing at once never post a cell twice.
-  4. `MobCi.Store.prune/2` (30 days; the regression baseline is kept among
+  4. Lane health (`MobCi.LaneHealth`, `lanes/2`): a lane whose last cells of
+     a path all stopped at an infrastructure layer, or whose last nightly ran
+     none of its cells, pushes one `@kevin!` post; a recovery posts a quiet
+     all-clear. The same lane state is posted once (`lane_health.json`
+     beside the store, written only after the post went out), under the
+     same lock. `matrix.md` opens with the same health.
+  5. `MobCi.Store.prune/2` (30 days; the regression baseline is kept among
      the reported cells) and the log files it releases, plus `*.log` files
      older than that under `:log_dirs` that no remaining cell points at.
 
-  Steps 2–4 never fail the publish: an exception there is reported as that
+  Steps 2–5 never fail the publish: an exception there is reported as that
   step's `{:error, exception}`. The side effects are injectable (`:pusher`,
   `:poster`) so tests build the post without sending it.
   """
 
-  alias MobCi.{Matrix, Store}
+  alias MobCi.{LaneHealth, Matrix, Store}
 
   @branch "matrix"
   @repo_url "https://github.com/GenericJam/mob_ci"
@@ -42,8 +48,9 @@ defmodule MobCi.Publish do
   Publish. Options: `:out_dir` (default cwd), `:repo` (the git checkout to
   push from, default cwd), `:push` / `:post` / `:prune` (default true),
   `:pusher` (`fn files -> {:ok, info} | {:error, reason} end`), `:poster`
-  (`fn text -> :ok | {:error, reason} end`), `:now`, `:days` (30),
-  `:log_dirs` (`[~/mob_ci_logs]`), `:marker` (default beside the store).
+  (`fn text -> :ok | {:error, reason} end`, both posts), `:now`, `:days` (30),
+  `:log_dirs` (`[~/mob_ci_logs]`), `:marker` (default beside the store), and
+  `MobCi.LaneHealth`'s `:window`, `:paused?`, `:state`.
 
   Returns `{:ok, report}` (what happened at each step, for the console) or
   `{:error, reason}` when a file could not be written.
@@ -51,21 +58,69 @@ defmodule MobCi.Publish do
   @spec run(Store.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def run(store, opts \\ []) do
     out = Keyword.get_lazy(opts, :out_dir, &File.cwd!/0)
-    summaries = Store.query(store, invariant: nil)
-    files = %{"matrix.md" => Matrix.matrix_md(summaries), "COMPATIBILITY.md" => Matrix.compatibility_md(summaries)}
+    files = render(store, opts)
 
     with :ok <- write_files(out, files) do
       pushed = if Keyword.get(opts, :push, true), do: safely(fn -> push(opts, files) end), else: :skipped
       marker = Keyword.get_lazy(opts, :marker, fn -> marker_path(store) end)
       posted = safely(fn -> with_lock(marker <> ".lock", fn -> post(marker, Store.query(store, invariant: nil), opts) end) end)
+      lanes = safely(fn -> lanes(store, Keyword.put(opts, :marker, marker)) end)
 
       pruned =
         if Keyword.get(opts, :prune, true),
           do: safely(fn -> prune(store, Keyword.put(opts, :reported, read_marker(marker))) end),
           else: :skipped
 
-      {:ok, %{written: Enum.map(@files, &Path.join(out, &1)), pushed: pushed, posted: posted, pruned: pruned}}
+      {:ok, %{written: Enum.map(@files, &Path.join(out, &1)), pushed: pushed, posted: posted, lanes: lanes, pruned: pruned}}
     end
+  end
+
+  @doc """
+  Check the lanes and post a change (`MobCi.LaneHealth.notify/2`) under the
+  publish lock, as `mix ci.report --lanes` does between jobs. Options: those
+  of `run/2` that apply (`:post`, `:poster`, `:marker`, `:now`, `:window`,
+  `:paused?`, `:state`). Returns `{result, health}`.
+  """
+  @spec lanes(Store.t(), keyword()) :: {term(), [LaneHealth.t()]}
+  def lanes(store, opts \\ []) do
+    marker = Keyword.get_lazy(opts, :marker, fn -> marker_path(store) end)
+
+    opts =
+      opts
+      |> Keyword.put_new(:poster, &muster_post/1)
+      |> Keyword.put_new(:url, url("matrix.md"))
+
+    with_lock(marker <> ".lock", fn -> LaneHealth.notify(store, opts) end)
+  end
+
+  @doc """
+  Render, write and push `matrix.md` and `COMPATIBILITY.md` only (no post,
+  no prune): what `mix ci.report --lanes` does after it posted a lane
+  change, so the linked matrix shows it even when no job completes to
+  publish. Options: `:out_dir`, `:repo`, `:push`, `:pusher`, and
+  `MobCi.LaneHealth.check/3`'s. Returns `{:ok, pushed}` (`:skipped` when
+  `push: false`) or `{:error, reason}` when a file could not be written.
+  """
+  @spec refresh(Store.t(), keyword()) :: {:ok, term()} | {:error, term()}
+  def refresh(store, opts \\ []) do
+    files = render(store, opts)
+
+    with :ok <- write_files(Keyword.get_lazy(opts, :out_dir, &File.cwd!/0), files) do
+      {:ok, if(Keyword.get(opts, :push, true), do: safely(fn -> push(opts, files) end), else: :skipped)}
+    end
+  end
+
+  defp render(store, opts) do
+    summaries = Store.query(store, invariant: nil)
+
+    # A broken health check must not stop the matrix; the lanes step reports it.
+    health =
+      case safely(fn -> LaneHealth.check(store, summaries, opts) end) do
+        {:error, _} -> []
+        health -> health
+      end
+
+    %{"matrix.md" => Matrix.matrix_md(summaries, health), "COMPATIBILITY.md" => Matrix.compatibility_md(summaries)}
   end
 
   defp safely(fun) do

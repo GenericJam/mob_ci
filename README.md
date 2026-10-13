@@ -119,7 +119,10 @@ whose JVM crashed under Gradle (`A fatal error has been detected by the Java
 Runtime Environment` / `hs_err_pid…` in the output) is layer `toolchain`.
 Both are infrastructure: retried once by the trigger queue (`mix ci.device`
 exits 3), shown in the report, never a regression and never the P12
-singleton baseline.
+singleton baseline. The Mac worker's own problems (`error:disk`,
+`error:ssh`, `error:worker`, below) are infrastructure layers too
+(`MobCi.Store.infra?/1`): never a regression or a baseline, and what the
+lane-health alert watches for.
 
 **P12** runs every activated plugin's self-test on the device
 (`MobDev.Plugin.SelfTest.run_all/3`, mob_dev ≥ 0.7.17), after the
@@ -156,6 +159,22 @@ regression check and `COMPATIBILITY.md` still read) and old `*.log` files
 under `~/mob_ci_logs`. Exit 0 unless a file couldn't be written or the store
 doesn't exist; `--no-post` folds a job into the next post, `--no-push` keeps
 the files local. Both lanes publishing at once take turns on a lock.
+
+**Lane health** (`MobCi.LaneHealth`). A regression needs a pass that turned
+into a failure, so a dead lane only showed up as quiet error counts (from
+2026-10-10 06:20Z nearly every iOS cell refused at `error:disk`, ~90 a
+night for three nightlies, and nothing pushed or said the lane was dead;
+MOB-472, FINDINGS F16). The publish, and
+`mix ci.report --lanes` in every `ci-run.sh poll` (the 10-minute timer), now check each lane
+(`android`: the farm; `ios`: the Mac mini, including
+`deploy:android_physical`): a path whose last 5 cells (`--lane-window N`,
+`$MOB_CI_LANE_WINDOW`) all stopped at `farm`, `toolchain` or `error:*`, or a
+finished nightly that scheduled cells on the lane and recorded none, is one
+`@kevin!` post (a push) with the layer, the cause line from the cell's error
+or log, since when and the fix. The same state is posted once
+(`lane_health.json` beside the store); fewer problems or a recovery post a
+quiet line. `matrix.md` opens with each lane's health ("iOS lane (Mac mini):
+down since 2026-10-12 04:17Z, `error:disk` on …").
 
 `mix ci.replay <cell id>` reruns one stored cell (any row of it) as the
 `mix ci.device` call of its path, with `$MOB_CI_PINS` pointing

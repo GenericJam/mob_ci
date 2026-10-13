@@ -1,13 +1,22 @@
 # mob_ci matrix
 
+## Lane health
+
+- **Android lane (redroid farm, NUC)**: up
+- **iOS lane (Mac mini)**: up
+
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
 mob_ci results store by `mix ci.report --publish`; do not edit. Verified
 version combinations are in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 `✓ pass` · `✗ fail @ layer` · `! error @ layer` (the run could not
-finish: build, boot, farm, toolchain) · `– skip` · `·` never ran. Layers are
-described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
+finish: build, boot, or an infrastructure layer: `farm`, `toolchain`,
+the Mac worker's `error:disk` / `error:ssh` / `error:worker`) · `– skip`
+· `·` never ran. A lane is down when its last cells of a path all
+stopped at an infrastructure layer, or a nightly ran none of its cells
+there. Layers are described in mob_ci's
+`decisions/2026-06-19-mob-ci-design.md`.
 
 ## hex
 
