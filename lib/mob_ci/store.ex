@@ -230,7 +230,9 @@ defmodule MobCi.Store do
   of the non-passing results), one row per result (`invariant` = its id) and
   one per plugin self-test under P12 (`"p12:<plugin>"`). An orchestration
   error (`{:error, reason, layer}`: the path never reached the catalog) is a
-  single `error` summary row.
+  single `error` summary row; a boot error's device account
+  (`MobCi.BootDiag.detail/1`: cause, pid, EPMD port, logcat tail) is kept
+  under `detail.boot`.
 
   `meta` carries `:set`, `:platform`, `:path`, `:versions`, `:duration_ms`
   and `:log_path`, and for a cell that ran on a known device `:device` (a
@@ -240,11 +242,15 @@ defmodule MobCi.Store do
   @spec record_results(t(), pos_integer(), map(), {:ok | :fail, [Result.t()]} | {:error, term(), Result.layer() | String.t()}) ::
           :ok
   def record_results(store, run_id, meta, {:error, reason, layer}) do
-    record_cell(store, run_id, cell_meta(meta, %{
-      outcome: :error,
-      layer: layer,
-      detail: %{error: inspect(reason, limit: 50, printable_limit: 4_000)}
-    }))
+    detail = %{error: inspect(reason, limit: 50, printable_limit: 4_000)}
+
+    detail =
+      case MobCi.BootDiag.find(reason) do
+        nil -> detail
+        diag -> Map.put(detail, :boot, MobCi.BootDiag.detail(diag))
+      end
+
+    record_cell(store, run_id, cell_meta(meta, %{outcome: :error, layer: layer, detail: detail}))
   end
 
   def record_results(store, run_id, meta, {verdict, results}) when verdict in [:ok, :fail] do

@@ -24,7 +24,7 @@ defmodule MobCi.Run do
   """
 
   require Logger
-  alias MobCi.{Build, Context, DeviceCaps, Farm, Invariants, Plugins, Report, Result, Store}
+  alias MobCi.{BootDiag, Build, Context, DeviceCaps, Farm, Invariants, Plugins, Report, Result, Store}
 
   @timings_key :mob_ci_timings
 
@@ -167,13 +167,16 @@ defmodule MobCi.Run do
   The results the `--artifacts` dir reports for a run: every path's catalog
   results, and for a path that never reached the catalog one `:path` error
   carrying the orchestration reason and its `error_layer/1`, so junit.xml and
-  summary.json can't read green when a path errored.
+  summary.json can't read green when a path errored. A boot error's device
+  account (`MobCi.BootDiag.detail/1`) is that result's evidence.
   """
   @spec artifact_results([path_run()], keyword()) :: [Result.t()]
   def artifact_results(runs, opts) do
     Enum.flat_map(runs, fn
       %{outcome: {:error, reason}, path: path} ->
-        Result.error(:path, "build path reached the catalog", inspect(reason, limit: 20))
+        evidence = with %BootDiag{} = diag <- BootDiag.find(reason), do: BootDiag.detail(diag)
+
+        Result.error(:path, "build path reached the catalog", inspect(reason, limit: 20), evidence)
         |> Result.at(error_layer(reason))
         |> List.wrap()
         |> Result.stamp(opts[:set_name], opts[:versions], path)
@@ -232,9 +235,21 @@ defmodule MobCi.Run do
     ms = div(us, 1000)
 
     case outcome do
-      {:error, _} = err -> errored(path, err, ms, log)
-      {_verdict, _results} -> %{path: Build.path_label(path), outcome: outcome, duration_ms: ms, log_path: log}
+      {:error, reason} = err ->
+        report_boot_diag(reason, log)
+        errored(path, err, ms, log)
+
+      {_verdict, _results} ->
+        %{path: Build.path_label(path), outcome: outcome, duration_ms: ms, log_path: log}
     end
+  end
+
+  # A boot error carrying the device's account (`MobCi.BootDiag`): print it
+  # (the cell's console log), append it to the path's log and keep the full
+  # logcat dump beside that log, so the cause outlives the released instance.
+  defp report_boot_diag(reason, log) do
+    with %BootDiag{} = diag <- BootDiag.find(reason), do: IO.puts(BootDiag.write(diag, log))
+    :ok
   end
 
   defp errored(path, {:error, _} = err, ms, log),
@@ -336,8 +351,9 @@ defmodule MobCi.Run do
         step(:release_live, fn -> Farm.release(live) end)
         finalize(:deploy, set, results ++ [Invariants.p11(ctx)], opts)
 
-      {:error, reason} ->
-        error({:launch_failed, reason})
+      # launch/3 already logged and wrapped it as {:launch_failed, reason}
+      {:error, _} = err ->
+        err
     end
   end
 

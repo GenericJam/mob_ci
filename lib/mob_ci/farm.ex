@@ -196,6 +196,10 @@ defmodule MobCi.Farm do
   the Android package. The node is dialled with `:cookies` (default
   `dist_cookies(pkg)`: the project's mob_dev-managed private cookie, then the
   legacy `:mob_secret`). Returns the instance with `:node` populated.
+
+  A node that never answers is `{:node_never_registered, node, diag}`, with
+  the device's account of why (`boot_diag/4`) taken before anything
+  releases the instance.
   """
   @spec launch(Instance.t(), keyword()) :: {:ok, Instance.t()} | {:error, term()}
   def launch(%Instance{} = inst, opts) do
@@ -208,11 +212,32 @@ defmodule MobCi.Farm do
       {_out, 0} ->
         if await_node(node, Keyword.get(opts, :timeout_ms, 60_000), cookies),
           do: {:ok, %{inst | node: node}},
-          else: {:error, {:node_never_registered, node}}
+          else: {:error, {:node_never_registered, node, boot_diag(inst, pkg, node)}}
 
       {out, code} ->
         {:error, {:launch_failed, code, String.slice(out, -400, 400)}}
     end
+  end
+
+  @doc """
+  What the device says about `pkg` right now, as a `MobCi.BootDiag`: its
+  pid (`pidof`), the logcat dump (main, system and crash buffers) and the
+  host's `epmd -names` (`node`'s registration; `nil` when no node is
+  expected yet). Each command is bounded by `timeout 30`, so a wedged adb
+  transport can't hold the cell. Never raises: what failed to run says so
+  in the cause.
+  """
+  @spec boot_diag(Instance.t(), String.t(), node() | nil, (String.t(), [String.t()] -> {String.t(), integer()})) ::
+          MobCi.BootDiag.t()
+  def boot_diag(%Instance{serial: serial}, pkg, node, cmd \\ &cmd/2) do
+    run = fn args -> elem(cmd.("timeout", ["30" | args]), 0) end
+    logcat = ["adb", "-s", serial, "logcat", "-d", "-v", "threadtime", "-b", "main", "-b", "system", "-b", "crash"]
+
+    MobCi.BootDiag.new(pkg, node, %{
+      pid: run.(["adb", "-s", serial, "shell", "pidof", pkg]),
+      logcat: run.(logcat),
+      epmd: run.(["epmd", "-names"])
+    })
   end
 
   @doc """
@@ -283,7 +308,9 @@ defmodule MobCi.Farm do
   wait for `files/otp/.installed_version`, stop the app, then write the
   managed cookie as root (a release APK is not debuggable, `run-as` is
   refused; redroid's adb shell is uid shell, its `su` is root) with the app's
-  owner and SELinux label. `launch/2` then starts it for real.
+  owner and SELinux label. `launch/2` then starts it for real. A first
+  launch that never unpacks OTP is `{:otp_not_extracted, pkg, diag}`
+  (`boot_diag/4`).
   """
   @spec provision_release(Instance.t(), keyword()) :: :ok | {:error, term()}
   def provision_release(%Instance{} = inst, opts) do
@@ -298,7 +325,7 @@ defmodule MobCi.Farm do
          {_out, 0} <- cmd("adb", ["-s", inst.serial, "shell", as_root(write_cookie_script(pkg, app, cookie))]) do
       :ok
     else
-      {:error, _} = err -> err
+      {:error, :otp_not_extracted} -> {:error, {:otp_not_extracted, pkg, boot_diag(inst, pkg, nil)}}
       {out, code} -> {:error, {:provision_release, code, String.slice(out, -400, 400)}}
     end
   end
@@ -317,7 +344,7 @@ defmodule MobCi.Farm do
 
   defp retry_extracted(serial, pkg, deadline) do
     if System.monotonic_time(:millisecond) >= deadline do
-      {:error, {:otp_not_extracted, pkg}}
+      {:error, :otp_not_extracted}
     else
       Process.sleep(2_000)
       await_extracted(serial, pkg, deadline)
