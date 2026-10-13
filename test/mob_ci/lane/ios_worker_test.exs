@@ -66,8 +66,7 @@ defmodule MobCi.Lane.Ios.WorkerTest do
         File.rm_rf!(path)
       end,
       # No staged app state unless a test makes some.
-      mob_home: "/nonexistent/mob_home",
-      darwin_tmp: nil
+      mob_home: "/nonexistent/mob_home"
     }
 
     Map.merge(base, overrides)
@@ -325,31 +324,25 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       refute File.exists?(Path.join(root, r["cell_id"]))
     end
 
-    test "the app's staged BEAMs and mob_dev's leaked release build dir go too; nothing else does", %{tmp_dir: root} do
+    test "the app's staged BEAMs go too; nothing else does", %{tmp_dir: root} do
       home = Path.join(root, "mob_home")
-      darwin_tmp = Path.join(root, "T")
 
       ours = [
         Path.join(home, "cache/otp-ios-sim-5c9c69fc/ci_default_hex"),
-        Path.join(home, "runtime/ios-sim/ci_default_hex"),
-        # release_device.sh's BUILD_DIR=$(mktemp -d), never removed
-        Path.join(darwin_tmp, "tmp.Wm8qifonVw/CiDefaultHex.app")
+        Path.join(home, "runtime/ios-sim/ci_default_hex")
       ]
 
       kept = [
         Path.join(home, "runtime/ios-sim/erts-17.0"),
-        Path.join(home, "runtime/ios-sim/other_app"),
-        Path.join(darwin_tmp, "tmp.Other123/OtherApp.app"),
-        Path.join(darwin_tmp, "mob_ios_sim_1_2/CiDefaultHex.app")
+        Path.join(home, "runtime/ios-sim/other_app")
       ]
 
       Enum.each(ours ++ kept, &File.mkdir_p!/1)
 
-      r = run(spec("deploy:ios_sim"), Path.join(root, "cells"), deps(%{mob_home: home, darwin_tmp: darwin_tmp}))
+      r = run(spec("deploy:ios_sim"), Path.join(root, "cells"), deps(%{mob_home: home}))
 
       assert r["outcome"] == "pass"
       refute Enum.any?(ours, &File.exists?/1)
-      refute File.exists?(Path.join(darwin_tmp, "tmp.Wm8qifonVw"))
       assert Enum.all?(kept, &File.dir?/1)
     end
   end

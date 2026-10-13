@@ -31,9 +31,8 @@ defmodule MobCi.Lane.Ios.Reaper do
     * `mob_ci_ios_*` agent-lease sessions (their state dirs, and claims
       `agent-device device status` lists) that no live cell owns, idle for
       `reap_after_s()`: released, and their state dirs pruned;
-    * cell scratch dirs, the `ci_*` apps' staged BEAMs in `~/.mob` and
-      mob_dev's leaked `tmp.*` release dirs holding a `Ci*.app`, untouched for
-      `reap_after_s()` and not a live cell's.
+    * cell scratch dirs and the `ci_*` apps' staged BEAMs in `~/.mob`,
+      untouched for `reap_after_s()` and not a live cell's.
 
   Shared daemons a cell may happen to start never count as the cell's: the
   adb server and epmd serve every agent on the Mac.
@@ -298,7 +297,7 @@ defmodule MobCi.Lane.Ios.Reaper do
     live_ids = MapSet.new(live, &Path.basename/1)
     live_specs = Enum.flat_map(live, &specs/1)
     live_cells = MapSet.new(live_specs, & &1.cell_id)
-    live_apps = MapSet.new(Enum.flat_map(live_specs, &app_names/1))
+    live_apps = MapSet.new(live_specs, &app_name/1)
 
     runs =
       for dir <- dead do
@@ -367,37 +366,17 @@ defmodule MobCi.Lane.Ios.Reaper do
         do: spec
   end
 
-  # The names a live cell's app state goes by: the app (`ci_*`, staged BEAMs)
-  # and its bundle (`Ci*.app`, mob_dev's leaked release dir).
-  defp app_names(%Spec{set: set, versions: %{row: row}}) do
-    app = Host.app_name(set, MobCi.Versions.parse!(row)) |> to_string()
-    [app, Macro.camelize(app) <> ".app"]
-  end
+  # The name a live cell's app state goes by: the app (`ci_*`, staged BEAMs).
+  defp app_name(%Spec{set: set, versions: %{row: row}}),
+    do: Host.app_name(set, MobCi.Versions.parse!(row)) |> to_string()
 
-  # `{owner, dir, in-use key}` for the `ci_*` apps' staged BEAMs and mob_dev's
-  # leaked release dirs (`Worker.app_state_dirs/3`), whichever cell they came
-  # from. A leaked dir is mob_ci's only if it holds a bundle named the way
-  # `Macro.camelize("ci_…")` names it (`CiDefaultHex.app`, never `City.app`),
-  # and it is owned by that exact bundle name: underscoring it back would not
-  # give the app name for every row.
+  # `{owner, dir, in-use key}` for the `ci_*` apps' staged BEAMs
+  # (`Worker.app_state_dirs/2`), whichever cell they came from.
   defp app_state_dirs(deps) do
-    staged =
-      for pattern <- [["cache", "otp-*", "ci_*"], ["runtime", "*", "ci_*"]],
-          d <- Path.wildcard(Path.join([deps.mob_home | pattern])),
-          File.dir?(d),
-          do: {Path.basename(d), d, "/" <> Path.basename(d)}
-
-    leaked =
-      if deps.darwin_tmp do
-        for d <- Path.wildcard(Path.join(deps.darwin_tmp, "tmp.*")),
-            bundle <- Path.wildcard(Path.join(d, "Ci*.app")),
-            Path.basename(bundle) =~ ~r/^Ci[A-Z0-9][A-Za-z0-9]*\.app$/,
-            do: {Path.basename(bundle), d, d}
-      else
-        []
-      end
-
-    staged ++ leaked
+    for pattern <- [["cache", "otp-*", "ci_*"], ["runtime", "*", "ci_*"]],
+        d <- Path.wildcard(Path.join([deps.mob_home | pattern])),
+        File.dir?(d),
+        do: {Path.basename(d), d, "/" <> Path.basename(d)}
   end
 
   defp mtime(path) do
@@ -440,7 +419,6 @@ defmodule MobCi.Lane.Ios.Reaper do
       scratch_root: Worker.default_root(),
       lease_root: Worker.lease_root(),
       mob_home: worker.mob_home,
-      darwin_tmp: worker.darwin_tmp,
       worker: worker
     }
   end

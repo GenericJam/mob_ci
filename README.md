@@ -228,7 +228,7 @@ Every path can also stop at `mob_new`, `elixir` or `doctor`; the worker's
 own problems are `error:disk` (under 5 GB free on `/`, the cell refuses to
 start), `error:worker` and `error:ssh`. One host at a time; teardown always
 uninstalls, releases the lease and deletes the host, its `_build`, the cell's
-`TMPDIR` and the app's leftovers under `~/.mob` and the user temp dir. Logs
+`TMPDIR` and the app's staged BEAMs under `~/.mob`. Logs
 and result JSON: `~/mob_ci_logs/ios/<cell_id>.{log,json}` on the NUC. On the
 Mac by hand: `mix ci.ios_cell --set default --versions hex --path deploy:ios_sim`
 (or `--path deploy:android_physical`).

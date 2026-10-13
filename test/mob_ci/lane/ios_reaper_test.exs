@@ -62,8 +62,7 @@ defmodule MobCi.Lane.Ios.ReaperTest do
         send(me, {:rm_rf, path})
         File.rm_rf!(path)
       end,
-      mob_home: Path.join(dir, "mob_home"),
-      darwin_tmp: Path.join(dir, "T")
+      mob_home: Path.join(dir, "mob_home")
     }
 
     Map.merge(
@@ -89,7 +88,6 @@ defmodule MobCi.Lane.Ios.ReaperTest do
         scratch_root: Path.join(dir, "scratch"),
         lease_root: Path.join(dir, "agents"),
         mob_home: worker.mob_home,
-        darwin_tmp: worker.darwin_tmp,
         worker: worker
       },
       overrides
@@ -269,8 +267,7 @@ defmodule MobCi.Lane.Ios.ReaperTest do
         uninstall: fn path, id, app -> send(me, {:uninstall, path, id, app}) && {"", 0} end,
         probe: fn _, _, _, _ -> {:ok, %{"found" => true, "alive" => true, "entries" => [], "findings" => []}} end,
         rm_rf: fn p -> send(me, {:rm_rf, p}) && File.rm_rf!(p) end,
-        mob_home: Path.join(dir, "mob_home"),
-        darwin_tmp: nil
+        mob_home: Path.join(dir, "mob_home")
       }
 
       root = Path.join(dir, "scratch")
@@ -381,7 +378,6 @@ defmodule MobCi.Lane.Ios.ReaperTest do
       live_cell = spec("deploy:ios_sim", "LIVE")
       run_dir(dir, "r-live", 111, live_cell)
       mob = Path.join(dir, "mob_home")
-      t = Path.join(dir, "T")
 
       stale_scratch = touch(Path.join([dir, "scratch", "all-hex-deploy_ios_sim-old"]), 3_600)
       young_scratch = touch(Path.join([dir, "scratch", "all-hex-deploy_ios_sim-new"]), 30)
@@ -391,27 +387,13 @@ defmodule MobCi.Lane.Ios.ReaperTest do
       live_app = touch(Path.join([mob, "runtime/ios-sim/ci_default_hex"]), 3_600)
       shared_otp = touch(Path.join([mob, "cache/otp-ios-sim-abc/erts-17.0"]), 3_600)
       other_app = touch(Path.join([mob, "runtime/ios-sim/io"]), 3_600)
-      leaked = touch(Path.join(t, "tmp.Wm8qifonVw"), 3_600)
-      touch(Path.join(leaked, "CiAllHex.app"), 3_600)
-      touch(leaked, 3_600)
-      foreign_tmp = touch(Path.join(t, "tmp.Other"), 3_600)
-      touch(Path.join(foreign_tmp, "Io.app"), 3_600)
-      touch(foreign_tmp, 3_600)
-      # Starts with "Ci", but not the way mob_ci names a bundle (CiXxx.app).
-      city = touch(Path.join(t, "tmp.City"), 3_600)
-      touch(Path.join(city, "City.app"), 3_600)
-      touch(city, 3_600)
-      # The live cell's own release dir.
-      live_release = touch(Path.join(t, "tmp.Live"), 3_600)
-      touch(Path.join(live_release, "CiDefaultHex.app"), 3_600)
-      touch(live_release, 3_600)
 
       result = Reaper.reap("r-own", deps(dir, procs([])))
 
-      assert Enum.sort(result.dirs) == Enum.sort([stale_scratch, stale_app, stale_runtime, leaked])
+      assert Enum.sort(result.dirs) == Enum.sort([stale_scratch, stale_app, stale_runtime])
       for d <- result.dirs, do: refute(File.exists?(d))
 
-      for d <- [young_scratch, not_a_cell, live_app, shared_otp, other_app, foreign_tmp, city, live_release, Path.join([dir, "scratch", live_cell.cell_id])],
+      for d <- [young_scratch, not_a_cell, live_app, shared_otp, other_app, Path.join([dir, "scratch", live_cell.cell_id])],
           do: assert(File.dir?(d), d)
     end
 
