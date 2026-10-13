@@ -11,17 +11,17 @@ described in mob_ci's `decisions/2026-06-19-mob-ci-design.md`.
 
 ## hex
 
-Latest run 2026-10-12T05:55:27Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8; mob 0.9.16 · mob_dev 0.7.19 · mob_new 0.6.7.
+Latest run 2026-10-13T05:58:58Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8; mob 0.9.16 · mob_dev 0.7.19 · mob_new 0.6.7.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
-| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `blank` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `selftest_pilots` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
-| `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ! error @ `error:disk` |
+| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_background` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
@@ -35,7 +35,7 @@ Latest run 2026-10-12T05:55:27Z. Core versions in this grid: mob 0.9.17 · mob_d
 | `singleton:mob_photos` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ✓ pass | · | ! error @ `error:disk` |
+| `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_sms` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_speech` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
@@ -45,11 +45,11 @@ Latest run 2026-10-12T05:55:27Z. Core versions in this grid: mob 0.9.17 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 
-82 pass, 0 fail, 75 error, 0 skip.
+70 pass, 0 fail, 87 error, 0 skip.
 
 ## master
 
-Latest run 2026-10-12T08:39:13Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-13T04:48:22Z. Core versions in this grid: mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
