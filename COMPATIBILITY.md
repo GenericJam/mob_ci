@@ -35,12 +35,12 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9
 
-Row hex; newest result 2026-10-13T07:03:57Z.
+Row hex; newest result 2026-10-13T08:16:54Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
-| `default` | · | · | · | ✓ pass | ✓ pass | ✓ pass |
-| `all` | · | · | · | ✓ pass | ✓ pass | ✓ pass |
+| `default` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `all` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 
 Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.13, mob_deliver 0.3.2, mob_location 0.2.0, mob_midi 0.2.0, mob_mishka 0.1.5, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.2.1, mob_scanner 0.1.6, mob_scene3d 0.2.0, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.2, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
 
@@ -294,7 +294,7 @@ which build paths.
 | `mob_midi` | 0.2.0 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_midi` | 0.2.0 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
-| `mob_mishka` | 0.1.5 | 0.9.17 | 0.7.23 | `deploy:ios_sim`, `deploy:ios_device`, `deploy:android_physical`, `release:ios` |
+| `mob_mishka` | 0.1.5 | 0.9.17 | 0.7.23 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `deploy:android_physical`, `release:ios` |
 | `mob_mishka` | 0.1.4 (git 9b9bba9) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_mishka` | 0.1.4 (git 9b9bba9) | 0.9.17 (git 5d85492) | 0.7.22 (git 04e5424) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_mishka` | 0.1.4 (git 9b9bba9) | 0.9.17 (git 5d85492) | 0.7.21 (git 04feb5b) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
