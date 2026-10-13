@@ -256,7 +256,7 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   `buildable: false`; `nx_eigen` still is (arm-only, F-less: a documented platform
   limit, see `docs/budgets.md`).
 
-## F11 — `mix mob.release --ios` leaves its ~90 MB build dir in the user temp dir
+## F11 — `mix mob.release --ios` leaves its ~90 MB build dir in the user temp dir — resolved
 
 - **Upstream:** [MOB-425](https://linear.app/mobframework/issue/MOB-425).
 - **Found:** 2026-10-09, first `release:ios` cell of the iOS lane (MOB-415) on the
@@ -270,10 +270,12 @@ the kind of thing that previously only surfaced when a user (or an agent) hit it
   free and is shared by several agents.
 - **Fix:** `trap 'rm -rf "$BUILD_DIR"' EXIT`, and `mktemp -d
   "${TMPDIR:-/tmp}/mob_release.XXXXXX"` for the script's scratch dirs.
-- **Workaround in mob_ci:** the iOS worker's teardown deletes
-  `$(getconf DARWIN_USER_TEMP_DIR)/tmp.*` dirs that hold the cell's own
-  `Ci<App>.app` (`MobCi.Lane.Ios.Worker.app_state_dirs/3`); nothing else there
-  is touched.
+- **Resolved:** mob_dev **0.7.24** (Hex, 2026-10-13; PR GenericJam/mob_dev#136):
+  the script's scratch goes in a dir mob_dev removes on every exit path, and a
+  direct run of the script honours `TMPDIR` and removes its own.
+- **Workaround in mob_ci (removed 2026-10-13):** the iOS worker's teardown and
+  the reaper deleted `$(getconf DARWIN_USER_TEMP_DIR)/tmp.*` dirs holding a
+  cell's `Ci<App>.app`. A row pinning mob_dev below 0.7.24 leaks again.
 
 ## F12 — a wired iPhone's node is unreachable: no USB IP from ARP on macOS 27, node named after an off-LAN WiFi IP
 

@@ -41,8 +41,7 @@ defmodule MobCi.Lane.Ios.Worker do
   `<root>/<cell_id>`: the generated host (with its `deps` and `_build`) and
   `tmp/`, which is the cell's `TMPDIR` for every child (so mob_dev's
   `mob_ios_*` build dirs land there too); the
-  rest is the app's staged BEAMs under `~/.mob` and mob_dev's leaked release
-  build dir (`app_state_dirs/3`).
+  rest is the app's staged BEAMs under `~/.mob` (`app_state_dirs/2`).
   Teardown runs whatever happened, including a step that raised: it
   uninstalls the app from a device it leased, releases the lease and deletes
   the app state and the scratch dir. The result records free disk before and
@@ -264,30 +263,20 @@ defmodule MobCi.Lane.Ios.Worker do
 
   @doc """
   What a build leaves outside the scratch dir under the app's own name:
+  mob_dev stages the app's BEAMs in `~/.mob/cache/otp-<platform>-*/<app>` and
+  `~/.mob/runtime/<platform>-*/<app>` (~40 MB each).
 
-    * mob_dev stages the app's BEAMs in `~/.mob/cache/otp-<platform>-*/<app>`
-      and `~/.mob/runtime/<platform>-*/<app>` (~40 MB each);
-    * `ios/release_device.sh` compiles in `BUILD_DIR=$(mktemp -d)` and never
-      removes it, and macOS `mktemp -d` ignores `TMPDIR` (it uses the
-      per-user `DARWIN_USER_TEMP_DIR`), so each release leaves a ~90 MB
-      `tmp.XXXXXXXXXX` holding `<App>.app` there (FINDINGS F11).
-
-  The `ci_*` app names (and their `CiXxx` modules) belong to mob_ci alone, so
-  these are removed with the cell; the shared OTP runtime beside them and
-  every other `tmp.*` dir are kept.
+  The `ci_*` app names belong to mob_ci alone, so these are removed with the
+  cell; the shared OTP runtime beside them is kept. (mob_dev before 0.7.24
+  also left each `mix mob.release --ios` build dir in `DARWIN_USER_TEMP_DIR`,
+  FINDINGS F11; 0.7.24 removes it itself.)
   """
-  @spec app_state_dirs(Spec.t(), Path.t(), Path.t() | nil) :: [Path.t()]
-  def app_state_dirs(%Spec{set: set, versions: %{row: row}}, mob_home, darwin_tmp) do
+  @spec app_state_dirs(Spec.t(), Path.t()) :: [Path.t()]
+  def app_state_dirs(%Spec{set: set, versions: %{row: row}}, mob_home) do
     app = Host.app_name(set, MobCi.Versions.parse!(row)) |> to_string()
-    bundle = Macro.camelize(app) <> ".app"
-
-    leaked =
-      if darwin_tmp,
-        do: Enum.filter(Path.wildcard(Path.join(darwin_tmp, "tmp.*")), &File.dir?(Path.join(&1, bundle))),
-        else: []
 
     Path.wildcard(Path.join([mob_home, "cache", "otp-*", app])) ++
-      Path.wildcard(Path.join([mob_home, "runtime", "*", app])) ++ leaked
+      Path.wildcard(Path.join([mob_home, "runtime", "*", app]))
   end
 
   # ── pure ─────────────────────────────────────────────────────────────────────
@@ -742,7 +731,7 @@ defmodule MobCi.Lane.Ios.Worker do
 
     delete = [
       {"delete_app_state",
-       fn -> Enum.each(app_state_dirs(spec, deps.mob_home, deps.darwin_tmp), deps.rm_rf) end},
+       fn -> Enum.each(app_state_dirs(spec, deps.mob_home), deps.rm_rf) end},
       {"delete_scratch", fn -> deps.rm_rf.(state.scratch) end}
     ]
 
@@ -827,17 +816,8 @@ defmodule MobCi.Lane.Ios.Worker do
       probe: &probe/4,
       inspect_ipa: &inspect_ipa/1,
       rm_rf: fn path -> File.rm_rf!(path) end,
-      mob_home: Path.expand("~/.mob"),
-      darwin_tmp: darwin_user_temp_dir()
+      mob_home: Path.expand("~/.mob")
     }
-  end
-
-  # Where macOS `mktemp -d` (no template) creates dirs, whatever TMPDIR says.
-  defp darwin_user_temp_dir do
-    case System.cmd("getconf", ["DARWIN_USER_TEMP_DIR"], stderr_to_stdout: true) do
-      {dir, 0} -> String.trim(dir)
-      _ -> nil
-    end
   end
 
   defp time, do: Calendar.strftime(DateTime.utc_now(), "%H:%M:%S")

@@ -81,11 +81,12 @@ started its daemon), delete the app's staged BEAMs under
 `~/.mob/{cache/otp-ios-*,runtime/ios-*}/<app>` and the cell's scratch dir,
 then record free disk. The scratch dir holds the host (with `deps` and
 `_build`) and `tmp/`, which is every child's `TMPDIR`, so mob_dev's
-`mob_ios_*` dirs land inside it. macOS `mktemp -d` ignores `TMPDIR`, and
-mob_dev's release script leaks its build dir that way (FINDINGS F11,
-MOB-425), so teardown also removes `$(getconf DARWIN_USER_TEMP_DIR)/tmp.*`
-dirs holding the cell's own `Ci<App>.app`. `ci_*` app names belong to mob_ci
-alone, which is what makes these deletions safe on a shared Mac.
+`mob_ios_*` dirs land inside it. `ci_*` app names belong to mob_ci alone,
+which is what makes these deletions safe on a shared Mac. (Until mob_dev
+0.7.24 its release script also left its build dir in
+`DARWIN_USER_TEMP_DIR`, where `TMPDIR` can't redirect it, and teardown
+removed `tmp.*` dirs holding the cell's `Ci<App>.app`; FINDINGS F11,
+MOB-425. Removed 2026-10-13 once Hex had the fix.)
 
 ### When the NUC side goes away (MOB-466, 2026-10-09)
 
@@ -133,7 +134,7 @@ first reaps (`Reaper.reap/2`): a run whose guard is gone, or has not stamped
 with a run that is not live is stopped; `mob_ci_ios_*` agent-lease sessions
 (state dirs under `~/.agent-device/agents/`, claims in `agent-device device
 status`) that no live cell owns are released and their state dirs pruned;
-cell scratch dirs, `ci_*` staged BEAMs and leaked `tmp.*/Ci*.app` dirs no
+cell scratch dirs and `ci_*` staged BEAMs no
 live cell owns are deleted. The ones not tied to a dead run must also be
 idle for 30 minutes (`MOB_CI_REAP_AFTER_S`). A hand run of `mix
 ci.ios_cell` registers a run of its own, so it is protected and reaped the
