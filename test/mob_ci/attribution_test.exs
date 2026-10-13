@@ -161,7 +161,7 @@ defmodule MobCi.AttributionTest do
     test "farm admission, boot and launch failures are the boot layer" do
       assert Run.error_layer(:box_busy) == :boot
       assert Run.error_layer({:boot_failed, {:boot_failed, 1, "docker"}}) == :boot
-      assert Run.error_layer({:launch_failed, {:node_never_registered, :x}}) == :boot
+      assert Run.error_layer({:launch_failed, {:node_never_registered, :x, %MobCi.BootDiag{cause: "the app crashed (Java): boom"}}}) == :boot
     end
 
     test "an unknown reason is unattributed (nil), never a guess" do
@@ -182,7 +182,7 @@ defmodule MobCi.AttributionTest do
 
       # a genuine build or launch failure stays where it was
       assert Run.error_layer({:build_failed, :deploy, {:native_build, "zig: error: undefined symbol"}}) == {:build, "deploy:android"}
-      assert Run.error_layer({:launch_failed, {:node_never_registered, :x}}) == :boot
+      assert Run.error_layer({:launch_failed, {:node_never_registered, :x, %MobCi.BootDiag{cause: "c"}}}) == :boot
     end
 
     test "a build whose JVM crashed is the toolchain, not the build or the plugin" do

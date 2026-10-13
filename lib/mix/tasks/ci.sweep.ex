@@ -189,7 +189,7 @@ defmodule Mix.Tasks.Ci.Sweep do
   def stored_outcome({:error, reason}) do
     layer =
       case reason do
-        {:node_never_registered, _} -> :boot
+        {:node_never_registered, _node, _diag} -> :boot
         {:launch_failed, _, _} -> :boot
         {:row_validator, _} -> :elixir
         other -> Build.path_failure_layer(:deploy, other)

@@ -70,7 +70,7 @@ defmodule MobCi.ReleaseCellTest do
     end
 
     test "a sweep subset that never reached the catalog is stored with its layer" do
-      assert {:error, _, :boot} = Sweep.stored_outcome({:error, {:node_never_registered, :n}})
+      assert {:error, _, :boot} = Sweep.stored_outcome({:error, {:node_never_registered, :n, %MobCi.BootDiag{cause: "c"}}})
       assert {:error, _, {:build, "deploy:android"}} = Sweep.stored_outcome({:error, {:native_build, "gradle"}})
       assert {:ok, []} = Sweep.stored_outcome({:pass, []})
       assert {:fail, [_]} = Sweep.stored_outcome({:error, [Result.error(:p2, "", "")]})
