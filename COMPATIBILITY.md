@@ -31,14 +31,14 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9
 
-Row hex; newest result 2026-10-13T06:36:32Z.
+Row hex; newest result 2026-10-13T06:42:15Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
 | `default` | · | · | · | ✓ pass | ✓ pass | ✓ pass |
-| `all` | · | · | · | · | · | · |
+| `all` | · | · | · | ✓ pass | ✓ pass | ✓ pass |
 
-Plugins: mob_biometric 0.2.0, mob_camera 0.1.13, mob_location 0.2.0, mob_mishka 0.1.5.
+Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.13, mob_deliver 0.3.2, mob_location 0.2.0, mob_midi 0.2.0, mob_mishka 0.1.5, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.2.1, mob_scanner 0.1.6, mob_scene3d 0.2.0, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.2, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
 
 ### mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3)
 
