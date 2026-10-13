@@ -148,7 +148,7 @@ defmodule MobCi.LaneHealthTest do
   end
 
   describe "posting once per state" do
-    test "the same state is posted once; a new layer alerts again; a recovery is a quiet all-clear", %{store: store} do
+    test "the same state is posted once; another lane alerts on its own; a recovery is a quiet all-clear", %{store: store} do
       for d <- 10..14, do: ios_disk!(store, "2026-10-#{d}T06:20:00Z")
       assert {{:posted, first}, _} = notify(store)
       assert_received {:posted, ^first}
@@ -187,6 +187,22 @@ defmodule MobCi.LaneHealthTest do
 
       assert {{:failed, _, :down}, _} = notify(store, poster: fn _ -> {:error, :down} end)
       assert {{:posted, ^text}, _} = notify(store)
+      assert {:unchanged, _} = notify(store)
+    end
+
+    test "a dead path whose layer flaps is one problem: no second push", %{store: store} do
+      for d <- 10..14, do: ios_disk!(store, "2026-10-#{d}T06:20:00Z")
+      assert {{:posted, _}, _} = notify(store)
+
+      for d <- 15..19, do: ios!(store, "2026-10-#{d}T06:00:00Z", :error, "error:ssh")
+      assert {:unchanged, health} = notify(store)
+      assert Enum.all?(lane(health, "ios").dead, &(&1.layer == "error:ssh" and &1.since == "2026-10-10T06:20:00Z"))
+    end
+
+    test "a state file of another shape is dropped, not fatal", %{store: store, dir: dir} do
+      File.write!(Path.join(dir, "lane_health.json"), ~s({"ios":{"problems":"old-shape"},"android":7}))
+      for d <- 10..14, do: ios_disk!(store, "2026-10-#{d}T06:20:00Z")
+      assert {{:posted, "@kevin! " <> _}, _} = notify(store)
       assert {:unchanged, _} = notify(store)
     end
   end
@@ -246,7 +262,25 @@ defmodule MobCi.LaneHealthTest do
       end
 
       assert {{:posted, text}, _} = notify(store)
-      assert text =~ "all clear, the iOS lane (Mac mini) is running cells again (it was down since 2026-10-13 04:00Z: an idle nightly)"
+      assert text =~ "all clear, the iOS lane (Mac mini) is running cells again (it was down since 2026-10-13 04:00Z: an idle master nightly)"
+    end
+
+    test "an idle row is its own problem: master recovering while hex goes idle alerts", %{store: store} do
+      android_runs!(store, nightly!(store, "master"))
+      assert {{:posted, _}, _} = notify(store)
+
+      Queue.expire(store, "ios", ~U[2026-10-13 13:00:00Z])
+      master = nightly!(store, "master", ["ios"])
+      cell = Queue.claim(store, "ios", ~U[2026-10-14 05:00:00Z])
+      run!(store, "2026-10-14T05:00:00Z", [{"ios", "deploy:ios_sim", :pass, nil, nil}], job_id: master)
+      Queue.finish(store, cell.id, 0, nil, ~U[2026-10-14 05:10:00Z])
+      Queue.expire(store, "ios", ~U[2026-10-13 13:00:00Z])
+      nightly!(store, "hex", ["ios"])
+
+      assert {{:posted, text}, health} = notify(store)
+      assert text =~ "@kevin! mob_ci: the iOS lane (Mac mini) is down"
+      assert text =~ "ran none of its 2 cells in the hex nightly"
+      assert Enum.map(lane(health, "ios").idle, & &1.versions_row) == ["hex"]
     end
   end
 

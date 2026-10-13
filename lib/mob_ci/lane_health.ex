@@ -20,12 +20,15 @@ defmodule MobCi.LaneHealth do
       of another job's cell) and none of them recorded a result.
 
   `notify/2` posts a change of a lane's problems to Muster once: a new
-  problem pushes to Kevin (`@kevin!`) with the layer, the cause line from the
-  cell's error (or its log), since when, and a fix hint; fewer problems, or
-  none (recovery), is a quiet post. What was last posted is kept in
-  `lane_health.json` beside the store (next to the post marker), so the same
-  state is never posted twice; a held (`--no-post`) or failed post leaves it
-  unchanged, so the next check posts again.
+  problem (a path newly dead, a row's nightly newly idle) pushes to Kevin
+  (`@kevin!`) with the layer, the cause line from the cell's error (or its
+  log), since when, and a fix hint; fewer problems, or none (recovery), is a
+  quiet post. A dead path whose layer changes is the same problem. What was
+  last posted is kept in `lane_health.json` beside the store (next to the
+  post marker) and written right after the post went out, so a state is
+  posted once (a crash between the two would post it again); a held
+  (`--no-post`) or failed post leaves it unchanged, so the next check posts
+  again.
   """
 
   alias MobCi.{Build, Farm, Matrix, Report, Store}
@@ -274,21 +277,21 @@ defmodule MobCi.LaneHealth do
   # ── problems, alerts and the state file ──────────────────────────────────────
 
   @doc """
-  A lane's problems as comparable keys: `["dead", path, layer]` per dead
-  path, `["idle"]` when a nightly ran none of its cells. Sorted.
+  A lane's problems as comparable keys: `["dead", path]` per dead path,
+  `["idle", row]` per row whose nightly ran none of the lane's cells.
+  Sorted. The layer is not part of a key: a dead path flapping between
+  `error:disk` and `error:ssh` is still the one problem, posted once.
   """
   @spec problems(t()) :: [[String.t()]]
-  def problems(%{dead: dead, idle: idle}) do
-    keys = Enum.map(dead, &["dead", &1.path, &1.layer])
-    Enum.sort(if idle == [], do: keys, else: [["idle"] | keys])
-  end
+  def problems(%{dead: dead, idle: idle}),
+    do: Enum.sort(Enum.map(dead, &["dead", &1.path]) ++ Enum.map(idle, &["idle", &1.versions_row]))
 
   @doc """
   The post for the change from `previous` (the state file: lane →
-  `%{"problems" => keys, "since" => iso}`) to `health`, or nil when no lane
-  changed. A lane with a problem it didn't have is an alert, and any alert
-  makes the post push to Kevin (`@kevin!`); a lane with fewer problems, or
-  none, gets a quiet line. Pure.
+  `%{"problems" => keys, "since" => iso, "was" => [description]}`) to
+  `health`, or nil when no lane changed. A lane with a problem it didn't
+  have is an alert, and any alert makes the post push to Kevin (`@kevin!`);
+  a lane with fewer problems, or none, gets a quiet line. Pure.
   """
   @spec alert([t()], map(), String.t()) :: String.t() | nil
   def alert(health, previous, url) do
@@ -369,19 +372,19 @@ defmodule MobCi.LaneHealth do
 
   defp recovered_line(lane, previous) do
     was =
-      (previous["problems"] || [])
-      |> Enum.sort_by(fn
-        ["dead", path, _layer] -> {0, Report.path_rank(path)}
-        _ -> {1, nil}
-      end)
-      |> Enum.map(fn
-        ["dead", path, layer] -> "#{path} @ #{layer}"
-        ["idle"] -> "an idle nightly"
-      end)
-      |> Enum.join(", ")
+      case previous do
+        %{"was" => [_ | _] = was} -> Enum.filter(was, &is_binary/1)
+        _ -> Enum.map(previous["problems"] || [], &Enum.join(&1, " "))
+      end
 
-    since = if previous["since"], do: " since #{short_time(previous["since"])}", else: ""
-    "mob_ci: all clear, the #{label(lane)} is running cells again (it was down#{since}: #{was})"
+    since = if is_binary(previous["since"]), do: " since #{short_time(previous["since"])}", else: ""
+    "mob_ci: all clear, the #{label(lane)} is running cells again (it was down#{since}: #{Enum.join(was, ", ")})"
+  end
+
+  # What the state file keeps for the all-clear line: each dead path with its
+  # layer, each idle row.
+  defp descriptions(lane) do
+    Enum.map(lane.dead, &"#{&1.path} @ #{&1.layer}") ++ Enum.map(lane.idle, &"an idle #{&1.versions_row} nightly")
   end
 
   @doc "When the lane's oldest current problem started (ISO 8601), or nil."
@@ -503,10 +506,16 @@ defmodule MobCi.LaneHealth do
     {result, health}
   end
 
+  # Lanes whose entry isn't the current shape (a list of string-list keys)
+  # are dropped: an old or hand-edited file must not wedge the check.
   defp read_state(path) do
     with {:ok, body} <- File.read(path),
          {:ok, %{} = state} <- JSON.decode(body) do
-      state
+      for {lane, %{"problems" => keys} = entry} <- state,
+          is_list(keys),
+          Enum.all?(keys, &(is_list(&1) and &1 != [] and Enum.all?(&1, fn k -> is_binary(k) end))),
+          into: %{},
+          do: {lane, entry}
     else
       _ -> %{}
     end
@@ -515,7 +524,7 @@ defmodule MobCi.LaneHealth do
   defp write_state(path, health) do
     state =
       for lane <- health, (keys = problems(lane)) != [], into: %{} do
-        {lane.lane, %{"problems" => keys, "since" => since(lane)}}
+        {lane.lane, %{"problems" => keys, "since" => since(lane), "was" => descriptions(lane)}}
       end
 
     tmp = path <> ".tmp"

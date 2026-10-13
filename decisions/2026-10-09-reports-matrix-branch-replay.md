@@ -149,16 +149,18 @@ rather than the code, and its cells are no regressions.
   cells either, so the job never completes and never publishes.
 - **Posting**: the publish (after every job), and `mix ci.report --lanes`
   run by every poll cycle (every 10 min; the case above publishes nothing),
-  compare each lane's problems (`["dead", path, layer]`, `["idle"]`) with
-  what was last posted (`lane_health.json` beside the store, under the
-  publish lock). A new problem is a post with `@kevin!` (a push): the lane,
-  since when, per layer the paths, the cause line (the cell's stored error,
-  every string of the inspected reason, a lost-device or JVM-crash line
-  first, else the last line naming a failure; else the worker's `step …
-  error` line in its log) and a fix hint. Fewer problems is a quiet
-  partial-recovery line; none is a quiet all-clear. The state file is
-  written only once a post went out, so `--no-post` or a failed post
-  posts again at the next check.
+  compare each lane's problems (`["dead", path]`, `["idle", row]`; not the
+  layer, so a dead path flapping between `error:disk` and `error:ssh` is
+  one problem) with what was last posted (`lane_health.json` beside the
+  store, under the publish lock). A new problem is a post with `@kevin!` (a
+  push): the lane, since when, per layer the paths, the cause line (the
+  cell's stored error, every string of the inspected reason, a lost-device
+  or JVM-crash line first, else the last line naming a failure; else the
+  worker's `step … error` line in its log) and a fix hint. Fewer problems
+  is a quiet partial-recovery line; none is a quiet all-clear. The state
+  file is written right after a post went out (a crash between the two
+  would post again), so `--no-post` or a failed post posts again at the
+  next check. An entry of another shape in the file is dropped, not fatal.
 - **matrix.md** opens with a `## Lane health` block: each lane `up`, or
   `down since <time>, <layer> on <paths>` / `ran none of its N cells in
   the <row> nightly`. It no longer depends on the store alone: an idle

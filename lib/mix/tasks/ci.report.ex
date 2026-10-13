@@ -44,7 +44,7 @@ defmodule Mix.Tasks.Ci.Report do
   layer (`farm`, `toolchain`, `error:disk`, `error:ssh`, `error:worker`), or
   the lane ran none of the cells a finished nightly scheduled on it, one
   `@kevin!` post (a push to his phone) says which lane, the layer, the cause
-  line, since when and what to do; the same state is never posted twice
+  line, since when and what to do; the same state is posted once
   (`lane_health.json` beside the store) and a recovery posts a quiet
   all-clear. `matrix.md` opens with each lane's health. `--lanes` runs only
   that check (the poll timer does, every 10 minutes, so a lane that never
