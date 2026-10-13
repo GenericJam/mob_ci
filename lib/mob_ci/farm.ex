@@ -78,11 +78,16 @@ defmodule MobCi.Farm do
   device itself went away mid-path? Matches mob_dev's "Selected Android
   device(s) disconnected" and adb's `device offline`, `device '…' not
   found`, `no devices/emulators found`, `error: closed`, `device still
-  connecting`.
+  connecting`. A boot diagnosis inside `reason` is not read
+  (`MobCi.BootDiag.strip/1`): it quotes the app's own log.
   """
   @spec lost_device?(term()) :: boolean()
   def lost_device?(reason) do
-    text = if is_binary(reason), do: reason, else: inspect(reason, limit: :infinity, printable_limit: :infinity)
+    text =
+      if is_binary(reason),
+        do: reason,
+        else: inspect(MobCi.BootDiag.strip(reason), limit: :infinity, printable_limit: :infinity)
+
     Enum.any?(@lost_patterns, &Regex.match?(&1, text))
   end
 
@@ -223,14 +228,15 @@ defmodule MobCi.Farm do
   What the device says about `pkg` right now, as a `MobCi.BootDiag`: its
   pid (`pidof`), the logcat dump (main, system and crash buffers) and the
   host's `epmd -names` (`node`'s registration; `nil` when no node is
-  expected yet). Each command is bounded by `timeout 30`, so a wedged adb
-  transport can't hold the cell. Never raises: what failed to run says so
-  in the cause.
+  expected yet), each with its exit status. Every command runs under
+  `timeout -k 5 30` (TERM at 30 s, KILL 5 s later), so a wedged adb
+  transport can't hold the cell; a capture that failed or timed out is
+  named in the diagnosis, never read as an answer. Never raises.
   """
   @spec boot_diag(Instance.t(), String.t(), node() | nil, (String.t(), [String.t()] -> {String.t(), integer()})) ::
           MobCi.BootDiag.t()
   def boot_diag(%Instance{serial: serial}, pkg, node, cmd \\ &cmd/2) do
-    run = fn args -> elem(cmd.("timeout", ["30" | args]), 0) end
+    run = fn args -> cmd.("timeout", ["-k", "5", "30" | args]) end
     logcat = ["adb", "-s", serial, "logcat", "-d", "-v", "threadtime", "-b", "main", "-b", "system", "-b", "crash"]
 
     MobCi.BootDiag.new(pkg, node, %{

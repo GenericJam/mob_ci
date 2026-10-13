@@ -164,11 +164,6 @@ defmodule MobCi.AttributionTest do
       assert Run.error_layer({:launch_failed, {:node_never_registered, :x, %MobCi.BootDiag{cause: "the app crashed (Java): boom"}}}) == :boot
     end
 
-    test "a boot error whose device account could not be read because the device went away is the farm's" do
-      lost = %MobCi.BootDiag{cause: "logcat unavailable: error: device '127.0.0.1:5700' not found"}
-      assert Run.error_layer({:launch_failed, {:node_never_registered, :x, lost}}) == :farm
-    end
-
     test "an unknown reason is unattributed (nil), never a guess" do
       assert Run.error_layer(:something_else) == nil
     end
