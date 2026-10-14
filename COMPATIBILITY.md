@@ -59,11 +59,11 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.17 (git 77bc281) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123)
 
-Row master; newest result 2026-10-14T03:25:54Z.
+Row master; newest result 2026-10-14T03:38:48Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
-| `default` | ✓ pass | · | · | · | · | · |
+| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `all` | ✓ pass | · | · | ✓ pass | ✓ pass | ✓ pass |
 
 Plugins: mob_ash 0.1.3 (git 7af64eb), mob_audio_capture 0.2.0 (git 6d519bc), mob_background 0.2.0 (git a8d902a), mob_biometric 0.2.0 (git b616090), mob_bluetooth 0.5.0 (git 450418b), mob_camera 0.1.14 (git 885c1f9), mob_deliver 0.3.2 (git 49fcab2), mob_location 0.2.0 (git 9fc8937), mob_midi 0.2.0 (git eb29efc), mob_mishka 0.1.5 (git 5407c62), mob_nfc 0.1.5 (git 7879a24), mob_notify 0.2.1 (git a2a6f26), mob_photos 0.2.2 (git 3b48ca4), mob_scanner 0.1.7 (git 94bdf45), mob_scene3d 0.2.1 (git af30008), mob_screencast 0.1.3 (git 450a731), mob_sensors 0.2.0 (git 8eb7edd), mob_sms 0.2.4 (git 97a6fe1), mob_speech 0.1.1 (git baa9756), mob_touch 0.1.2 (git 04d6abf), mob_video 0.1.3 (git 9601e38), mob_vision 0.1.3 (git a91e391), mob_wake 0.1.2 (git 363a194), mob_whisper 0.1.2 (git bc649dd).
@@ -248,7 +248,7 @@ which build paths.
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.17 (git dcaf1bc) | 0.7.24 (git 4eaee16) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.17 (git a287a4f) | 0.7.24 (git a1933e1) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.17 (git a287a4f) | 0.7.24 (git 8d1ab5c) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
-| `mob_biometric` | 0.2.0 (git b616090) | 0.9.17 (git 77bc281) | 0.7.25 (git 558ffcf) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_biometric` | 0.2.0 (git b616090) | 0.9.17 (git 77bc281) | 0.7.25 (git 558ffcf) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.17 (git 5d85492) | 0.7.24 (git 9b04372) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -305,7 +305,7 @@ which build paths.
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git dcaf1bc) | 0.7.24 (git 4eaee16) | `static` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git a287a4f) | 0.7.24 (git a1933e1) | `static` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git a287a4f) | 0.7.24 (git 8d1ab5c) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
-| `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 77bc281) | 0.7.25 (git 558ffcf) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 77bc281) | 0.7.25 (git 558ffcf) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.24 (git 9b04372) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -367,7 +367,7 @@ which build paths.
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.17 (git dcaf1bc) | 0.7.24 (git 4eaee16) | `static` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.17 (git a287a4f) | 0.7.24 (git a1933e1) | `static` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.17 (git a287a4f) | 0.7.24 (git 8d1ab5c) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
-| `mob_location` | 0.2.0 (git 9fc8937) | 0.9.17 (git 77bc281) | 0.7.25 (git 558ffcf) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_location` | 0.2.0 (git 9fc8937) | 0.9.17 (git 77bc281) | 0.7.25 (git 558ffcf) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.17 (git 5d85492) | 0.7.24 (git 9b04372) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -424,7 +424,7 @@ which build paths.
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git dcaf1bc) | 0.7.24 (git 4eaee16) | `static` |
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git a287a4f) | 0.7.24 (git a1933e1) | `static` |
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git a287a4f) | 0.7.24 (git 8d1ab5c) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
-| `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 77bc281) | 0.7.25 (git 558ffcf) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 77bc281) | 0.7.25 (git 558ffcf) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 5d85492) | 0.7.24 (git 9b04372) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
