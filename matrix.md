@@ -20,13 +20,13 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-14T04:14:26Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.24 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-14T04:23:41Z. Core versions in this grid: mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.24 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `selftest_pilots` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_ash` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
@@ -43,7 +43,7 @@ Latest run 2026-10-14T04:14:26Z. Core versions in this grid: mob 0.9.17 · mob_d
 | `singleton:mob_notify` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_photos` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_sms` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
@@ -52,17 +52,17 @@ Latest run 2026-10-14T04:14:26Z. Core versions in this grid: mob 0.9.17 · mob_d
 | `singleton:mob_video` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_vision` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 
-80 pass, 0 fail, 78 error, 0 skip.
+71 pass, 0 fail, 87 error, 0 skip.
 
 ## master
 
-Latest run 2026-10-14T03:42:48Z. Core versions in this grid: mob 0.9.17 (git 77bc281) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123); mob 0.9.17 (git 5d85492) · mob_dev 0.7.24 (git 9b04372) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git ccdecea) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-14T04:24:22Z. Core versions in this grid: mob 0.9.17 (git 77bc281) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123); mob 0.9.17 (git 5d85492) · mob_dev 0.7.24 (git 9b04372) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git ccdecea) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `blank` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
@@ -102,7 +102,7 @@ Latest run 2026-10-14T03:42:48Z. Core versions in this grid: mob 0.9.17 (git 77b
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_whisper` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 
-111 pass, 0 fail, 73 error, 0 skip.
+108 pass, 0 fail, 76 error, 0 skip.
 
 ## rc:mob_dev@134a88e3a3fc3dc92e81a2d8f292ad0dc936262f
 
