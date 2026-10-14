@@ -552,6 +552,7 @@ which build paths.
 | `mob_photos` | 0.2.2 (git 3b48ca4) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_photos` | 0.2.2 (git 3b48ca4) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static` |
 | `mob_photos` | 0.2.2 (git 3b48ca4) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_photos` | 0.2.2 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_photos` | 0.2.2 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_photos` | 0.2.1 (git a167da3) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_photos` | 0.2.1 (git a167da3) | 0.9.17 (git 5d85492) | 0.7.22 (git 04e5424) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
