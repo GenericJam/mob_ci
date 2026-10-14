@@ -808,6 +808,7 @@ which build paths.
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.16 (git 1843423) | 0.7.18 (git 65bdac9) | `deploy:android` |
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim` |
+| `mob_vision` | 0.1.3 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_vision` | 0.1.3 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_vision` | 0.1.3 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
 | `mob_vision` | 0.1.3 | 0.9.17 | 0.7.23 | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `deploy:android_physical`, `release:ios` |
