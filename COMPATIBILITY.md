@@ -440,6 +440,7 @@ which build paths.
 | `mob_midi` | 0.2.0 (git eb29efc) | 0.9.16 (git f17bb11) | 0.7.19 (git 85cb423) | `static` |
 | `mob_midi` | 0.2.0 (git eb29efc) | 0.9.16 (git 9d1b7ad) | 0.7.19 (git 85cb423) | `static` |
 | `mob_midi` | 0.2.0 (git eb29efc) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
+| `mob_midi` | 0.2.0 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_midi` | 0.2.0 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_midi` | 0.2.0 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
 | `mob_midi` | 0.2.0 | 0.9.17 | 0.7.23 | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `deploy:android_physical`, `release:ios` |
