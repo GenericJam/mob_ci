@@ -20,13 +20,13 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-14T09:31:38Z. Core versions in this grid: mob 0.9.18 · mob_dev 0.7.25 · mob_new 0.6.10; mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.24 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-14T09:50:07Z. Core versions in this grid: mob 0.9.18 · mob_dev 0.7.25 · mob_new 0.6.10; mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
+| `all` | ✓ pass | ✓ pass | ! error @ `boot` | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `selftest_pilots` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_ash` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
@@ -54,7 +54,7 @@ Latest run 2026-10-14T09:31:38Z. Core versions in this grid: mob 0.9.18 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 
-71 pass, 0 fail, 87 error, 0 skip.
+70 pass, 0 fail, 88 error, 0 skip.
 
 ## master
 
