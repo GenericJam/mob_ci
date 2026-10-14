@@ -63,6 +63,17 @@ Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biome
 The 10 newest tuples that ran `default` or `all` but are not
 verified: the newest outcome of each set on each path (`·` never ran).
 
+### mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9
+
+Row hex; newest result 2026-10-14T04:07:18Z.
+
+| set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
+| --- | --- | --- | --- | --- | --- | --- |
+| `default` | · | ✓ pass | ✓ pass | ! error | ! error | ! error |
+| `all` | · | · | · | · | · | · |
+
+Plugins: mob_biometric 0.2.0, mob_camera 0.1.14, mob_location 0.2.0, mob_mishka 0.1.5.
+
 ### mob 0.9.17 (git dcaf1bc) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123)
 
 Row master; newest result 2026-10-14T03:15:51Z.
@@ -162,17 +173,6 @@ Row rc:mob_dev@134a88e3a3fc3dc92e81a2d8f292ad0dc936262f; newest result 2026-10-1
 
 Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.13, mob_deliver 0.3.2, mob_location 0.2.0, mob_midi 0.2.0, mob_mishka 0.1.5, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.2.1, mob_scanner 0.1.6, mob_scene3d 0.2.0, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.2, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
 
-### mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9
-
-Row hex; newest result 2026-10-13T05:44:43Z.
-
-| set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
-| --- | --- | --- | --- | --- | --- | --- |
-| `default` | · | ✓ pass | ✓ pass | ! error | ! error | ! error |
-| `all` | · | ✓ pass | ✓ pass | ! error | ! error | ! error |
-
-Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.13, mob_deliver 0.3.2, mob_location 0.2.0, mob_midi 0.2.0, mob_mishka 0.1.4, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.2.1, mob_scanner 0.1.6, mob_scene3d 0.2.0, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.2, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
-
 ## Plugins
 
 Which plugin versions have passed (a `singleton:<plugin>`, `default` or
@@ -270,6 +270,7 @@ which build paths.
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.16 (git 1843423) | 0.7.18 (git 2491846) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim` |
+| `mob_biometric` | 0.2.0 | 0.9.17 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_biometric` | 0.2.0 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_biometric` | 0.2.0 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
 | `mob_biometric` | 0.2.0 | 0.9.17 | 0.7.23 | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `deploy:android_physical`, `release:ios` |
@@ -316,6 +317,7 @@ which build paths.
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_camera` | 0.1.14 | 0.9.17 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_camera` | 0.1.14 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
 | `mob_camera` | 0.1.13 (git 7cfd83f) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static` |
@@ -392,6 +394,7 @@ which build paths.
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.16 (git 1843423) | 0.7.18 (git 2491846) | `static` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.15 | 0.7.17 | `static`, `deploy:ios_sim` |
+| `mob_location` | 0.2.0 | 0.9.17 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_location` | 0.2.0 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_location` | 0.2.0 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
 | `mob_location` | 0.2.0 | 0.9.17 | 0.7.23 | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `deploy:android_physical`, `release:ios` |
@@ -435,6 +438,7 @@ which build paths.
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_mishka` | 0.1.5 (git 5407c62) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static`, `deploy:android`, `release:android` |
+| `mob_mishka` | 0.1.5 | 0.9.17 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_mishka` | 0.1.5 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_mishka` | 0.1.5 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
 | `mob_mishka` | 0.1.5 | 0.9.17 | 0.7.23 | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `deploy:android_physical`, `release:ios` |
