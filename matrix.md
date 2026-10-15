@@ -58,7 +58,7 @@ Latest run 2026-10-15T07:18:24Z. Core versions in this grid: mob 0.9.18 · mob_d
 
 ## master
 
-Latest run 2026-10-15T12:59:00Z. Core versions in this grid: mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.10 (git 1d3b386); mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 5a493b8); mob 0.9.17 (git 77bc281) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-15T17:15:01Z. Core versions in this grid: mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git c39abc2) · mob_new 0.6.10 (git 1d3b386); mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.10 (git 1d3b386); mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 5a493b8); mob 0.9.17 (git 77bc281) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
