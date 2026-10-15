@@ -311,7 +311,7 @@ which build paths.
 | `mob_bluetooth` | 0.5.0 (git 450418b) | 0.9.16 (git 9d1b7ad) | 0.7.19 (git 85cb423) | `static` |
 | `mob_bluetooth` | 0.5.0 (git 450418b) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_bluetooth` | 0.5.0 (git 450418b) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `deploy:android`, `release:android` |
-| `mob_bluetooth` | 0.5.0 | 0.9.18 | 0.7.25 | `deploy:android` |
+| `mob_bluetooth` | 0.5.0 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_bluetooth` | 0.5.0 | 0.9.17 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_bluetooth` | 0.5.0 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_bluetooth` | 0.5.0 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
