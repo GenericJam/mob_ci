@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-15T06:13:35Z. Core versions in this grid: mob 0.9.18 · mob_dev 0.7.25 · mob_new 0.6.10; mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-15T06:23:32Z. Core versions in this grid: mob 0.9.18 · mob_dev 0.7.25 · mob_new 0.6.10; mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -43,7 +43,7 @@ Latest run 2026-10-15T06:13:35Z. Core versions in this grid: mob 0.9.18 · mob_d
 | `singleton:mob_notify` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_photos` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_scene3d` | · | ! error @ `farm` | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_sms` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
@@ -54,7 +54,7 @@ Latest run 2026-10-15T06:13:35Z. Core versions in this grid: mob 0.9.18 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 
-70 pass, 0 fail, 88 error, 0 skip.
+69 pass, 0 fail, 89 error, 0 skip.
 
 ## master
 
