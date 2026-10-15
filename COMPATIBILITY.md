@@ -74,7 +74,7 @@ Row hex; newest result 2026-10-15T04:19:48Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
-| `default` | · | · | · | ! error | ! error | ! error |
+| `default` | · | ✓ pass | ✓ pass | ! error | ! error | ! error |
 | `all` | · | ✓ pass | ! error | ! error | ! error | ! error |
 
 Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.14, mob_deliver 0.3.2, mob_location 0.2.0, mob_midi 0.2.0, mob_mishka 0.1.5, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.2.2, mob_scanner 0.1.7, mob_scene3d 0.2.1, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.3, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
@@ -278,7 +278,7 @@ which build paths.
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.16 (git 1843423) | 0.7.18 (git 2491846) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim` |
-| `mob_biometric` | 0.2.0 | 0.9.18 | 0.7.25 | `deploy:android` |
+| `mob_biometric` | 0.2.0 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_biometric` | 0.2.0 | 0.9.17 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_biometric` | 0.2.0 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_biometric` | 0.2.0 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
@@ -332,7 +332,7 @@ which build paths.
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 (git 885c1f9) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
-| `mob_camera` | 0.1.14 | 0.9.18 | 0.7.25 | `deploy:android` |
+| `mob_camera` | 0.1.14 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_camera` | 0.1.14 | 0.9.17 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_camera` | 0.1.14 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_camera` | 0.1.14 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
