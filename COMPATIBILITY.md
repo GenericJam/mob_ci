@@ -387,7 +387,7 @@ which build paths.
 | `mob_camera` | 0.1.13 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_camera` | 0.1.13 | 0.9.15 | 0.7.17 | `static`, `deploy:ios_sim` |
 | `mob_camera` | 0.1.12 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
-| `mob_deliver` | 0.3.3 (git c80edfc) | 0.9.19 (git c3cabf4) | 0.7.26 (git b541df5) | `static` |
+| `mob_deliver` | 0.3.3 (git c80edfc) | 0.9.19 (git c3cabf4) | 0.7.26 (git b541df5) | `static`, `deploy:android`, `release:android` |
 | `mob_deliver` | 0.3.3 (git c80edfc) | 0.9.18 (git d3021d3) | 0.7.26 (git b541df5) | `static` |
 | `mob_deliver` | 0.3.2 (git 7772f56) | 0.9.18 (git db44323) | 0.7.25 (git c39abc2) | `deploy:ios_sim`, `deploy:ios_device` |
 | `mob_deliver` | 0.3.2 (git 7772f56) | 0.9.18 (git d3021d3) | 0.7.25 (git c39abc2) | `static`, `deploy:android`, `release:android` |
