@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-15T04:22:04Z. Core versions in this grid: mob 0.9.18 · mob_dev 0.7.25 · mob_new 0.6.10; mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-15T04:27:46Z. Core versions in this grid: mob 0.9.18 · mob_dev 0.7.25 · mob_new 0.6.10; mob 0.9.17 · mob_dev 0.7.25 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -58,7 +58,7 @@ Latest run 2026-10-15T04:22:04Z. Core versions in this grid: mob 0.9.18 · mob_d
 
 ## master
 
-Latest run 2026-10-15T04:33:47Z. Core versions in this grid: mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.10 (git 1d3b386); mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 5a493b8); mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 5e272dd); mob 0.9.17 (git 6f9be72) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 5e272dd); mob 0.9.17 (git 6f9be72) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123); mob 0.9.17 (git 77bc281) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123); mob 0.9.17 (git 5d85492) · mob_dev 0.7.24 (git 9b04372) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git ccdecea) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-15T04:43:55Z. Core versions in this grid: mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.10 (git 1d3b386); mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 5a493b8); mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 5e272dd); mob 0.9.17 (git 6f9be72) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 5e272dd); mob 0.9.17 (git 77bc281) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.9 (git 1afa123); mob 0.9.17 (git 5d85492) · mob_dev 0.7.24 (git 9b04372) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git ccdecea) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
