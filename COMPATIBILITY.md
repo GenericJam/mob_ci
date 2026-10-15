@@ -59,7 +59,7 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.18 (git db44323) · mob_dev 0.7.25 (git 558ffcf) · mob_new 0.6.10 (git 1d3b386)
 
-Row master; newest result 2026-10-15T07:31:10Z.
+Row master; newest result 2026-10-15T11:19:49Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
