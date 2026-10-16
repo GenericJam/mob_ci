@@ -686,7 +686,7 @@ which build paths.
 | `mob_nfc` | 0.1.5 (git 7879a24) | 0.9.16 (git 9d1b7ad) | 0.7.19 (git 85cb423) | `static` |
 | `mob_nfc` | 0.1.5 (git 7879a24) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_nfc` | 0.1.5 (git 7879a24) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim` |
-| `mob_nfc` | 0.1.5 | 0.9.21 | 0.7.29 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_nfc` | 0.1.5 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_nfc` | 0.1.5 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_nfc` | 0.1.5 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_nfc` | 0.1.5 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
