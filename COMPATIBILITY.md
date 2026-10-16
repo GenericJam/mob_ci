@@ -847,7 +847,7 @@ which build paths.
 | `mob_scene3d` | 0.2.1 (git af30008) | 0.9.17 (git 5d85492) | 0.7.24 (git 9b04372) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scene3d` | 0.2.1 (git af30008) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scene3d` | 0.2.1 (git af30008) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static` |
-| `mob_scene3d` | 0.2.1 | 0.9.21 | 0.7.29 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_scene3d` | 0.2.1 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scene3d` | 0.2.1 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_scene3d` | 0.2.1 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scene3d` | 0.2.0 (git e802262) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |

@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-16T08:00:26Z. Core versions in this grid: mob 0.9.21 · mob_dev 0.7.29 · mob_new 0.6.13; mob 0.9.19 · mob_dev 0.7.26 · mob_new 0.6.11; mob 0.9.18 · mob_dev 0.7.25 · mob_new 0.6.10; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-16T08:14:07Z. Core versions in this grid: mob 0.9.21 · mob_dev 0.7.29 · mob_new 0.6.13; mob 0.9.19 · mob_dev 0.7.26 · mob_new 0.6.11; mob 0.9.18 · mob_dev 0.7.25 · mob_new 0.6.10; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -43,7 +43,7 @@ Latest run 2026-10-16T08:00:26Z. Core versions in this grid: mob 0.9.21 · mob_d
 | `singleton:mob_notify` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_photos` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_scene3d` | · | ! error @ `farm` | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `singleton:mob_sms` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
@@ -54,7 +54,7 @@ Latest run 2026-10-16T08:00:26Z. Core versions in this grid: mob 0.9.21 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 
-157 pass, 0 fail, 1 error, 0 skip.
+158 pass, 0 fail, 0 error, 0 skip.
 
 ## master
 
