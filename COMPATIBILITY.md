@@ -1092,7 +1092,7 @@ which build paths.
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.17 (git 5d85492) | 0.7.24 (git 9b04372) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static` |
-| `mob_video` | 0.1.3 | 0.9.21 | 0.7.29 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_video` | 0.1.3 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_video` | 0.1.3 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_video` | 0.1.3 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_video` | 0.1.2 (git 48e181f) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
