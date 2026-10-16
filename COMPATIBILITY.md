@@ -929,7 +929,7 @@ which build paths.
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static` |
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.17 (git 5d85492) | 0.7.22 (git 04e5424) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.17 (git 5d85492) | 0.7.21 (git 04feb5b) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device` |
-| `mob_sensors` | 0.2.0 | 0.9.21 | 0.7.29 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
+| `mob_sensors` | 0.2.0 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_sensors` | 0.2.0 | 0.9.18 | 0.7.25 | `deploy:android`, `release:android` |
 | `mob_sensors` | 0.2.0 | 0.9.17 | 0.7.24 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_sensors` | 0.2.0 | 0.9.17 | 0.7.23 (git 134a88e) | `deploy:android`, `release:android` |
