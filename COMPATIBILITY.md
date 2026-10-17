@@ -71,7 +71,7 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba)
 
-Row master; newest result 2026-10-17T05:02:35Z.
+Row master; newest result 2026-10-17T05:19:18Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -1151,7 +1151,7 @@ which build paths.
 | `mob_vision` | 0.1.3 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_vision` | 0.1.3 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_vision` | 0.1.3 | 0.9.16 | 0.7.17 | `release:android` |
-| `mob_wake` | 0.1.2 (git 363a194) | 0.9.21 (git d25090b) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
+| `mob_wake` | 0.1.2 (git 363a194) | 0.9.21 (git d25090b) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.21 (git 06937c2) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.20 (git f327d75) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.20 (git 652d121) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
