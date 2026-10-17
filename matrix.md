@@ -3,7 +3,7 @@
 ## Lane health
 
 - **Android lane (redroid farm, NUC)**: up
-- **iOS lane (Mac mini)**: down since 2026-10-16 06:56Z, `error:disk` on release:ios
+- **iOS lane (Mac mini)**: up
 
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
@@ -20,11 +20,11 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-16T11:16:29Z. Core versions in this grid: mob 0.9.21 · mob_dev 0.7.29 · mob_new 0.6.13; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-17T04:01:04Z. Core versions in this grid: mob 0.9.21 · mob_dev 0.7.29 · mob_new 0.6.13; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `blank` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `demo` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
@@ -54,7 +54,7 @@ Latest run 2026-10-16T11:16:29Z. Core versions in this grid: mob 0.9.21 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 
-158 pass, 0 fail, 0 error, 0 skip.
+157 pass, 0 fail, 1 error, 0 skip.
 
 ## master
 
