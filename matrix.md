@@ -64,7 +64,7 @@ Latest run 2026-10-18T20:06:54Z. Core versions in this grid: mob 0.9.21 (git d25
 | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass |
-| `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass |
 | `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `pairwise:1` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
 | `pairwise:10` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
@@ -102,7 +102,7 @@ Latest run 2026-10-18T20:06:54Z. Core versions in this grid: mob 0.9.21 (git d25
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_whisper` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 
-92 pass, 0 fail, 93 error, 0 skip.
+94 pass, 0 fail, 91 error, 0 skip.
 
 ## rc:mob_dev@134a88e3a3fc3dc92e81a2d8f292ad0dc936262f
 
