@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-18T04:04:35Z. Core versions in this grid: mob 0.9.21 · mob_dev 0.7.29 · mob_new 0.6.13; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-18T04:14:45Z. Core versions in this grid: mob 0.9.21 · mob_dev 0.7.29 · mob_new 0.6.13; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -34,15 +34,15 @@ Latest run 2026-10-18T04:04:35Z. Core versions in this grid: mob 0.9.21 · mob_d
 | `singleton:mob_background` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_camera` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
-| `singleton:mob_location` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
-| `singleton:mob_midi` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_mishka` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
-| `singleton:mob_nfc` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_notify` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
-| `singleton:mob_photos` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_camera` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_location` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_midi` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_mishka` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_nfc` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_notify` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_photos` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
@@ -54,7 +54,7 @@ Latest run 2026-10-18T04:04:35Z. Core versions in this grid: mob 0.9.21 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 
-87 pass, 0 fail, 71 error, 0 skip.
+70 pass, 0 fail, 88 error, 0 skip.
 
 ## master
 
