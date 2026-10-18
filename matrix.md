@@ -3,7 +3,7 @@
 ## Lane health
 
 - **Android lane (redroid farm, NUC)**: up
-- **iOS lane (Mac mini)**: down since 2026-10-17 04:52Z, `error:disk` on deploy:ios_sim, release:ios
+- **iOS lane (Mac mini)**: down since 2026-10-17 04:52Z, `error:disk` on deploy:ios_sim, deploy:ios_device, release:ios
 
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
@@ -20,20 +20,20 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-17T06:06:07Z. Core versions in this grid: mob 0.9.21 · mob_dev 0.7.29 · mob_new 0.6.13; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-18T04:04:35Z. Core versions in this grid: mob 0.9.21 · mob_dev 0.7.29 · mob_new 0.6.13; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
-| `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
+| `blank` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `selftest_pilots` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
-| `singleton:mob_audio_capture` | · | ! error @ `farm` | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
-| `singleton:mob_background` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
-| `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_audio_capture` | · | ! error @ `farm` | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_background` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_camera` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
 | `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
 | `singleton:mob_location` | · | ✓ pass | ✓ pass | ! error @ `boot` | ✓ pass | · | ✓ pass |
@@ -54,7 +54,7 @@ Latest run 2026-10-17T06:06:07Z. Core versions in this grid: mob 0.9.21 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 
-101 pass, 0 fail, 57 error, 0 skip.
+87 pass, 0 fail, 71 error, 0 skip.
 
 ## master
 
