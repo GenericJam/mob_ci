@@ -3,7 +3,7 @@
 ## Lane health
 
 - **Android lane (redroid farm, NUC)**: up
-- **iOS lane (Mac mini)**: up
+- **iOS lane (Mac mini)**: down since 2026-10-20 08:14Z, `error:disk` on release:ios
 
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
@@ -20,50 +20,50 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-19T10:42:31Z. Core versions in this grid: mob 0.9.22 · mob_dev 0.7.29 · mob_new 0.6.14; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-20T08:00:09Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.22 · mob_dev 0.7.29 · mob_new 0.6.14; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `demo` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `selftest_pilots` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_background` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
+| `blank` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `demo` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `selftest_pilots` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_background` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_camera` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_location` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_midi` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_mishka` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_nfc` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_notify` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_photos` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_sms` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_speech` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_touch` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_video` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_vision` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_wake` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
+| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_camera` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_location` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_midi` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_mishka` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_nfc` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_notify` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_photos` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_sms` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_speech` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_touch` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_video` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_vision` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_wake` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 
-130 pass, 0 fail, 28 error, 0 skip.
+158 pass, 0 fail, 0 error, 0 skip.
 
 ## master
 
-Latest run 2026-10-19T19:08:43Z. Core versions in this grid: mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.22 (git 8262b18) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git 5aac5ac); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-20T08:20:46Z. Core versions in this grid: mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.22 (git 8262b18) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git 5aac5ac); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
+| `blank` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
 | `demo` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
 | `pairwise:1` | · | ✓ pass | · | ✓ pass | · | · |
@@ -77,32 +77,32 @@ Latest run 2026-10-19T19:08:43Z. Core versions in this grid: mob 0.9.24 (git 652
 | `pairwise:8` | · | ✓ pass | · | ✓ pass | · | · |
 | `pairwise:9` | · | ✓ pass | · | ✓ pass | · | · |
 | `selftest_pilots` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_audio_capture` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_background` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_biometric` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_camera` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_deliver` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_location` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_midi` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_mishka` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_nfc` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_notify` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_photos` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_scanner` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_scene3d` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_sensors` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_sms` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_speech` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_touch` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
-| `singleton:mob_video` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
+| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_audio_capture` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_background` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_biometric` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_camera` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_deliver` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_location` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_midi` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_mishka` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_nfc` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_notify` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_photos` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_scanner` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_scene3d` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_sensors` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_sms` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_speech` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_touch` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_video` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_vision` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
 | `singleton:mob_whisper` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass |
 
-156 pass, 0 fail, 29 error, 0 skip.
+166 pass, 0 fail, 19 error, 0 skip.
 
 ## rc:mob_dev@134a88e3a3fc3dc92e81a2d8f292ad0dc936262f
 
