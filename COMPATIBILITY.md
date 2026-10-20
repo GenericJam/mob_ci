@@ -851,7 +851,7 @@ which build paths.
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.17 | `release:android` |
-| `mob_scanner` | 0.1.8 (git 3ea44c6) | 0.9.24 (git 6526769) | 0.7.29 (git f179e66) | `static` |
+| `mob_scanner` | 0.1.8 (git 3ea44c6) | 0.9.24 (git 6526769) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android` |
 | `mob_scanner` | 0.1.7 (git 94bdf45) | 0.9.24 (git 6526769) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scanner` | 0.1.7 (git 94bdf45) | 0.9.22 (git 8262b18) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scanner` | 0.1.7 (git 94bdf45) | 0.9.22 (git 4278f97) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
