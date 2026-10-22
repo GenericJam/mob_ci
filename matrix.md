@@ -20,45 +20,45 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-22T04:04:27Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-22T06:33:01Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
-| `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `selftest_pilots` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_background` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_camera` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_location` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_midi` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_mishka` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_nfc` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_notify` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_photos` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_sms` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_speech` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_touch` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_video` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_vision` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `demo` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `selftest_pilots` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_background` | · | ✓ pass | ✓ pass | ✓ pass | ✗ fail @ `boot` | · | ✓ pass |
+| `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_camera` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_location` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_midi` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_mishka` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_nfc` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_notify` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_photos` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_scanner` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_sms` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_speech` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_touch` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_video` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_vision` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_wake` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 
-74 pass, 0 fail, 84 error, 0 skip.
+157 pass, 1 fail, 0 error, 0 skip.
 
 ## master
 
-Latest run 2026-10-21T12:55:13Z. Core versions in this grid: mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-22T06:34:05Z. Core versions in this grid: mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
