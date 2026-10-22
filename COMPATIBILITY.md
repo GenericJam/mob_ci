@@ -71,12 +71,12 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba)
 
-Row master; newest result 2026-10-22T06:40:07Z.
+Row master; newest result 2026-10-22T07:51:44Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ! error | ! error | ! error |
-| `all` | ✓ pass | ✓ pass | ✓ pass | ! error | ! error | ! error |
+| `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | – skip | ✓ pass |
 
 Plugins: mob_ash 0.1.3 (git 7af64eb), mob_audio_capture 0.2.0 (git 6d519bc), mob_background 0.2.0 (git a8d902a), mob_biometric 0.2.0 (git b616090), mob_bluetooth 0.5.0 (git 450418b), mob_camera 0.1.15 (git 9a8968b), mob_deliver 0.4.0 (git b606f7a), mob_location 0.2.0 (git 9fc8937), mob_midi 0.2.0 (git eb29efc), mob_mishka 0.1.5 (git 5407c62), mob_nfc 0.1.5 (git 7879a24), mob_notify 0.2.1 (git a2a6f26), mob_photos 0.3.0 (git 818c6b6), mob_scanner 0.1.8 (git 3ea44c6), mob_scene3d 0.2.1 (git af30008), mob_screencast 0.1.3 (git 450a731), mob_sensors 0.2.0 (git 8eb7edd), mob_sms 0.2.4 (git 97a6fe1), mob_speech 0.1.1 (git baa9756), mob_touch 0.1.2 (git 04d6abf), mob_video 0.1.3 (git 9601e38), mob_vision 0.1.3 (git a91e391), mob_wake 0.1.2 (git 363a194), mob_whisper 0.1.2 (git bc649dd).
 
@@ -851,7 +851,7 @@ which build paths.
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.17 | `release:android` |
-| `mob_scanner` | 0.1.8 (git 3ea44c6) | 0.9.24 (git 6526769) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android` |
+| `mob_scanner` | 0.1.8 (git 3ea44c6) | 0.9.24 (git 6526769) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
 | `mob_scanner` | 0.1.8 | 0.9.24 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scanner` | 0.1.7 (git 94bdf45) | 0.9.24 (git 6526769) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_scanner` | 0.1.7 (git 94bdf45) | 0.9.22 (git 8262b18) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
