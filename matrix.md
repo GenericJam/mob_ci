@@ -3,7 +3,7 @@
 ## Lane health
 
 - **Android lane (redroid farm, NUC)**: up
-- **iOS lane (Mac mini)**: down since 2026-10-20 08:14Z, `error:disk` on deploy:ios_sim, deploy:ios_device, release:ios
+- **iOS lane (Mac mini)**: up
 
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
@@ -20,11 +20,11 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-21T06:06:50Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-22T04:04:27Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `blank` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `all` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `demo` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
@@ -54,7 +54,7 @@ Latest run 2026-10-21T06:06:50Z. Core versions in this grid: mob 0.9.24 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 
-71 pass, 0 fail, 87 error, 0 skip.
+74 pass, 0 fail, 84 error, 0 skip.
 
 ## master
 
