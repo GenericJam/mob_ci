@@ -1315,7 +1315,7 @@ which build paths.
 | `mob_wake` | 0.1.2 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_wake` | 0.1.2 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_wake` | 0.1.2 | 0.9.16 | 0.7.17 | `release:android` |
-| `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.24 (git 6526769) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
+| `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.24 (git 6526769) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.22 (git 8262b18) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.22 (git 4278f97) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.21 (git d25090b) | 0.7.29 (git f179e66) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
