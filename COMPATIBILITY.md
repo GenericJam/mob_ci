@@ -69,6 +69,17 @@ Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biome
 The 10 newest tuples that ran `default` or `all` but are not
 verified: the newest outcome of each set on each path (`·` never ran).
 
+### mob 0.9.25 · mob_dev 0.7.30 · mob_new 0.6.16
+
+Row hex; newest result 2026-10-23T09:16:37Z.
+
+| set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
+| --- | --- | --- | --- | --- | --- | --- |
+| `default` | · | · | · | · | · | · |
+| `all` | · | ! error | ! error | · | · | · |
+
+Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.15, mob_deliver 0.4.0, mob_location 0.2.0, mob_midi 0.2.0, mob_mishka 0.1.5, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.3.0, mob_scanner 0.1.8, mob_scene3d 0.2.1, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.3, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
+
 ### mob 0.9.25 (git e27cf2f) · mob_dev 0.7.30 (git 8119a14) · mob_new 0.6.16 (git 8a09ca5)
 
 Row master; newest result 2026-10-23T07:14:07Z.
@@ -167,17 +178,6 @@ Row hex; newest result 2026-10-23T04:19:08Z.
 | `all` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 
 Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.15, mob_deliver 0.4.0, mob_location 0.2.0, mob_midi 0.2.0, mob_mishka 0.1.5, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.3.0, mob_scanner 0.1.7, mob_scene3d 0.2.1, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.3, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
-
-### mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git 6e245cb) · mob_new 0.6.15 (git 6e6a6ad)
-
-Row master; newest result 2026-10-23T03:08:50Z.
-
-| set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
-| --- | --- | --- | --- | --- | --- | --- |
-| `default` | · | · | · | · | · | · |
-| `all` | ✓ pass | · | · | · | · | · |
-
-Plugins: mob_ash 0.1.3 (git 7af64eb), mob_audio_capture 0.2.0 (git 6d519bc), mob_background 0.2.0 (git a8d902a), mob_biometric 0.2.0 (git b616090), mob_bluetooth 0.5.0 (git 450418b), mob_camera 0.1.15 (git 9a8968b), mob_deliver 0.4.0 (git b606f7a), mob_location 0.2.0 (git 9fc8937), mob_midi 0.2.0 (git eb29efc), mob_mishka 0.1.5 (git 5407c62), mob_nfc 0.1.5 (git 7879a24), mob_notify 0.2.1 (git a2a6f26), mob_photos 0.3.0 (git 818c6b6), mob_scanner 0.1.8 (git 3ea44c6), mob_scene3d 0.2.1 (git af30008), mob_screencast 0.1.3 (git 450a731), mob_sensors 0.2.0 (git 8eb7edd), mob_sms 0.2.4 (git 97a6fe1), mob_speech 0.1.1 (git baa9756), mob_touch 0.1.2 (git 04d6abf), mob_video 0.1.3 (git 9601e38), mob_vision 0.1.3 (git a91e391), mob_wake 0.1.2 (git 363a194), mob_whisper 0.1.2 (git bc649dd).
 
 ## Plugins
 
@@ -1298,6 +1298,7 @@ which build paths.
 | `mob_speech` | 0.1.1 (git baa9756) | 0.9.16 (git 9d1b7ad) | 0.7.19 (git 85cb423) | `static` |
 | `mob_speech` | 0.1.1 (git baa9756) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_speech` | 0.1.1 (git baa9756) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim` |
+| `mob_speech` | 0.1.1 | 0.9.25 | 0.7.30 | `deploy:android`, `release:android` |
 | `mob_speech` | 0.1.1 | 0.9.24 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_speech` | 0.1.1 | 0.9.22 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
 | `mob_speech` | 0.1.1 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -1354,6 +1355,7 @@ which build paths.
 | `mob_touch` | 0.1.2 (git 04d6abf) | 0.9.16 (git 9d1b7ad) | 0.7.19 (git 85cb423) | `static` |
 | `mob_touch` | 0.1.2 (git 04d6abf) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_touch` | 0.1.2 (git 04d6abf) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim` |
+| `mob_touch` | 0.1.2 | 0.9.25 | 0.7.30 | `deploy:android`, `release:android` |
 | `mob_touch` | 0.1.2 | 0.9.24 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_touch` | 0.1.2 | 0.9.22 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
 | `mob_touch` | 0.1.2 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -1400,6 +1402,7 @@ which build paths.
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.17 (git 5d85492) | 0.7.24 (git 9b04372) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static` |
+| `mob_video` | 0.1.3 | 0.9.25 | 0.7.30 | `deploy:android`, `release:android` |
 | `mob_video` | 0.1.3 | 0.9.24 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_video` | 0.1.3 | 0.9.22 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
 | `mob_video` | 0.1.3 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -1465,6 +1468,7 @@ which build paths.
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.16 (git 1843423) | 0.7.18 (git 65bdac9) | `deploy:android` |
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim` |
+| `mob_vision` | 0.1.3 | 0.9.25 | 0.7.30 | `deploy:android`, `release:android` |
 | `mob_vision` | 0.1.3 | 0.9.24 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_vision` | 0.1.3 | 0.9.22 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
 | `mob_vision` | 0.1.3 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -1520,6 +1524,7 @@ which build paths.
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.16 (git 9d1b7ad) | 0.7.19 (git 85cb423) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `deploy:android`, `release:android` |
+| `mob_wake` | 0.1.2 | 0.9.25 | 0.7.30 | `release:android` |
 | `mob_wake` | 0.1.2 | 0.9.24 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_wake` | 0.1.2 | 0.9.22 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
 | `mob_wake` | 0.1.2 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
@@ -1567,6 +1572,7 @@ which build paths.
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static` |
+| `mob_whisper` | 0.1.2 | 0.9.25 | 0.7.30 | `deploy:android`, `release:android` |
 | `mob_whisper` | 0.1.2 | 0.9.24 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 | 0.9.22 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
 | `mob_whisper` | 0.1.2 | 0.9.21 | 0.7.29 | `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
