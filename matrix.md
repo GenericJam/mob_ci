@@ -20,20 +20,20 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-22T06:33:01Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-23T04:05:41Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
-| `default` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `blank` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `all` | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `demo` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `selftest_pilots` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
-| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
-| `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_ash` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_background` | · | ✓ pass | ✓ pass | ✓ pass | ✗ fail @ `boot` | · | ✓ pass |
-| `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_biometric` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_bluetooth` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_camera` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `singleton:mob_deliver` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_location` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
@@ -54,7 +54,7 @@ Latest run 2026-10-22T06:33:01Z. Core versions in this grid: mob 0.9.24 · mob_d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 
-157 pass, 1 fail, 0 error, 0 skip.
+139 pass, 1 fail, 18 error, 0 skip.
 
 ## master
 
