@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-23T04:14:15Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-23T04:15:27Z. Core versions in this grid: mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -46,15 +46,15 @@ Latest run 2026-10-23T04:14:15Z. Core versions in this grid: mob 0.9.24 · mob_d
 | `singleton:mob_scene3d` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_screencast` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_sensors` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_sms` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
-| `singleton:mob_speech` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
+| `singleton:mob_sms` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_speech` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_touch` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_video` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_vision` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ✓ pass | ✓ pass | · | ✓ pass |
 
-103 pass, 1 fail, 54 error, 0 skip.
+97 pass, 1 fail, 60 error, 0 skip.
 
 ## master
 
