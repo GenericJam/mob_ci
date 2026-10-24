@@ -67,7 +67,11 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       end,
       # No staged app state or install cache unless a test makes some.
       mob_home: "/nonexistent/mob_home",
-      devicectl_cache: "/nonexistent/devicectl"
+      devicectl_cache: "/nonexistent/devicectl",
+      install_lock: fn fun ->
+        send(me, :install_lock)
+        fun.()
+      end
     }
 
     Map.merge(base, overrides)
@@ -445,6 +449,9 @@ defmodule MobCi.Lane.Ios.WorkerTest do
                Enum.map(~w(uninstall delete_install_cache release_lease delete_app_state delete_scratch), &{&1, "ok"})
 
       refute File.exists?(ours)
+      # The install (build) and the cleanup both held the host lock.
+      assert_received :install_lock
+      assert_received :install_lock
       assert File.dir?(older)
       assert File.dir?(other_app)
     end

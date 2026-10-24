@@ -56,7 +56,7 @@ defmodule MobCi.Lane.Ios.Worker do
   """
 
   alias MobCi.{Host, Sets}
-  alias MobCi.Lane.Ios.{Spec, Tee}
+  alias MobCi.Lane.Ios.{HostLock, Spec, Tee}
 
   @min_free_kb 5 * 1024 * 1024
   @team_id "Q89CW299G8"
@@ -290,11 +290,13 @@ defmodule MobCi.Lane.Ios.Worker do
   had piled up in two weeks and filled the Mac's disk (2026-10-24).
 
   Only the copies written since the cell started (`started_at`, Unix
-  seconds) are the cell's: a hand-run cell (`mix ci.ios_cell`) is not
-  serialized with the queue's, and another install may still be reading an
-  older copy as its delta base. Older copies are left to the host's
-  janitor. No start time (a manifest from an older worker): nothing.
-  Other paths install nothing through devicectl.
+  seconds) are taken, and teardown takes them under the host lock
+  (`MobCi.Lane.Ios.HostLock`) every iPhone install also holds: a hand-run
+  cell (`mix ci.ios_cell --device-udid …`) can install on another iPhone at
+  the same time, and an install reads the newest older copy as its delta
+  base. Older copies are left to the host's `disk-janitor`. No start time
+  (a manifest from an older worker): nothing. Other paths install nothing
+  through devicectl.
   """
   @spec install_cache_copies(Spec.t(), Path.t(), integer() | nil) :: [Path.t()]
   def install_cache_copies(%Spec{path: "deploy:ios_device"}, cache_root, started_at)
@@ -638,8 +640,15 @@ defmodule MobCi.Lane.Ios.Worker do
   end
 
   defp step(:build, %{spec: spec, device: %{"udid" => udid}} = state, deps) do
-    case deps.mix.(deploy_args(spec.path, udid), state.host.dir) do
+    build = fn -> deps.mix.(deploy_args(spec.path, udid), state.host.dir) end
+
+    # An iPhone install writes the Mac-wide devicectl cache: under the host
+    # lock, so no other cell's cache cleanup runs meanwhile.
+    result = if spec.path == "deploy:ios_device", do: deps.install_lock.(build), else: build.()
+
+    case result do
       {_tail, 0} -> {:ok, state}
+      {:error, why} -> {:error, "error:worker", why}
       {tail, code} -> {:fail, "build:#{spec.path}", "mix mob.deploy exited #{code}: #{tail}"}
     end
   end
@@ -787,7 +796,9 @@ defmodule MobCi.Lane.Ios.Worker do
     [
       {"delete_install_cache",
        fn ->
-         Enum.each(install_cache_copies(spec, deps.devicectl_cache, state[:started_at]), deps.rm_rf)
+         deps.install_lock.(fn ->
+           Enum.each(install_cache_copies(spec, deps.devicectl_cache, state[:started_at]), deps.rm_rf)
+         end)
        end}
     ]
   end
@@ -864,6 +875,7 @@ defmodule MobCi.Lane.Ios.Worker do
       inspect_ipa: &inspect_ipa/1,
       rm_rf: fn path -> File.rm_rf!(path) end,
       mob_home: Path.expand("~/.mob"),
+      install_lock: fn fun -> HostLock.with_lock(Path.expand("~/.cache/mob_ci/locks/devicectl-install.lock"), fun) end,
       devicectl_cache:
         Path.expand(
           "~/Library/Containers/com.apple.CoreDevice.CoreDeviceService/Data/Library/Caches/AppInstallationBinaryDeltas"
