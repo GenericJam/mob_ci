@@ -424,21 +424,34 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       assert_received {:release, _}
     end
 
-    test "teardown deletes devicectl's cached copy of the app; other apps' copies stay", %{tmp_dir: root} do
+    test "teardown deletes the install copy devicectl kept for this cell, under the lease; older and other apps' stay",
+         %{tmp_dir: root} do
       cache = Path.join(root, "devicectl")
-      ours = Path.join([cache, "com.genericjam.mobci", "26223cb2", "Bezalel.app"])
-      kept = Path.join([cache, "com.example.bezalel", "9f1c0a77", "Bezalel.app"])
-      Enum.each([ours, kept], &File.mkdir_p!/1)
+      ours = Path.join([cache, "com.genericjam.mobci", "26223cb2"])
+      older = Path.join([cache, "com.genericjam.mobci", "0a1b2c3d"])
+      other_app = Path.join([cache, "com.example.bezalel", "9f1c0a77"])
+      Enum.each([ours, older, other_app], &File.mkdir_p!/1)
+      now = System.os_time(:second)
+      # The install happens during the cell: its copy is newer than the start.
+      File.touch!(ours, now + 60)
+      # An earlier cell's copy (another install may be reading it): the janitor's.
+      File.touch!(older, now - 3_600)
 
       r = run(spec("deploy:ios_device"), Path.join(root, "cells"), deps(%{devicectl_cache: cache}))
 
       assert r["outcome"] == "pass"
 
       assert Enum.map(r["teardown"], &{&1["name"], &1["result"]}) ==
-               Enum.map(~w(uninstall release_lease delete_app_state delete_install_cache delete_scratch), &{&1, "ok"})
+               Enum.map(~w(uninstall delete_install_cache release_lease delete_app_state delete_scratch), &{&1, "ok"})
 
-      refute File.exists?(Path.join(cache, "com.genericjam.mobci"))
-      assert File.dir?(kept)
+      refute File.exists?(ours)
+      assert File.dir?(older)
+      assert File.dir?(other_app)
+    end
+
+    test "a cell with no start time (an older worker's manifest) leaves every install copy" do
+      assert Worker.install_cache_copies(spec("deploy:ios_device"), "/nonexistent/devicectl", nil) == []
+      assert Worker.install_cache_copies(spec("deploy:ios_sim"), "/nonexistent/devicectl", 0) == []
     end
   end
 

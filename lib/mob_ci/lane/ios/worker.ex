@@ -42,8 +42,8 @@ defmodule MobCi.Lane.Ios.Worker do
   `tmp/`, which is the cell's `TMPDIR` for every child (so mob_dev's
   `mob_ios_*` build dirs land there too); the
   rest is the app's staged BEAMs under `~/.mob` (`app_state_dirs/2`) and,
-  for an iPhone cell, the copy of the app devicectl keeps on the Mac
-  (`install_cache_dirs/2`).
+  for an iPhone cell, the copy of the app devicectl kept on the Mac for its
+  install (`install_cache_copies/3`, removed while the cell holds the lease).
   Teardown runs whatever happened, including a step that raised: it
   uninstalls the app from a device it leased, releases the lease and deletes
   the app state, the install cache and the scratch dir. The result records free disk before and
@@ -282,22 +282,30 @@ defmodule MobCi.Lane.Ios.Worker do
   end
 
   @doc """
-  What `devicectl device install app` keeps on the Mac for an iPhone cell:
+  What `devicectl device install app` left on the Mac for this iPhone cell:
   a copy of the installed app under
-  `AppInstallationBinaryDeltas/<bundle id>`, so the next install of that
-  bundle id sends only the changes. Every cell builds a new app, so the copy
-  is never reused, and devicectl never prunes it: 287 copies (56 GB) had
-  piled up in two weeks and filled the Mac's disk (2026-10-24).
+  `AppInstallationBinaryDeltas/<bundle id>/<hash>`, so the next install of
+  that bundle id sends only the changes. Every cell builds a new app, so the
+  copy is never reused, and devicectl never prunes it: 287 copies (56 GB)
+  had piled up in two weeks and filled the Mac's disk (2026-10-24).
 
-  `com.genericjam.mobci` is mob_ci's alone (`@deploy_bundle_id`) and cells
-  run one at a time per lane, so the whole directory goes with the cell.
+  Only the copies written since the cell started (`started_at`, Unix
+  seconds) are the cell's: a hand-run cell (`mix ci.ios_cell`) is not
+  serialized with the queue's, and another install may still be reading an
+  older copy as its delta base. Older copies are left to the host's
+  janitor. No start time (a manifest from an older worker): nothing.
   Other paths install nothing through devicectl.
   """
-  @spec install_cache_dirs(Spec.t(), Path.t()) :: [Path.t()]
-  def install_cache_dirs(%Spec{path: "deploy:ios_device"}, cache_root),
-    do: [Path.join(cache_root, @deploy_bundle_id)]
+  @spec install_cache_copies(Spec.t(), Path.t(), integer() | nil) :: [Path.t()]
+  def install_cache_copies(%Spec{path: "deploy:ios_device"}, cache_root, started_at)
+      when is_integer(started_at) do
+    for copy <- Path.wildcard(Path.join([cache_root, @deploy_bundle_id, "*"])),
+        {:ok, %File.Stat{mtime: mtime}} <- [File.stat(copy, time: :posix)],
+        mtime >= started_at,
+        do: copy
+  end
 
-  def install_cache_dirs(%Spec{}, _cache_root), do: []
+  def install_cache_copies(%Spec{}, _cache_root, _started_at), do: []
 
   # ── pure ─────────────────────────────────────────────────────────────────────
 
@@ -417,7 +425,10 @@ defmodule MobCi.Lane.Ios.Worker do
       steps: [],
       invariants: [],
       artifacts: %{},
-      disk_before: nil
+      disk_before: nil,
+      # Wall clock: which devicectl install copies are this cell's
+      # (`install_cache_copies/3`). Unix seconds, as File.stat reports.
+      started_at: System.os_time(:second)
     }
 
     deps.log.("cell #{spec.cell_id}: #{spec.path} set=#{spec.set} row=#{spec.versions.row}")
@@ -690,6 +701,7 @@ defmodule MobCi.Lane.Ios.Worker do
         "lease_tried" => state.lease_tried,
         "leased" => state.leased,
         "device" => state.device,
+        "started_at" => state.started_at,
         "host" => state.host && Map.new(Map.take(state.host, [:dir, :app, :pkg]), fn {k, v} -> {k, to_string(v)} end)
       })
 
@@ -723,7 +735,8 @@ defmodule MobCi.Lane.Ios.Worker do
           host: host,
           device: m["device"],
           leased: m["leased"] == true,
-          lease_tried: m["lease_tried"] == true
+          lease_tried: m["lease_tried"] == true,
+          started_at: if(is_integer(m["started_at"]), do: m["started_at"])
         }
 
         deps.log.("cell #{spec.cell_id}: tearing down after its worker died")
@@ -738,28 +751,25 @@ defmodule MobCi.Lane.Ios.Worker do
   end
 
   defp teardown(%{spec: spec} = state, deps) do
+    # The cell's own install copies go while it still holds the iPhone's
+    # lease, so no other cell is installing on it meanwhile.
     uninstall =
       if state.leased,
-        do: [
-          {"uninstall",
-           fn -> deps.uninstall.(spec.path, state.device["udid"], app_id(spec.path, state.host)) end}
-        ],
+        do:
+          [
+            {"uninstall",
+             fn -> deps.uninstall.(spec.path, state.device["udid"], app_id(spec.path, state.host)) end}
+          ] ++ install_cache_step(spec, state, deps),
         else: []
 
     release =
       if state.lease_tried, do: [{"release_lease", fn -> deps.release.(session(spec)) end}], else: []
 
-    install_cache =
-      case install_cache_dirs(spec, deps.devicectl_cache) do
-        [] -> []
-        dirs -> [{"delete_install_cache", fn -> Enum.each(dirs, deps.rm_rf) end}]
-      end
-
-    delete =
-      [
-        {"delete_app_state",
-         fn -> Enum.each(app_state_dirs(spec, deps.mob_home), deps.rm_rf) end}
-      ] ++ install_cache ++ [{"delete_scratch", fn -> deps.rm_rf.(state.scratch) end}]
+    delete = [
+      {"delete_app_state",
+       fn -> Enum.each(app_state_dirs(spec, deps.mob_home), deps.rm_rf) end},
+      {"delete_scratch", fn -> deps.rm_rf.(state.scratch) end}
+    ]
 
     for {name, fun} <- uninstall ++ release ++ delete do
       result =
@@ -772,6 +782,17 @@ defmodule MobCi.Lane.Ios.Worker do
       %{"name" => name, "result" => result}
     end
   end
+
+  defp install_cache_step(%Spec{path: "deploy:ios_device"} = spec, state, deps) do
+    [
+      {"delete_install_cache",
+       fn ->
+         Enum.each(install_cache_copies(spec, deps.devicectl_cache, state[:started_at]), deps.rm_rf)
+       end}
+    ]
+  end
+
+  defp install_cache_step(_spec, _state, _deps), do: []
 
   defp safely(fun) do
     case fun.() do
