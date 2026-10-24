@@ -41,10 +41,12 @@ defmodule MobCi.Lane.Ios.Worker do
   `<root>/<cell_id>`: the generated host (with its `deps` and `_build`) and
   `tmp/`, which is the cell's `TMPDIR` for every child (so mob_dev's
   `mob_ios_*` build dirs land there too); the
-  rest is the app's staged BEAMs under `~/.mob` (`app_state_dirs/2`).
+  rest is the app's staged BEAMs under `~/.mob` (`app_state_dirs/2`) and,
+  for an iPhone cell, the copy of the app devicectl kept on the Mac for its
+  install (`install_cache_copies/3`, removed while the cell holds the lease).
   Teardown runs whatever happened, including a step that raised: it
   uninstalls the app from a device it leased, releases the lease and deletes
-  the app state and the scratch dir. The result records free disk before and
+  the app state, the install cache and the scratch dir. The result records free disk before and
   after. Run under a run dir (`:run_dir`, `MobCi.Lane.Ios.Reaper`), the
   cell keeps a manifest of what teardown needs, so a worker killed before
   its teardown is undone the same way (`teardown_manifest/2`).
@@ -54,7 +56,7 @@ defmodule MobCi.Lane.Ios.Worker do
   """
 
   alias MobCi.{Host, Sets}
-  alias MobCi.Lane.Ios.{Spec, Tee}
+  alias MobCi.Lane.Ios.{HostLock, Spec, Tee}
 
   @min_free_kb 5 * 1024 * 1024
   @team_id "Q89CW299G8"
@@ -279,6 +281,34 @@ defmodule MobCi.Lane.Ios.Worker do
       Path.wildcard(Path.join([mob_home, "runtime", "*", app]))
   end
 
+  @doc """
+  What `devicectl device install app` left on the Mac for this iPhone cell:
+  a copy of the installed app under
+  `AppInstallationBinaryDeltas/<bundle id>/<hash>`, so the next install of
+  that bundle id sends only the changes. Every cell builds a new app, so the
+  copy is never reused, and devicectl never prunes it: 287 copies (56 GB)
+  had piled up in two weeks and filled the Mac's disk (2026-10-24).
+
+  Only the copies written since the cell started (`started_at`, Unix
+  seconds) are taken, and teardown takes them under the host lock
+  (`MobCi.Lane.Ios.HostLock`) every iPhone install also holds: a hand-run
+  cell (`mix ci.ios_cell --device-udid …`) can install on another iPhone at
+  the same time, and an install reads the newest older copy as its delta
+  base. Older copies are left to the host's `disk-janitor`. No start time
+  (a manifest from an older worker): nothing. Other paths install nothing
+  through devicectl.
+  """
+  @spec install_cache_copies(Spec.t(), Path.t(), integer() | nil) :: [Path.t()]
+  def install_cache_copies(%Spec{path: "deploy:ios_device"}, cache_root, started_at)
+      when is_integer(started_at) do
+    for copy <- Path.wildcard(Path.join([cache_root, @deploy_bundle_id, "*"])),
+        {:ok, %File.Stat{mtime: mtime}} <- [File.stat(copy, time: :posix)],
+        mtime >= started_at,
+        do: copy
+  end
+
+  def install_cache_copies(%Spec{}, _cache_root, _started_at), do: []
+
   # ── pure ─────────────────────────────────────────────────────────────────────
 
   @doc "Available KB from `df -k /` output (the 4th column of the last line)."
@@ -397,7 +427,10 @@ defmodule MobCi.Lane.Ios.Worker do
       steps: [],
       invariants: [],
       artifacts: %{},
-      disk_before: nil
+      disk_before: nil,
+      # Wall clock: which devicectl install copies are this cell's
+      # (`install_cache_copies/3`). Unix seconds, as File.stat reports.
+      started_at: System.os_time(:second)
     }
 
     deps.log.("cell #{spec.cell_id}: #{spec.path} set=#{spec.set} row=#{spec.versions.row}")
@@ -607,8 +640,15 @@ defmodule MobCi.Lane.Ios.Worker do
   end
 
   defp step(:build, %{spec: spec, device: %{"udid" => udid}} = state, deps) do
-    case deps.mix.(deploy_args(spec.path, udid), state.host.dir) do
+    build = fn -> deps.mix.(deploy_args(spec.path, udid), state.host.dir) end
+
+    # An iPhone install writes the Mac-wide devicectl cache: under the host
+    # lock, so no other cell's cache cleanup runs meanwhile.
+    result = if spec.path == "deploy:ios_device", do: deps.install_lock.(build), else: build.()
+
+    case result do
       {_tail, 0} -> {:ok, state}
+      {:error, why} -> {:error, "error:worker", why}
       {tail, code} -> {:fail, "build:#{spec.path}", "mix mob.deploy exited #{code}: #{tail}"}
     end
   end
@@ -670,6 +710,7 @@ defmodule MobCi.Lane.Ios.Worker do
         "lease_tried" => state.lease_tried,
         "leased" => state.leased,
         "device" => state.device,
+        "started_at" => state.started_at,
         "host" => state.host && Map.new(Map.take(state.host, [:dir, :app, :pkg]), fn {k, v} -> {k, to_string(v)} end)
       })
 
@@ -703,7 +744,8 @@ defmodule MobCi.Lane.Ios.Worker do
           host: host,
           device: m["device"],
           leased: m["leased"] == true,
-          lease_tried: m["lease_tried"] == true
+          lease_tried: m["lease_tried"] == true,
+          started_at: if(is_integer(m["started_at"]), do: m["started_at"])
         }
 
         deps.log.("cell #{spec.cell_id}: tearing down after its worker died")
@@ -718,12 +760,15 @@ defmodule MobCi.Lane.Ios.Worker do
   end
 
   defp teardown(%{spec: spec} = state, deps) do
+    # The cell's own install copies go while it still holds the iPhone's
+    # lease, so no other cell is installing on it meanwhile.
     uninstall =
       if state.leased,
-        do: [
-          {"uninstall",
-           fn -> deps.uninstall.(spec.path, state.device["udid"], app_id(spec.path, state.host)) end}
-        ],
+        do:
+          [
+            {"uninstall",
+             fn -> deps.uninstall.(spec.path, state.device["udid"], app_id(spec.path, state.host)) end}
+          ] ++ install_cache_step(spec, state, deps),
         else: []
 
     release =
@@ -746,6 +791,19 @@ defmodule MobCi.Lane.Ios.Worker do
       %{"name" => name, "result" => result}
     end
   end
+
+  defp install_cache_step(%Spec{path: "deploy:ios_device"} = spec, state, deps) do
+    [
+      {"delete_install_cache",
+       fn ->
+         deps.install_lock.(fn ->
+           Enum.each(install_cache_copies(spec, deps.devicectl_cache, state[:started_at]), deps.rm_rf)
+         end)
+       end}
+    ]
+  end
+
+  defp install_cache_step(_spec, _state, _deps), do: []
 
   defp safely(fun) do
     case fun.() do
@@ -816,7 +874,12 @@ defmodule MobCi.Lane.Ios.Worker do
       probe: &probe/4,
       inspect_ipa: &inspect_ipa/1,
       rm_rf: fn path -> File.rm_rf!(path) end,
-      mob_home: Path.expand("~/.mob")
+      mob_home: Path.expand("~/.mob"),
+      install_lock: fn fun -> HostLock.with_lock(Path.expand("~/.cache/mob_ci/locks/devicectl-install.lock"), fun) end,
+      devicectl_cache:
+        Path.expand(
+          "~/Library/Containers/com.apple.CoreDevice.CoreDeviceService/Data/Library/Caches/AppInstallationBinaryDeltas"
+        )
     }
   end
 
