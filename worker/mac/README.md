@@ -137,8 +137,12 @@ Never the `claude` account.
   is deleted when the cell ends, whatever happened. The shared OTP runtime in
   `~/.mob/cache` and the Hex cache are kept.
 - Leases its device through `agent-lease` (session `mob_ci_ios_<cell_id>`),
-  installs `com.genericjam.mobci`, and uninstalls it and releases the lease
-  in teardown.
+  installs `com.genericjam.mobci`, and in teardown uninstalls it, releases
+  the lease and deletes the copy devicectl keeps on the Mac
+  (`~/Library/Containers/com.apple.CoreDevice.CoreDeviceService/Data/Library/Caches/AppInstallationBinaryDeltas/com.genericjam.mobci`).
+  devicectl keeps one per install and never prunes them; every cell's app
+  is new, so they are never reused (287 copies, 56 GB, filled the disk in
+  two weeks before this teardown step, 2026-10-24).
 - Runs under `guard.sh`, detached from the ssh session, with
   `MOB_CI_RUN=<run>` in every process's environment. The NUC sends a
   heartbeat every 10 s; when it stops for 60 s

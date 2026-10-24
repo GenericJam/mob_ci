@@ -65,8 +65,9 @@ defmodule MobCi.Lane.Ios.WorkerTest do
         send(me, {:rm_rf, path})
         File.rm_rf!(path)
       end,
-      # No staged app state unless a test makes some.
-      mob_home: "/nonexistent/mob_home"
+      # No staged app state or install cache unless a test makes some.
+      mob_home: "/nonexistent/mob_home",
+      devicectl_cache: "/nonexistent/devicectl"
     }
 
     Map.merge(base, overrides)
@@ -421,6 +422,23 @@ defmodule MobCi.Lane.Ios.WorkerTest do
       assert r["reason"] =~ ~r/^device_absent: no attached phone is leasable \(.*UDID-1.*DEVICE_IN_USE\)$/
       refute_received {:uninstall, _, _}
       assert_received {:release, _}
+    end
+
+    test "teardown deletes devicectl's cached copy of the app; other apps' copies stay", %{tmp_dir: root} do
+      cache = Path.join(root, "devicectl")
+      ours = Path.join([cache, "com.genericjam.mobci", "26223cb2", "Bezalel.app"])
+      kept = Path.join([cache, "com.example.bezalel", "9f1c0a77", "Bezalel.app"])
+      Enum.each([ours, kept], &File.mkdir_p!/1)
+
+      r = run(spec("deploy:ios_device"), Path.join(root, "cells"), deps(%{devicectl_cache: cache}))
+
+      assert r["outcome"] == "pass"
+
+      assert Enum.map(r["teardown"], &{&1["name"], &1["result"]}) ==
+               Enum.map(~w(uninstall release_lease delete_app_state delete_install_cache delete_scratch), &{&1, "ok"})
+
+      refute File.exists?(Path.join(cache, "com.genericjam.mobci"))
+      assert File.dir?(kept)
     end
   end
 

@@ -62,7 +62,8 @@ defmodule MobCi.Lane.Ios.ReaperTest do
         send(me, {:rm_rf, path})
         File.rm_rf!(path)
       end,
-      mob_home: Path.join(dir, "mob_home")
+      mob_home: Path.join(dir, "mob_home"),
+      devicectl_cache: Path.join(dir, "devicectl")
     }
 
     Map.merge(
@@ -267,7 +268,8 @@ defmodule MobCi.Lane.Ios.ReaperTest do
         uninstall: fn path, id, app -> send(me, {:uninstall, path, id, app}) && {"", 0} end,
         probe: fn _, _, _, _ -> {:ok, %{"found" => true, "alive" => true, "entries" => [], "findings" => []}} end,
         rm_rf: fn p -> send(me, {:rm_rf, p}) && File.rm_rf!(p) end,
-        mob_home: Path.join(dir, "mob_home")
+        mob_home: Path.join(dir, "mob_home"),
+        devicectl_cache: Path.join(dir, "devicectl")
       }
 
       root = Path.join(dir, "scratch")

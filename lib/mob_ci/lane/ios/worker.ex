@@ -41,10 +41,12 @@ defmodule MobCi.Lane.Ios.Worker do
   `<root>/<cell_id>`: the generated host (with its `deps` and `_build`) and
   `tmp/`, which is the cell's `TMPDIR` for every child (so mob_dev's
   `mob_ios_*` build dirs land there too); the
-  rest is the app's staged BEAMs under `~/.mob` (`app_state_dirs/2`).
+  rest is the app's staged BEAMs under `~/.mob` (`app_state_dirs/2`) and,
+  for an iPhone cell, the copy of the app devicectl keeps on the Mac
+  (`install_cache_dirs/2`).
   Teardown runs whatever happened, including a step that raised: it
   uninstalls the app from a device it leased, releases the lease and deletes
-  the app state and the scratch dir. The result records free disk before and
+  the app state, the install cache and the scratch dir. The result records free disk before and
   after. Run under a run dir (`:run_dir`, `MobCi.Lane.Ios.Reaper`), the
   cell keeps a manifest of what teardown needs, so a worker killed before
   its teardown is undone the same way (`teardown_manifest/2`).
@@ -278,6 +280,24 @@ defmodule MobCi.Lane.Ios.Worker do
     Path.wildcard(Path.join([mob_home, "cache", "otp-*", app])) ++
       Path.wildcard(Path.join([mob_home, "runtime", "*", app]))
   end
+
+  @doc """
+  What `devicectl device install app` keeps on the Mac for an iPhone cell:
+  a copy of the installed app under
+  `AppInstallationBinaryDeltas/<bundle id>`, so the next install of that
+  bundle id sends only the changes. Every cell builds a new app, so the copy
+  is never reused, and devicectl never prunes it: 287 copies (56 GB) had
+  piled up in two weeks and filled the Mac's disk (2026-10-24).
+
+  `com.genericjam.mobci` is mob_ci's alone (`@deploy_bundle_id`) and cells
+  run one at a time per lane, so the whole directory goes with the cell.
+  Other paths install nothing through devicectl.
+  """
+  @spec install_cache_dirs(Spec.t(), Path.t()) :: [Path.t()]
+  def install_cache_dirs(%Spec{path: "deploy:ios_device"}, cache_root),
+    do: [Path.join(cache_root, @deploy_bundle_id)]
+
+  def install_cache_dirs(%Spec{}, _cache_root), do: []
 
   # ── pure ─────────────────────────────────────────────────────────────────────
 
@@ -729,11 +749,17 @@ defmodule MobCi.Lane.Ios.Worker do
     release =
       if state.lease_tried, do: [{"release_lease", fn -> deps.release.(session(spec)) end}], else: []
 
-    delete = [
-      {"delete_app_state",
-       fn -> Enum.each(app_state_dirs(spec, deps.mob_home), deps.rm_rf) end},
-      {"delete_scratch", fn -> deps.rm_rf.(state.scratch) end}
-    ]
+    install_cache =
+      case install_cache_dirs(spec, deps.devicectl_cache) do
+        [] -> []
+        dirs -> [{"delete_install_cache", fn -> Enum.each(dirs, deps.rm_rf) end}]
+      end
+
+    delete =
+      [
+        {"delete_app_state",
+         fn -> Enum.each(app_state_dirs(spec, deps.mob_home), deps.rm_rf) end}
+      ] ++ install_cache ++ [{"delete_scratch", fn -> deps.rm_rf.(state.scratch) end}]
 
     for {name, fun} <- uninstall ++ release ++ delete do
       result =
@@ -816,7 +842,11 @@ defmodule MobCi.Lane.Ios.Worker do
       probe: &probe/4,
       inspect_ipa: &inspect_ipa/1,
       rm_rf: fn path -> File.rm_rf!(path) end,
-      mob_home: Path.expand("~/.mob")
+      mob_home: Path.expand("~/.mob"),
+      devicectl_cache:
+        Path.expand(
+          "~/Library/Containers/com.apple.CoreDevice.CoreDeviceService/Data/Library/Caches/AppInstallationBinaryDeltas"
+        )
     }
   end
 
