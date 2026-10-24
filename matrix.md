@@ -20,15 +20,15 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-24T08:02:55Z. Core versions in this grid: mob 0.9.26 · mob_dev 0.7.31 · mob_new 0.6.17; mob 0.9.26 · mob_dev 0.7.30 · mob_new 0.6.16; mob 0.9.25 · mob_dev 0.7.30 · mob_new 0.6.16; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-24T08:41:11Z. Core versions in this grid: mob 0.9.26 · mob_dev 0.7.31 · mob_new 0.6.17; mob 0.9.26 · mob_dev 0.7.30 · mob_new 0.6.16; mob 0.9.25 · mob_dev 0.7.30 · mob_new 0.6.16; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `default` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `all` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
-| `demo` | · | ✓ pass | ✓ pass | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
-| `selftest_pilots` | · | ✓ pass | ✓ pass | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `demo` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `selftest_pilots` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
 | `singleton:mob_ash` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_audio_capture` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_background` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
@@ -47,14 +47,14 @@ Latest run 2026-10-24T08:02:55Z. Core versions in this grid: mob 0.9.26 · mob_d
 | `singleton:mob_screencast` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
 | `singleton:mob_sensors` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
 | `singleton:mob_sms` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_speech` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
-| `singleton:mob_touch` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_video` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_vision` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_wake` | · | ! error @ `farm` | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
-| `singleton:mob_whisper` | · | ✓ pass | ✓ pass | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_speech` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ✓ pass | ! error @ `error:disk` |
+| `singleton:mob_touch` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_video` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_vision` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_wake` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | · | ! error @ `error:disk` |
+| `singleton:mob_whisper` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
 
-48 pass, 0 fail, 110 error, 0 skip.
+33 pass, 0 fail, 125 error, 0 skip.
 
 ## master
 
