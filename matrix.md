@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-24T04:32:54Z. Core versions in this grid: mob 0.9.25 · mob_dev 0.7.30 · mob_new 0.6.16; mob 0.9.25 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-24T04:52:10Z. Core versions in this grid: mob 0.9.25 · mob_dev 0.7.30 · mob_new 0.6.16; mob 0.9.25 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.24 · mob_dev 0.7.29 · mob_new 0.6.15; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -58,7 +58,7 @@ Latest run 2026-10-24T04:32:54Z. Core versions in this grid: mob 0.9.25 · mob_d
 
 ## master
 
-Latest run 2026-10-24T04:57:54Z. Core versions in this grid: mob 0.9.25 (git 49daaf1) · mob_dev 0.7.30 (git cc03ceb) · mob_new 0.6.16 (git f05f627); mob 0.9.25 (git e27cf2f) · mob_dev 0.7.30 (git 8119a14) · mob_new 0.6.16 (git 8a09ca5); mob 0.9.24 (git fdb37e4) · mob_dev 0.7.29 (git 6e245cb) · mob_new 0.6.15 (git 0760d40); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-24T05:14:59Z. Core versions in this grid: mob 0.9.25 (git 25179c6) · mob_dev 0.7.30 (git cc03ceb) · mob_new 0.6.16 (git f05f627); mob 0.9.25 (git 49daaf1) · mob_dev 0.7.30 (git cc03ceb) · mob_new 0.6.16 (git f05f627); mob 0.9.25 (git e27cf2f) · mob_dev 0.7.30 (git 8119a14) · mob_new 0.6.16 (git 8a09ca5); mob 0.9.24 (git fdb37e4) · mob_dev 0.7.29 (git 6e245cb) · mob_new 0.6.15 (git 0760d40); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -86,7 +86,7 @@ Latest run 2026-10-24T04:57:54Z. Core versions in this grid: mob 0.9.25 (git 49d
 | `singleton:mob_deliver` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:ssh` | ! error @ `error:ssh` | ! error @ `error:ssh` |
 | `singleton:mob_location` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:ssh` | ! error @ `error:ssh` | ! error @ `error:ssh` |
 | `singleton:mob_midi` | · | ✓ pass | ✓ pass | ! error @ `error:ssh` | ! error @ `error:ssh` | ! error @ `error:ssh` |
-| `singleton:mob_mishka` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_mishka` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_nfc` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:ssh` | ! error @ `error:ssh` | ! error @ `error:ssh` |
 | `singleton:mob_notify` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_photos` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
@@ -102,7 +102,7 @@ Latest run 2026-10-24T04:57:54Z. Core versions in this grid: mob 0.9.25 (git 49d
 | `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_whisper` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 
-80 pass, 0 fail, 105 error, 0 skip.
+78 pass, 0 fail, 107 error, 0 skip.
 
 ## rc:mob_dev@134a88e3a3fc3dc92e81a2d8f292ad0dc936262f
 
