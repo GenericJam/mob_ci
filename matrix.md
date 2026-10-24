@@ -58,25 +58,25 @@ Latest run 2026-10-24T09:48:07Z. Core versions in this grid: mob 0.9.26 · mob_d
 
 ## master
 
-Latest run 2026-10-24T09:51:14Z. Core versions in this grid: mob 0.9.26 (git b57cc95) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.17 (git a8a3b38); mob 0.9.25 (git 49daaf1) · mob_dev 0.7.30 (git cc03ceb) · mob_new 0.6.16 (git f05f627); mob 0.9.24 (git fdb37e4) · mob_dev 0.7.29 (git 6e245cb) · mob_new 0.6.15 (git 0760d40); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-24T11:18:48Z. Core versions in this grid: mob 0.9.26 (git b57cc95) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.17 (git a8a3b38); mob 0.9.25 (git 49daaf1) · mob_dev 0.7.30 (git cc03ceb) · mob_new 0.6.16 (git f05f627); mob 0.9.24 (git fdb37e4) · mob_dev 0.7.29 (git 6e245cb) · mob_new 0.6.15 (git 0760d40); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
 | `blank` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ! error @ `build:release:ios` |
 | `default` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ! error @ `build:release:ios` |
 | `all` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ! error @ `build:release:ios` |
-| `demo` | · | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:worker` | ! error @ `build:release:ios` |
-| `pairwise:1` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:10` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:2` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:3` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:4` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:5` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:6` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:7` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:8` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `pairwise:9` | · | ✓ pass | · | ! error @ `error:disk` | · | · |
-| `selftest_pilots` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `demo` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ! error @ `build:release:ios` |
+| `pairwise:1` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:10` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:2` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:3` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:4` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:5` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:6` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:7` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:8` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `pairwise:9` | · | ! error @ `build:deploy:android` | · | ! error @ `error:disk` | · | · |
+| `selftest_pilots` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_ash` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_audio_capture` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_background` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:ssh` |
@@ -96,13 +96,13 @@ Latest run 2026-10-24T09:51:14Z. Core versions in this grid: mob 0.9.26 (git b57
 | `singleton:mob_sensors` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_sms` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 | `singleton:mob_speech` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `singleton:mob_touch` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `singleton:mob_video` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `singleton:mob_vision` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `singleton:mob_wake` | · | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
-| `singleton:mob_whisper` | ✓ pass | ✓ pass | ✓ pass | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_touch` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_video` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_vision` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_wake` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
+| `singleton:mob_whisper` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:disk` | ! error @ `error:disk` | ! error @ `error:disk` |
 
-48 pass, 0 fail, 137 error, 0 skip.
+24 pass, 0 fail, 161 error, 0 skip.
 
 ## rc:mob_dev@134a88e3a3fc3dc92e81a2d8f292ad0dc936262f
 
