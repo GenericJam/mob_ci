@@ -3,7 +3,7 @@
 ## Lane health
 
 - **Android lane (redroid farm, NUC)**: up
-- **iOS lane (Mac mini)**: up
+- **iOS lane (Mac mini)**: down since 2026-10-30 05:17Z, `error:worker` on deploy:ios_device
 
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-10-29T06:17:16Z. Core versions in this grid: mob 0.9.27 · mob_dev 0.7.31 · mob_new 0.6.17; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-10-30T05:45:07Z. Core versions in this grid: mob 0.9.27 · mob_dev 0.7.31 · mob_new 0.6.17; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -43,22 +43,22 @@ Latest run 2026-10-29T06:17:16Z. Core versions in this grid: mob 0.9.27 · mob_d
 | `singleton:mob_notify` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_photos` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
 | `singleton:mob_scanner` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_scene3d` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
-| `singleton:mob_screencast` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
-| `singleton:mob_sensors` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_sms` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
-| `singleton:mob_speech` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_touch` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
+| `singleton:mob_scene3d` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | · | ✓ pass |
+| `singleton:mob_screencast` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | · | ✓ pass |
+| `singleton:mob_sensors` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ✓ pass | ✓ pass |
+| `singleton:mob_sms` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | · | ✓ pass |
+| `singleton:mob_speech` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ✓ pass | ✓ pass |
+| `singleton:mob_touch` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | · | ✓ pass |
 | `singleton:mob_video` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_vision` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_wake` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
 | `singleton:mob_whisper` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ✓ pass | · | ✓ pass |
 
-99 pass, 0 fail, 59 error, 0 skip.
+93 pass, 0 fail, 65 error, 0 skip.
 
 ## master
 
-Latest run 2026-10-29T09:17:01Z. Core versions in this grid: mob 0.9.27 (git 66fe71c) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.17 (git a8a3b38); mob 0.9.25 (git 49daaf1) · mob_dev 0.7.30 (git cc03ceb) · mob_new 0.6.16 (git f05f627); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-10-30T05:22:56Z. Core versions in this grid: mob 0.9.27 (git 66fe71c) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.17 (git a8a3b38); mob 0.9.25 (git 49daaf1) · mob_dev 0.7.30 (git cc03ceb) · mob_new 0.6.16 (git f05f627); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
