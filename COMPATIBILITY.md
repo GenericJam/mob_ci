@@ -71,7 +71,7 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.27 · mob_dev 0.7.31 · mob_new 0.6.17
 
-Row hex; newest result 2026-11-05T05:02:18Z.
+Row hex; newest result 2026-11-05T05:06:27Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
