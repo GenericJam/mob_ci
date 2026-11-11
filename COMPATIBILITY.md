@@ -71,18 +71,18 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.27 · mob_dev 0.7.31 · mob_new 0.6.17
 
-Row hex; newest result 2026-11-11T05:04:13Z.
+Row hex; newest result 2026-11-11T06:14:39Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
 | `default` | · | ! error | ! error | ✓ pass | ! error | ✓ pass |
-| `all` | · | ! error | ! error | ! error | ! error | ! error |
+| `all` | · | ! error | ! error | ✓ pass | ! error | ✓ pass |
 
 Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.15, mob_deliver 0.4.0, mob_location 0.2.0, mob_midi 0.2.0, mob_mishka 0.1.5, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.3.0, mob_scanner 0.1.8, mob_scene3d 0.2.1, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.3, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
 
 ### mob 0.9.27 (git 66fe71c) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.17 (git a8a3b38)
 
-Row master; newest result 2026-11-10T06:04:58Z.
+Row master; newest result 2026-11-11T06:03:01Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
