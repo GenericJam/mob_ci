@@ -3,7 +3,7 @@
 ## Lane health
 
 - **Android lane (redroid farm, NUC)**: up
-- **iOS lane (Mac mini)**: up
+- **iOS lane (Mac mini)**: down since 2026-11-12 05:01Z, `error:ssh` on deploy:ios_sim, deploy:ios_device, release:ios
 
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
@@ -20,41 +20,41 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-11-11T06:22:28Z. Core versions in this grid: mob 0.9.27 · mob_dev 0.7.31 · mob_new 0.6.17; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-11-12T05:05:23Z. Core versions in this grid: mob 0.9.27 · mob_dev 0.7.31 · mob_new 0.6.17; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `default` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
+| `blank` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `default` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
 | `all` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
 | `demo` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
 | `selftest_pilots` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_ash` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_audio_capture` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_background` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_biometric` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_bluetooth` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_camera` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_deliver` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_location` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_midi` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_mishka` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_nfc` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_notify` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_photos` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_scanner` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_scene3d` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_screencast` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_sensors` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
-| `singleton:mob_sms` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
-| `singleton:mob_speech` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | ✓ pass | ✓ pass |
+| `singleton:mob_ash` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_audio_capture` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_background` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_biometric` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
+| `singleton:mob_bluetooth` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
+| `singleton:mob_camera` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
+| `singleton:mob_deliver` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_location` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_midi` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
+| `singleton:mob_mishka` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_nfc` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
+| `singleton:mob_notify` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_photos` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
+| `singleton:mob_scanner` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
+| `singleton:mob_scene3d` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_screencast` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_sensors` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
+| `singleton:mob_sms` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `singleton:mob_speech` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
 | `singleton:mob_touch` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
 | `singleton:mob_video` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
 | `singleton:mob_vision` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
 | `singleton:mob_wake` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
 | `singleton:mob_whisper` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `build:deploy:ios_device` | · | ✓ pass |
 
-71 pass, 0 fail, 87 error, 0 skip.
+29 pass, 0 fail, 129 error, 0 skip.
 
 ## master
 
