@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-11-14T05:51:06Z. Core versions in this grid: mob 0.9.30 · mob_dev 0.7.31 · mob_new 0.6.19; mob 0.9.28 · mob_dev 0.7.31 · mob_new 0.6.17; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-11-14T05:58:46Z. Core versions in this grid: mob 0.9.30 · mob_dev 0.7.31 · mob_new 0.6.19; mob 0.9.28 · mob_dev 0.7.31 · mob_new 0.6.17; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
