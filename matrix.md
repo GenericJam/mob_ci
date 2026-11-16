@@ -2,7 +2,7 @@
 
 ## Lane health
 
-- **Android lane (redroid farm, NUC)**: up
+- **Android lane (redroid farm, NUC)**: down since 2026-11-16 05:00Z, ran none of its 39 cells in the master nightly (job 198)
 - **iOS lane (Mac mini)**: down since 2026-11-12 05:01Z, `error:ssh` on deploy:ios_sim, deploy:ios_device, release:ios
 
 The latest result of every cell mob_ci has run, per version row: one
@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-11-16T13:57:15Z. Core versions in this grid: mob 0.9.30 · mob_dev 0.7.31 · mob_new 0.6.19; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-11-16T13:59:41Z. Core versions in this grid: mob 0.9.30 · mob_dev 0.7.31 · mob_new 0.6.19; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
