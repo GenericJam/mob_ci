@@ -71,7 +71,7 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.30 (git ac6ec71) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.19 (git f3a29d7)
 
-Row master; newest result 2026-11-17T05:16:51Z.
+Row master; newest result 2026-11-17T05:31:39Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
