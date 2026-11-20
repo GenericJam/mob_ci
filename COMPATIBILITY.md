@@ -69,6 +69,17 @@ Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.2.0, mob_biome
 The 10 newest tuples that ran `default` or `all` but are not
 verified: the newest outcome of each set on each path (`·` never ran).
 
+### mob 0.9.31 (git 595ef88) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.20 (git 8515707)
+
+Row master; newest result 2026-11-20T23:29:23Z.
+
+| set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
+| --- | --- | --- | --- | --- | --- | --- |
+| `default` | ✓ pass | · | · | · | · | · |
+| `all` | ✓ pass | · | · | · | · | · |
+
+Plugins: mob_ash 0.1.3 (git 7af64eb), mob_audio_capture 0.2.0 (git 6d519bc), mob_background 0.3.1 (git a776d8c), mob_biometric 0.2.0 (git b616090), mob_bluetooth 0.5.0 (git 450418b), mob_camera 0.1.15 (git 9a8968b), mob_deliver 0.4.0 (git b606f7a), mob_location 0.2.0 (git 9fc8937), mob_midi 0.3.0 (git e7d276d), mob_mishka 0.1.5 (git 62df7d4), mob_nfc 0.1.5 (git 7879a24), mob_notify 0.2.1 (git a2a6f26), mob_photos 0.3.0 (git 818c6b6), mob_scanner 0.1.8 (git 3ea44c6), mob_scene3d 0.2.1 (git af30008), mob_screencast 0.1.3 (git 450a731), mob_sensors 0.2.0 (git 8eb7edd), mob_sms 0.2.4 (git 97a6fe1), mob_speech 0.1.1 (git baa9756), mob_touch 0.1.2 (git 04d6abf), mob_video 0.1.3 (git 9601e38), mob_vision 0.1.3 (git a91e391), mob_wake 0.1.2 (git 363a194), mob_whisper 0.1.2 (git bc649dd).
+
 ### mob 0.9.31 (git 113c5b5) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.20 (git 8515707)
 
 Row master; newest result 2026-11-20T07:00:13Z.
@@ -168,17 +179,6 @@ Row master; newest result 2026-11-13T17:16:10Z.
 
 Plugins: mob_ash 0.1.3 (git 7af64eb), mob_audio_capture 0.2.0 (git 6d519bc), mob_background 0.2.0 (git a8d902a), mob_biometric 0.2.0 (git b616090), mob_bluetooth 0.5.0 (git 450418b), mob_camera 0.1.15 (git 9a8968b), mob_deliver 0.4.0 (git b606f7a), mob_location 0.2.0 (git 9fc8937), mob_midi 0.2.0 (git eb29efc), mob_mishka 0.1.5 (git 62df7d4), mob_nfc 0.1.5 (git 7879a24), mob_notify 0.2.1 (git a2a6f26), mob_photos 0.3.0 (git 818c6b6), mob_scanner 0.1.8 (git 3ea44c6), mob_scene3d 0.2.1 (git af30008), mob_screencast 0.1.3 (git 450a731), mob_sensors 0.2.0 (git 8eb7edd), mob_sms 0.2.4 (git 97a6fe1), mob_speech 0.1.1 (git baa9756), mob_touch 0.1.2 (git 04d6abf), mob_video 0.1.3 (git 9601e38), mob_vision 0.1.3 (git a91e391), mob_wake 0.1.2 (git 363a194), mob_whisper 0.1.2 (git bc649dd).
 
-### mob 0.9.29 (git dc4164c) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.18 (git 379f48e)
-
-Row master; newest result 2026-11-13T16:34:42Z.
-
-| set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
-| --- | --- | --- | --- | --- | --- | --- |
-| `default` | ✓ pass | ! error | ! error | ! error | ! error | ! error |
-| `all` | ✓ pass | ! error | ! error | ! error | ! error | ! error |
-
-Plugins: mob_ash 0.1.3 (git 7af64eb), mob_audio_capture 0.2.0 (git 6d519bc), mob_background 0.2.0 (git a8d902a), mob_biometric 0.2.0 (git b616090), mob_bluetooth 0.5.0 (git 450418b), mob_camera 0.1.15 (git 9a8968b), mob_deliver 0.4.0 (git b606f7a), mob_location 0.2.0 (git 9fc8937), mob_midi 0.2.0 (git eb29efc), mob_mishka 0.1.5 (git 62df7d4), mob_nfc 0.1.5 (git 7879a24), mob_notify 0.2.1 (git a2a6f26), mob_photos 0.3.0 (git 818c6b6), mob_scanner 0.1.8 (git 3ea44c6), mob_scene3d 0.2.1 (git af30008), mob_screencast 0.1.3 (git 450a731), mob_sensors 0.2.0 (git 8eb7edd), mob_sms 0.2.4 (git 97a6fe1), mob_speech 0.1.1 (git baa9756), mob_touch 0.1.2 (git 04d6abf), mob_video 0.1.3 (git 9601e38), mob_vision 0.1.3 (git a91e391), mob_wake 0.1.2 (git 363a194), mob_whisper 0.1.2 (git bc649dd).
-
 ## Plugins
 
 Which plugin versions have passed (a `singleton:<plugin>`, `default` or
@@ -187,6 +187,7 @@ which build paths.
 
 | plugin | version | mob | mob_dev | passed on |
 | --- | --- | --- | --- | --- |
+| `mob_ash` | 0.1.3 (git 7af64eb) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_ash` | 0.1.3 (git 7af64eb) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_ash` | 0.1.3 (git 7af64eb) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_ash` | 0.1.3 (git 7af64eb) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -264,6 +265,7 @@ which build paths.
 | `mob_ash` | 0.1.3 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_ash` | 0.1.3 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_ash` | 0.1.3 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_audio_capture` | 0.2.0 (git 6d519bc) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_audio_capture` | 0.2.0 (git 6d519bc) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_audio_capture` | 0.2.0 (git 6d519bc) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_audio_capture` | 0.2.0 (git 6d519bc) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -341,6 +343,7 @@ which build paths.
 | `mob_audio_capture` | 0.2.0 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_audio_capture` | 0.2.0 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_audio_capture` | 0.2.0 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_background` | 0.3.1 (git a776d8c) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_background` | 0.3.1 (git a776d8c) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_background` | 0.3.0 (git e11baf0) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_background` | 0.2.0 (git a8d902a) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
@@ -414,6 +417,7 @@ which build paths.
 | `mob_background` | 0.2.0 | 0.9.16 | 0.7.19 | `deploy:android`, `release:android` |
 | `mob_background` | 0.2.0 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_background` | 0.2.0 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android` |
+| `mob_biometric` | 0.2.0 (git b616090) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_biometric` | 0.2.0 (git b616090) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -503,6 +507,7 @@ which build paths.
 | `mob_biometric` | 0.2.0 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_biometric` | 0.2.0 | 0.9.15 | 0.7.17 | `static`, `deploy:ios_sim` |
 | `mob_biometric` | 0.1.5 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
+| `mob_bluetooth` | 0.5.0 (git 450418b) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_bluetooth` | 0.5.0 (git 450418b) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_bluetooth` | 0.5.0 (git 450418b) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_bluetooth` | 0.5.0 (git 450418b) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -581,6 +586,7 @@ which build paths.
 | `mob_bluetooth` | 0.5.0 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_bluetooth` | 0.5.0 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_bluetooth` | 0.5.0 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_camera` | 0.1.15 (git 9a8968b) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_camera` | 0.1.15 (git 9a8968b) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_camera` | 0.1.15 (git 9a8968b) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_camera` | 0.1.15 (git 9a8968b) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -677,6 +683,7 @@ which build paths.
 | `mob_camera` | 0.1.13 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_camera` | 0.1.13 | 0.9.15 | 0.7.17 | `static`, `deploy:ios_sim` |
 | `mob_camera` | 0.1.12 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
+| `mob_deliver` | 0.4.0 (git b606f7a) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_deliver` | 0.4.0 (git b606f7a) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_deliver` | 0.4.0 (git b606f7a) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_deliver` | 0.4.0 (git b606f7a) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -756,6 +763,7 @@ which build paths.
 | `mob_deliver` | 0.3.2 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_deliver` | 0.3.2 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_deliver` | 0.3.1 (git a9fde0a) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `deploy:android`, `release:android` |
+| `mob_location` | 0.2.0 (git 9fc8937) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_location` | 0.2.0 (git 9fc8937) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -847,6 +855,7 @@ which build paths.
 | `mob_location` | 0.2.0 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_location` | 0.1.6 (git 4c3d93d) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `deploy:android`, `release:android` |
 | `mob_location` | 0.1.6 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
+| `mob_midi` | 0.3.0 (git e7d276d) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_midi` | 0.3.0 (git e7d276d) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_midi` | 0.3.0 (git e7d276d) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_midi` | 0.3.0 (git e7d276d) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -922,6 +931,7 @@ which build paths.
 | `mob_midi` | 0.2.0 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android`, `deploy:android_physical` |
 | `mob_midi` | 0.2.0 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_midi` | 0.2.0 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
+| `mob_mishka` | 0.1.5 (git 62df7d4) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_mishka` | 0.1.5 (git 62df7d4) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_mishka` | 0.1.5 (git 62df7d4) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_mishka` | 0.1.5 (git 62df7d4) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1014,6 +1024,7 @@ which build paths.
 | `mob_mishka` | 0.1.4 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_mishka` | 0.1.4 | 0.9.15 | 0.7.17 | `static`, `deploy:ios_sim` |
 | `mob_mishka` | 0.1.3 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android`, `deploy:ios_sim`, `release:ios` |
+| `mob_nfc` | 0.1.5 (git 7879a24) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_nfc` | 0.1.5 (git 7879a24) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_nfc` | 0.1.5 (git 7879a24) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_nfc` | 0.1.5 (git 7879a24) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1090,6 +1101,7 @@ which build paths.
 | `mob_nfc` | 0.1.5 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_nfc` | 0.1.5 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_nfc` | 0.1.5 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_notify` | 0.2.1 (git a2a6f26) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_notify` | 0.2.1 (git a2a6f26) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_notify` | 0.2.1 (git a2a6f26) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_notify` | 0.2.1 (git a2a6f26) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1165,6 +1177,7 @@ which build paths.
 | `mob_notify` | 0.2.1 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_notify` | 0.2.1 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_notify` | 0.2.1 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_photos` | 0.3.0 (git 818c6b6) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_photos` | 0.3.0 (git 818c6b6) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_photos` | 0.3.0 (git 818c6b6) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_photos` | 0.3.0 (git 818c6b6) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1243,6 +1256,7 @@ which build paths.
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_photos` | 0.2.1 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_scanner` | 0.1.8 (git 3ea44c6) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_scanner` | 0.1.8 (git 3ea44c6) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_scanner` | 0.1.8 (git 3ea44c6) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_scanner` | 0.1.8 (git 3ea44c6) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1322,6 +1336,7 @@ which build paths.
 | `mob_scanner` | 0.1.6 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_scanner` | 0.1.6 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_scanner` | 0.1.6 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_scene3d` | 0.2.1 (git af30008) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_scene3d` | 0.2.1 (git af30008) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_scene3d` | 0.2.1 (git af30008) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_scene3d` | 0.2.1 (git af30008) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1399,6 +1414,7 @@ which build paths.
 | `mob_scene3d` | 0.1.4 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_scene3d` | 0.1.4 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_scene3d` | 0.1.4 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_screencast` | 0.1.3 (git 450a731) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_screencast` | 0.1.3 (git 450a731) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_screencast` | 0.1.3 (git 450a731) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_screencast` | 0.1.3 (git 450a731) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1471,6 +1487,7 @@ which build paths.
 | `mob_screencast` | 0.1.3 | 0.9.16 | 0.7.19 | `deploy:android`, `release:android` |
 | `mob_screencast` | 0.1.3 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_screencast` | 0.1.3 | 0.9.15 | 0.7.17 | `deploy:android`, `release:android` |
+| `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_sensors` | 0.2.0 (git 8eb7edd) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1548,6 +1565,7 @@ which build paths.
 | `mob_sensors` | 0.1.0 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_sensors` | 0.1.0 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_sensors` | 0.1.0 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_sms` | 0.2.4 (git 97a6fe1) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_sms` | 0.2.4 (git 97a6fe1) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_sms` | 0.2.4 (git 97a6fe1) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_sms` | 0.2.4 (git 97a6fe1) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1624,6 +1642,7 @@ which build paths.
 | `mob_sms` | 0.2.4 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_sms` | 0.2.4 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_sms` | 0.2.4 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_speech` | 0.1.1 (git baa9756) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_speech` | 0.1.1 (git baa9756) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_speech` | 0.1.1 (git baa9756) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_speech` | 0.1.1 (git baa9756) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1701,6 +1720,7 @@ which build paths.
 | `mob_speech` | 0.1.1 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_speech` | 0.1.1 | 0.9.16 | 0.7.18 | `deploy:ios_device` |
 | `mob_speech` | 0.1.1 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_touch` | 0.1.2 (git 04d6abf) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_touch` | 0.1.2 (git 04d6abf) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_touch` | 0.1.2 (git 04d6abf) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_touch` | 0.1.2 (git 04d6abf) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1777,6 +1797,7 @@ which build paths.
 | `mob_touch` | 0.1.2 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_touch` | 0.1.2 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_touch` | 0.1.2 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_video` | 0.1.3 (git 9601e38) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_video` | 0.1.3 (git 9601e38) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1853,6 +1874,7 @@ which build paths.
 | `mob_video` | 0.1.2 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_video` | 0.1.2 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_video` | 0.1.2 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_vision` | 0.1.3 (git a91e391) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_vision` | 0.1.3 (git a91e391) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -1930,6 +1952,7 @@ which build paths.
 | `mob_vision` | 0.1.3 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_vision` | 0.1.3 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_vision` | 0.1.3 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_wake` | 0.1.2 (git 363a194) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
@@ -2006,6 +2029,7 @@ which build paths.
 | `mob_wake` | 0.1.2 | 0.9.17 | 0.7.20 | `deploy:android`, `release:android` |
 | `mob_wake` | 0.1.2 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_wake` | 0.1.2 | 0.9.16 | 0.7.17 | `release:android` |
+| `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.30 (git ac6ec71) | 0.7.31 (git 0f67685) | `static` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.30 (git 42f3f7a) | 0.7.31 (git 0f67685) | `static` |
