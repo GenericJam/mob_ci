@@ -3,7 +3,7 @@
 ## Lane health
 
 - **Android lane (redroid farm, NUC)**: up
-- **iOS lane (Mac mini)**: down since 2026-11-12 05:01Z, `error:ssh` on deploy:ios_sim, deploy:ios_device, release:ios
+- **iOS lane (Mac mini)**: up
 
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
@@ -20,11 +20,11 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-11-21T05:15:15Z. Core versions in this grid: mob 0.9.31 · mob_dev 0.7.31 · mob_new 0.6.20; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-11-22T05:05:00Z. Core versions in this grid: mob 0.9.32 · mob_dev 0.7.31 · mob_new 0.6.21; mob 0.9.31 · mob_dev 0.7.31 · mob_new 0.6.20; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `blank` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
+| `blank` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ✓ pass | · | ✓ pass |
 | `default` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
 | `all` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | ✓ pass | ! error @ `error:ssh` |
 | `demo` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
@@ -54,7 +54,7 @@ Latest run 2026-11-21T05:15:15Z. Core versions in this grid: mob 0.9.31 · mob_d
 | `singleton:mob_wake` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
 | `singleton:mob_whisper` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `error:ssh` | ! error @ `error:ssh` | · | ! error @ `error:ssh` |
 
-13 pass, 0 fail, 145 error, 0 skip.
+15 pass, 0 fail, 143 error, 0 skip.
 
 ## master
 
