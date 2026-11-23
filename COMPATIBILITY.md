@@ -71,7 +71,7 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.32 (git dfc12dc) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.21 (git afb9c1c)
 
-Row master; newest result 2026-11-22T08:25:46Z.
+Row master; newest result 2026-11-23T10:39:36Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ Plugins: mob_ash 0.1.3 (git 7af64eb), mob_audio_capture 0.2.0 (git 6d519bc), mob
 
 ### mob 0.9.32 (git dfc12dc) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.21 (git afb9c1c)
 
-Row master; newest result 2026-11-22T06:52:27Z.
+Row master; newest result 2026-11-23T10:39:36Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -93,7 +93,7 @@ Plugins: mob_ash 0.1.3 (git 7af64eb), mob_audio_capture 0.2.0 (git 6d519bc), mob
 
 ### mob 0.9.32 · mob_dev 0.7.31 · mob_new 0.6.21
 
-Row hex; newest result 2026-11-22T06:35:07Z.
+Row hex; newest result 2026-11-23T09:45:25Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
