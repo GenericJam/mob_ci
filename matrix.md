@@ -82,7 +82,7 @@ Latest run 2026-11-24T14:02:14Z. Core versions in this grid: mob 0.9.32 (git dfc
 | `singleton:mob_background` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_biometric` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_bluetooth` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
-| `singleton:mob_camera` | ✓ pass | ! error @ `farm` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
+| `singleton:mob_camera` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_deliver` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_location` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_midi` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
