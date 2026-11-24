@@ -20,7 +20,7 @@ there. Layers are described in mob_ci's
 
 ## hex
 
-Latest run 2026-11-24T07:53:06Z. Core versions in this grid: mob 0.9.32 · mob_dev 0.7.31 · mob_new 0.6.21; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
+Latest run 2026-11-24T07:59:51Z. Core versions in this grid: mob 0.9.32 · mob_dev 0.7.31 · mob_new 0.6.21; mob 0.9.17 · mob_dev 0.7.23 · mob_new 0.6.9; mob 0.9.17 · mob_dev 0.7.21 · mob_new 0.6.8; mob 0.9.17 · mob_dev 0.7.20 · mob_new 0.6.8.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | deploy:android_physical | release:ios |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -42,8 +42,8 @@ Latest run 2026-11-24T07:53:06Z. Core versions in this grid: mob 0.9.32 · mob_d
 | `singleton:mob_nfc` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass | ✓ pass |
 | `singleton:mob_notify` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | · | ✓ pass |
 | `singleton:mob_photos` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass | ✓ pass |
-| `singleton:mob_scanner` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
-| `singleton:mob_scene3d` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ✓ pass | · | ✓ pass |
+| `singleton:mob_scanner` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass | ✓ pass |
+| `singleton:mob_scene3d` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | · | ✓ pass |
 | `singleton:mob_screencast` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ✓ pass | · | ✓ pass |
 | `singleton:mob_sensors` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ✓ pass | ✓ pass | ✓ pass |
 | `singleton:mob_sms` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ✓ pass | · | ✓ pass |
@@ -54,7 +54,7 @@ Latest run 2026-11-24T07:53:06Z. Core versions in this grid: mob 0.9.32 · mob_d
 | `singleton:mob_wake` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ✓ pass | · | ✓ pass |
 | `singleton:mob_whisper` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ✓ pass | · | ✓ pass |
 
-63 pass, 1 fail, 94 error, 0 skip.
+61 pass, 1 fail, 96 error, 0 skip.
 
 ## master
 
