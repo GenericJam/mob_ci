@@ -3,7 +3,7 @@
 ## Lane health
 
 - **Android lane (redroid farm, NUC)**: up
-- **iOS lane (Mac mini)**: down since 2026-11-23 05:00Z, ran none of its 39 cells in the master nightly (job 224)
+- **iOS lane (Mac mini)**: up
 
 The latest result of every cell mob_ci has run, per version row: one
 line per plugin set, one column per build path. Generated from the
