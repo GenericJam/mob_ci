@@ -71,12 +71,12 @@ verified: the newest outcome of each set on each path (`·` never ran).
 
 ### mob 0.9.32 · mob_dev 0.7.31 · mob_new 0.6.21
 
-Row hex; newest result 2026-11-26T05:17:55Z.
+Row hex; newest result 2026-11-26T07:50:42Z.
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
 | `default` | · | ! error | ! error | ! error | ✓ pass | ✓ pass |
-| `all` | · | ! error | ! error | ! error | ✓ pass | ✓ pass |
+| `all` | · | ! error | ! error | ! error | ! error | ✓ pass |
 
 Plugins: mob_ash 0.1.3, mob_audio_capture 0.2.0, mob_background 0.3.1, mob_biometric 0.2.0, mob_bluetooth 0.5.0, mob_camera 0.1.15, mob_deliver 0.4.0, mob_location 0.2.0, mob_midi 0.4.0, mob_mishka 0.1.6, mob_nfc 0.1.5, mob_notify 0.2.1, mob_photos 0.3.0, mob_scanner 0.1.8, mob_scene3d 0.2.1, mob_screencast 0.1.3, mob_sensors 0.2.0, mob_sms 0.2.4, mob_speech 0.1.1, mob_touch 0.1.2, mob_video 0.1.3, mob_vision 0.1.3, mob_wake 0.1.2, mob_whisper 0.1.2.
 
