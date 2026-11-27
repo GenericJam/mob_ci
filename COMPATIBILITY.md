@@ -2185,7 +2185,7 @@ which build paths.
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.17 (git 5d85492) | 0.7.23 (git ccdecea) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.17 (git 5d85492) | 0.7.23 (git 8091656) | `static`, `deploy:android`, `release:android`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 (git bc649dd) | 0.9.17 (git 5d85492) | 0.7.23 (git 6efa92b) | `static` |
-| `mob_whisper` | 0.1.2 | 0.9.32 | 0.7.31 | `deploy:ios_device`, `release:ios` |
+| `mob_whisper` | 0.1.2 | 0.9.32 | 0.7.31 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 | 0.9.27 | 0.7.31 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_whisper` | 0.1.2 | 0.9.26 | 0.7.31 | `deploy:ios_sim` |
 | `mob_whisper` | 0.1.2 | 0.9.25 | 0.7.30 | `deploy:android`, `release:android` |
