@@ -2046,7 +2046,7 @@ which build paths.
 | `mob_vision` | 0.1.3 | 0.9.16 | 0.7.19 | `static`, `deploy:android`, `release:android` |
 | `mob_vision` | 0.1.3 | 0.9.16 | 0.7.17 | `release:android` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.32 (git dfc12dc) | 0.7.31 (git 0f67685) | `static`, `deploy:ios_device`, `release:ios` |
-| `mob_wake` | 0.1.2 (git 363a194) | 0.9.32 (git 463988b) | 0.7.31 (git 96acaa0) | `static`, `deploy:ios_sim`, `release:ios` |
+| `mob_wake` | 0.1.2 (git 363a194) | 0.9.32 (git 463988b) | 0.7.31 (git 96acaa0) | `static`, `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.31 (git 855dd90) | 0.7.31 (git 0f67685) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.31 (git 595ef88) | 0.7.31 (git 0f67685) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.31 (git 113c5b5) | 0.7.31 (git 0f67685) | `static` |
