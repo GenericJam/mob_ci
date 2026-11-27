@@ -58,7 +58,7 @@ Latest run 2026-11-27T09:34:15Z. Core versions in this grid: mob 0.9.32 · mob_d
 
 ## master
 
-Latest run 2026-11-27T10:57:34Z. Core versions in this grid: mob 0.9.32 (git 463988b) · mob_dev 0.7.31 (git 96acaa0) · mob_new 0.6.21 (git 9118ebd); mob 0.9.32 (git dfc12dc) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.21 (git afb9c1c); mob 0.9.31 (git 113c5b5) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.20 (git 8515707); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
+Latest run 2026-11-27T11:07:38Z. Core versions in this grid: mob 0.9.32 (git 463988b) · mob_dev 0.7.31 (git 96acaa0) · mob_new 0.6.21 (git 9118ebd); mob 0.9.32 (git dfc12dc) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.21 (git afb9c1c); mob 0.9.31 (git 113c5b5) · mob_dev 0.7.31 (git 0f67685) · mob_new 0.6.20 (git 8515707); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.15 (git f9a20ba); mob 0.9.24 (git 6526769) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.14 (git b0de51f); mob 0.9.21 (git d25090b) · mob_dev 0.7.29 (git f179e66) · mob_new 0.6.13 (git 53702ba); mob 0.9.19 (git c3cabf4) · mob_dev 0.7.26 (git 36045e7) · mob_new 0.6.11 (git ba277b1); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 6efa92b) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.23 (git 8091656) · mob_new 0.6.9 (git d03e4a3); mob 0.9.17 (git 5d85492) · mob_dev 0.7.21 (git 04feb5b) · mob_new 0.6.8 (git 1dc6ac2); mob 0.9.15 (git 19ca6e1) · mob_dev 0.7.17 (git 4e63c0d) · mob_new 0.6.7 (git 213ed49).
 
 | set | static | deploy:android | release:android | deploy:ios_sim | deploy:ios_device | release:ios |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -83,7 +83,7 @@ Latest run 2026-11-27T10:57:34Z. Core versions in this grid: mob 0.9.32 (git 463
 | `singleton:mob_biometric` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_bluetooth` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_camera` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ✓ pass |
-| `singleton:mob_deliver` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
+| `singleton:mob_deliver` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ✓ pass | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_location` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_midi` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_mishka` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
@@ -102,7 +102,7 @@ Latest run 2026-11-27T10:57:34Z. Core versions in this grid: mob 0.9.32 (git 463
 | `singleton:mob_wake` | · | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 | `singleton:mob_whisper` | ✓ pass | ! error @ `build:deploy:android` | ! error @ `build:release:android` | ! error @ `boot` | ! error @ `error:worker` | ✓ pass |
 
-60 pass, 0 fail, 127 error, 0 skip.
+61 pass, 0 fail, 126 error, 0 skip.
 
 ## rc:mob_dev@134a88e3a3fc3dc92e81a2d8f292ad0dc936262f
 
