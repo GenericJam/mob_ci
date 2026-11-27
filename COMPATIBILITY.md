@@ -2112,7 +2112,7 @@ which build paths.
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.16 (git 9d1b7ad) | 0.7.19 (git 85cb423) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_wake` | 0.1.2 (git 363a194) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `deploy:android`, `release:android` |
-| `mob_wake` | 0.1.2 | 0.9.32 | 0.7.31 | `deploy:ios_device`, `release:ios` |
+| `mob_wake` | 0.1.2 | 0.9.32 | 0.7.31 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_wake` | 0.1.2 | 0.9.27 | 0.7.31 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_wake` | 0.1.2 | 0.9.26 | 0.7.31 | `deploy:ios_sim` |
 | `mob_wake` | 0.1.2 | 0.9.25 | 0.7.30 | `release:android` |
