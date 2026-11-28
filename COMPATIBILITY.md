@@ -1290,6 +1290,7 @@ which build paths.
 | `mob_notify` | 0.2.1 (git a2a6f26) | 0.9.16 (git 9d1b7ad) | 0.7.19 (git 85cb423) | `static` |
 | `mob_notify` | 0.2.1 (git a2a6f26) | 0.9.16 (git 1843423) | 0.7.19 (git 85cb423) | `static` |
 | `mob_notify` | 0.2.1 (git a2a6f26) | 0.9.15 (git 19ca6e1) | 0.7.17 (git 4e63c0d) | `deploy:android`, `release:android` |
+| `mob_notify` | 0.2.1 | 0.9.34 | 0.7.32 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_notify` | 0.2.1 | 0.9.32 | 0.7.31 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_notify` | 0.2.1 | 0.9.27 | 0.7.31 | `deploy:ios_sim`, `deploy:ios_device`, `release:ios` |
 | `mob_notify` | 0.2.1 | 0.9.26 | 0.7.31 | `deploy:ios_sim` |
